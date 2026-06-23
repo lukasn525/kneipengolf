@@ -1,3 +1,21 @@
+# Kneipen-Golf – Konzept
+
+> **Update v3 (Umbau auf Next.js):** Die App wurde von einem Vanilla-JS-Prototyp auf
+> **Next.js 14 + Supabase** umgestellt. Geänderte Grundsatzentscheidungen gegenüber v2:
+> - **Echte Konten:** Jede:r meldet sich mit **E-Mail + Passwort** an (Supabase Auth),
+>   statt nur Name + Tour-Code. Mitspieler können zusätzlich per Pass-and-Play auf einem
+>   Gerät verwaltet werden.
+> - **Stadt-Auswahl:** **Feste Städteliste mit kuratierten Kneipen** (Start: Bonn, Köln).
+>   Pro Tour wird die Route in `tour_kneipen` kopiert, dort sortier-/ergänzbar.
+> - **Tech:** Next.js (App Router) + TypeScript + Tailwind, Hosting auf **Vercel**.
+> - **Datenmodell v3:** siehe `supabase/schema.sql` (maßgeblich). Tabellen: `staedte`,
+>   `kneipen_vorlage`, `spielformen`, `touren`, `tour_kneipen`, `teilnehmer`,
+>   `kneipen_challenge`, `ergebnisse`.
+>
+> Der Abschnitt unten (v2) bleibt als Historie erhalten.
+
+---
+
 # Kneipen-Challenge – Geschärftes Konzept (v2)
 
 > Stand nach Konzept-Runden. Alle Grundsatzentscheidungen sind getroffen; das

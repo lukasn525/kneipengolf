@@ -1,76 +1,111 @@
-# 🍺 Kneipen-Challenge
+# 🍺 Kneipen-Golf
 
-Spiel dich mit Freunden durch die Kneipen – an jeder Station leerst du dein Getränk
-mit so wenig Schlücken wie möglich, aber jedes Mal in einer anderen, zufällig
-gezogenen Spielform. Eine Karte zeigt alle Kneipen, die Reihenfolge bestimmt ihr.
+Spiel dich mit Freunden durch die Kneipen. An jeder Station leerst du dein Getränk
+mit **so wenig Schlücken wie möglich** – aber jedes Mal in einer anderen, zufällig
+gezogenen Spielform. Gewertet wird wie beim **Golf**: wenig ist gut, zu viel gibt
+Strafpunkte. Am Ende: Sieger + Rangliste.
 
-## Sofort ausprobieren (ohne Backend)
+> Spielbar auch komplett **alkoholfrei** – „Getränk" ist neutral gemeint.
+> Bitte verantwortungsvoll trinken und eure Grenzen kennen.
 
-Die App läuft ohne Installation und ohne Datenbank – sie speichert dann lokal im
-Browser. Wegen der ES-Module einen kleinen Webserver starten:
+## Spielablauf
+
+1. **Konto erstellen** (E-Mail + Passwort).
+2. **Spiel erstellen** → **Stadt wählen** (Bonn oder Köln, kuratierte Kneipen).
+3. **Route bearbeiten**: Reihenfolge ändern, Stops entfernen, eigene Kneipe ergänzen.
+4. **Golf-Regeln** einstellen (Par-Schwelle, Strafpunkte) → Tour-Code wird erzeugt.
+5. **Mitspieler einladen** (Link/Code) **oder** mehrere Personen auf einem Gerät (Pass-and-Play).
+6. **Tour starten** und die Kneipen ablaufen – an jedem Pin Challenge ziehen, Schlücke
+   zählen, erledigt markieren. **Rangliste aktualisiert sich live.**
+
+## Tech-Stack
+
+| | Wahl |
+|---|---|
+| Framework | Next.js 14 (App Router) + TypeScript |
+| Styling | Tailwind CSS |
+| Karte | Leaflet + OpenStreetMap (kein API-Key) |
+| Backend | Supabase (Auth, PostgreSQL, Realtime) |
+| Hosting | Vercel |
+
+---
+
+## 1. Lokal starten
 
 ```bash
-cd kneipen-challenge
-python3 -m http.server 8000
-# Browser: http://localhost:8000
+npm install
+cp .env.example .env.local   # und Werte eintragen (siehe Schritt 2)
+npm run dev                  # http://localhost:3000
 ```
 
-Tippe auf einen Pin → Challenge wird gezogen → Schlücke zählen → erledigt markieren.
-Der **Tour-Code** oben (z. B. `TOUR-7F3K`) steht auch in der URL (`…#TOUR-7F3K`).
-Diesen Link teilen = gleiche Tour. (Geräteübergreifend erst mit Supabase, s. u.)
+Ohne Supabase-Keys läuft die App in einen Hinweis-Bildschirm – Auth/Touren brauchen Supabase.
 
-## Persistent speichern mit Supabase (Schritt 3)
+## 2. Supabase einrichten (einmalig)
 
-1. Auf [supabase.com](https://supabase.com) kostenlos ein Projekt anlegen.
-2. **SQL Editor** öffnen → Inhalt von `supabase/schema.sql` einfügen → **Run**.
-   Das legt die Tabellen an und befüllt Spielformen + Beispiel-Kneipen.
-3. **Project Settings → API**: *Project URL* und *anon public* Key kopieren.
-4. In `js/config.js` eintragen:
-   ```js
-   export const SUPABASE_URL = "https://deinprojekt.supabase.co";
-   export const SUPABASE_ANON_KEY = "dein-anon-key";
-   ```
-5. Seite neu laden – oben steht jetzt „Cloud-Speicher". Stände werden geräte-
-   übergreifend über den Tour-Code geteilt.
+1. Auf **[supabase.com](https://supabase.com)** kostenlos anmelden → **New project**
+   (Name z. B. `kneipen-golf`, Datenbank-Passwort merken, Region Europe).
+2. Warten, bis das Projekt bereit ist. Dann links **SQL Editor** → **New query** →
+   den **kompletten Inhalt von `supabase/schema.sql`** einfügen → **Run**.
+   Das legt alle Tabellen, Sicherheits-Policies, Realtime und die kuratierten
+   Kneipen für Bonn & Köln an.
+3. Links **Project Settings → API**:
+   - **Project URL** → `NEXT_PUBLIC_SUPABASE_URL`
+   - **anon public** key → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   Beide in `.env.local` eintragen (siehe `.env.example`). Der anon-Key ist
+   öffentlich und darf ins Frontend.
+4. **Authentication → Sign In / Providers → Email**: aktiviert lassen.
+   Für einen schnellen Test **„Confirm email" ausschalten** (Authentication →
+   Providers → Email → *Confirm email* off), dann kann man sich sofort einloggen.
 
-## Eigene Kneipen eintragen (Schritt 5)
+## 3. Auf Vercel deployen
 
-- **Mit Supabase:** in der Tabelle `kneipen` Zeilen ergänzen (Dashboard → Table Editor).
-  Koordinaten findest du, indem du den Ort auf [openstreetmap.org](https://www.openstreetmap.org)
-  rechtsklickst → „Adresse anzeigen" zeigt lat/lng.
-- **Ohne Supabase:** Liste in `js/data.js` anpassen.
+1. Repo zu GitHub pushen.
+2. Auf **[vercel.com](https://vercel.com)** → **Add New → Project** → das GitHub-Repo
+   importieren. Framework wird als **Next.js** erkannt – Defaults passen.
+3. Vor dem Deploy unter **Environment Variables** eintragen:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+4. **Deploy** klicken. Nach dem Build gibt es eine `*.vercel.app`-URL.
+5. Zurück in Supabase: **Authentication → URL Configuration** die Vercel-URL als
+   **Site URL** eintragen (für korrekte Auth-Redirects).
 
-Spielformen erweiterst du analog in `spielformen` bzw. `js/data.js`.
-
-## Veröffentlichen (Schritt 6)
-
-Es ist eine statische Seite – einfach den Ordner zu **Netlify**, **Vercel** oder
-**GitHub Pages** ziehen. Kein Build nötig.
+> Änderst du später Env-Vars in Vercel, einmal **Redeploy** auslösen.
 
 ## Projektstruktur
 
 ```
-kneipen-challenge/
-├── index.html              Einstiegspunkt (Karte + Challenge-Panel)
-├── css/style.css           Tavernen-Nacht-Look, Bierdeckel-Challenge
-├── js/
-│   ├── config.js           Supabase-Keys + Startkoordinaten
-│   ├── data.js             Lokale Beispieldaten (Fallback ohne Backend)
-│   ├── store.js            Speicher: localStorage ODER Supabase
-│   ├── game.js             Zufalls-Spielform + Statistik
-│   ├── map.js              Leaflet-Karte & Marker
-│   └── app.js              Verbindet alles
-├── supabase/schema.sql     Tabellen + Beispieldaten für Supabase
-└── docs/projektkonzept.md  Anforderungsanalyse & offene Fragen
+src/
+├── app/
+│   ├── layout.tsx            Root-Layout + Session-Provider
+│   ├── page.tsx              Start / Login-Einstieg
+│   ├── auth/page.tsx         Registrieren & Anmelden
+│   ├── dashboard/page.tsx    Spiel erstellen / per Code beitreten
+│   ├── create/page.tsx       Stadt → Route ordnen/ergänzen → Golf-Regeln
+│   └── tour/[code]/page.tsx  Lobby · Karte+Challenge · Live-Rangliste · Auswertung
+├── components/               UI, Karte, Session/Guard, TopBar
+└── lib/                      Supabase-Client, Typen, Golf-Wertung
+supabase/schema.sql           Komplettes DB-Schema + Seed (Bonn, Köln)
+legacy/                       Alter Vanilla-JS-Prototyp (Referenz)
 ```
 
-## Tech-Stack (bewusst minimal)
+## Eigene Kneipen / Städte pflegen
 
-| | Wahl | Kosten |
-|---|---|---|
-| Frontend | Reines HTML/CSS/JS, kein Build | – |
-| Karte | Leaflet + OpenStreetMap | gratis, kein API-Key |
-| Datenbank | Supabase (PostgreSQL) | Gratis-Tarif |
-| Hosting | Netlify / Vercel / GitHub Pages | gratis |
+- **Kneipen einer Stadt:** Supabase → Table Editor → `kneipen_vorlage`. Koordinaten
+  findest du per Rechtsklick auf [openstreetmap.org](https://www.openstreetmap.org)
+  → „Adresse anzeigen" zeigt lat/lng.
+- **Neue Stadt:** Zeile in `staedte` ergänzen (slug eindeutig), dann zugehörige
+  `kneipen_vorlage`-Einträge.
+- **Spielformen:** Tabelle `spielformen` erweitern.
 
-Kein eigener Server: der Browser spricht Supabase direkt an.
+## Wertung (Golf)
+
+Pro Kneipe & Teilnehmer: `roh = schlücke + strafschlücke`.
+Strafpunkte (wenn aktiv): `max(0, roh − par) × strafe_pro_schluck`.
+**Gesamt** = Summe(roh) + Summe(Strafpunkte). **Niedrigster gewinnt.**
+
+## Status & nächste Schritte
+
+Erster lauffähiger Stand (kompletter Flow, live über Supabase). Sinnvolle nächste
+Iterationen: Kneipen per Karten-Klick statt Formular hinzufügen, Adress-Suche
+(OpenStreetMap Nominatim), feinere RLS-Policies (Mitgliedschaft pro Tour),
+PWA/Installierbarkeit, weitere Städte.

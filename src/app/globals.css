@@ -1,0 +1,72 @@
+@import url("https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Inter:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --nacht: #16110d;
+  --nacht-2: #211913;
+  --nacht-3: #2c2118;
+  --bernstein: #f0a830;
+  --schaum: #f7f0e1;
+  --linie: rgba(247, 240, 225, 0.14);
+}
+
+html,
+body {
+  background: #0d0a07;
+  color: var(--schaum);
+  font-family: "Inter", system-ui, sans-serif;
+  min-height: 100dvh;
+}
+
+h1,
+h2,
+h3,
+.font-display {
+  font-family: "Bricolage Grotesque", system-ui, sans-serif;
+}
+
+.mono {
+  font-family: "Space Mono", monospace;
+}
+
+/* Leaflet-Container muss eine Hoehe haben */
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  background: #1a140e;
+}
+
+/* Kneipen-Pin */
+.kneipe-pin {
+  display: grid;
+  place-items: center;
+}
+.kneipe-pin span {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: var(--bernstein);
+  color: #2a1d0a;
+  border: 2px solid #2a1d0a;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+  font-size: 18px;
+}
+.kneipe-pin span i {
+  transform: rotate(45deg);
+  font-style: normal;
+}
+.kneipe-pin.erledigt span {
+  background: var(--moos, #6b8f5e);
+  color: #0d1a0a;
+}
+
+/* sanftes Panel-Slide */
+.panel-slide {
+  transition: transform 0.25s ease, opacity 0.25s ease;
+}
