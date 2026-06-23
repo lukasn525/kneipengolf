@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Kneipen-Challenge – Prototyp</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Inter:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --nacht:#16110d; --nacht-2:#211913; --nacht-3:#2c2118;
+  --bernstein:#f0a830; --schaum:#f7f0e1; --ziegel:#c2492f; --moos:#6b8f5e;
+  --linie:rgba(247,240,225,.14);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:"Inter",system-ui,sans-serif; color:var(--schaum);
+  background:#0d0a07; min-height:100dvh;
+  display:grid; place-items:center; padding:20px;
+}
+/* Geräterahmen auf großen Screens, Vollbild auf dem Handy */
+.app{
+  position:relative; overflow:hidden;
+  width:min(420px,100%); height:min(860px,100dvh);
+  background:var(--nacht); border-radius:30px;
+  box-shadow:0 30px 90px rgba(0,0,0,.65), 0 0 0 1px rgba(247,240,225,.06);
+}
+@media (max-width:460px){ body{padding:0} .app{height:100dvh;border-radius:0} }
+
+/* ── Screens ─────────────────────────────────────────────── */
+.screen{position:absolute; inset:0; display:none; flex-direction:column}
+.screen.aktiv{display:flex}
+
+/* ── Beitritts-Screen ────────────────────────────────────── */
+#screen-join{
+  justify-content:space-between; padding:40px 28px calc(28px + env(safe-area-inset-bottom));
+  background:
+    radial-gradient(120% 80% at 50% -10%, rgba(240,168,48,.16), transparent 60%),
+    var(--nacht);
+}
+.join-top{padding-top:18px}
+.logo-bier{font-size:46px; line-height:1; filter:drop-shadow(0 4px 10px rgba(0,0,0,.5))}
+#screen-join h1{
+  font-family:"Bricolage Grotesque",sans-serif; font-weight:800;
+  font-size:38px; line-height:.98; letter-spacing:-.03em; margin:14px 0 10px;
+}
+#screen-join h1 .akz{color:var(--bernstein)}
+.untertitel{font-size:15px; color:rgba(247,240,225,.66); line-height:1.45; max-width:30ch}
+
+.regeln{
+  margin:26px 0; padding:18px 18px 16px; border:1px solid var(--linie);
+  border-radius:16px; background:rgba(247,240,225,.03);
+}
+.regeln h2{
+  font-family:"Space Mono",monospace; font-size:11px; letter-spacing:.18em;
+  text-transform:uppercase; color:var(--bernstein); margin-bottom:12px;
+}
+.regeln li{list-style:none; display:flex; gap:10px; font-size:13.5px; line-height:1.4; margin-bottom:9px; color:rgba(247,240,225,.85)}
+.regeln li:last-child{margin-bottom:0}
+.regeln .pkt{flex:none; width:20px; text-align:center}
+
+.join-form label{
+  display:block; font-size:11px; letter-spacing:.1em; text-transform:uppercase;
+  color:rgba(247,240,225,.5); margin:0 0 6px 2px;
+}
+.feld{
+  width:100%; padding:15px 16px; margin-bottom:14px;
+  background:var(--nacht-2); border:1px solid var(--linie); border-radius:13px;
+  color:var(--schaum); font-size:16px; font-family:inherit;
+}
+.feld::placeholder{color:rgba(247,240,225,.35)}
+.feld.code{font-family:"Space Mono",monospace; letter-spacing:.12em; text-transform:uppercase; color:var(--bernstein)}
+.feld:focus{outline:none; border-color:var(--bernstein)}
+
+.btn-haupt{
+  width:100%; padding:17px; border:none; border-radius:14px; cursor:pointer;
+  background:var(--bernstein); color:var(--nacht);
+  font-family:"Bricolage Grotesque",sans-serif; font-weight:800; font-size:17px;
+  transition:filter .15s, transform .08s;
+}
+.btn-haupt:hover{filter:brightness(1.06)}
+.btn-haupt:active{transform:scale(.99)}
+.join-alt{text-align:center; margin-top:14px; font-size:13px; color:rgba(247,240,225,.5)}
+.join-alt a{color:var(--bernstein); text-decoration:none; cursor:pointer}
+.disclaimer{margin-top:16px; text-align:center; font-size:11px; color:rgba(247,240,225,.32); line-height:1.4}
+
+/* ── Karten-Screen ───────────────────────────────────────── */
+#screen-map{}
+.topbar{
+  position:absolute; inset:0 0 auto 0; z-index:1000;
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  padding:calc(14px + env(safe-area-inset-top)) 16px 12px;
+  background:linear-gradient(var(--nacht) 62%, transparent);
+}
+.marke-name{font-family:"Bricolage Grotesque",sans-serif; font-weight:800; font-size:17px; letter-spacing:-.02em}
+.tourzeile{font-size:11px; color:rgba(247,240,225,.55); margin-top:1px; display:flex; align-items:center; gap:6px}
+.tourzeile strong{font-family:"Space Mono",monospace; color:var(--bernstein); letter-spacing:.05em}
+.live{display:inline-flex; align-items:center; gap:4px; color:var(--moos); font-weight:600}
+.live .dot{width:7px; height:7px; border-radius:50%; background:var(--moos); animation:puls 1.6s infinite}
+@keyframes puls{0%,100%{opacity:1}50%{opacity:.3}}
+
+.rang-knopf{
+  display:flex; align-items:center; gap:7px; padding:9px 13px; cursor:pointer;
+  background:var(--nacht-2); border:1px solid var(--linie); border-radius:12px;
+  color:var(--schaum); font-size:12px; font-weight:600;
+}
+.rang-knopf .pos{font-family:"Space Mono",monospace; color:var(--bernstein); font-weight:700}
+
+#map{position:absolute; inset:0; background:var(--nacht-2)}
+.leaflet-tile{filter:saturate(.62) brightness(.6) contrast(1.05) hue-rotate(-8deg)}
+.leaflet-container{background:var(--nacht-2); font-family:inherit}
+.leaflet-control-attribution{background:rgba(22,17,13,.7)!important; color:rgba(247,240,225,.5)!important; font-size:9px!important}
+.leaflet-control-attribution a{color:rgba(240,168,48,.7)!important}
+
+.kneipe-pin{display:grid; place-items:center; width:40px; height:40px; filter:drop-shadow(0 3px 4px rgba(0,0,0,.55))}
+.kneipe-pin span{
+  display:grid; place-items:center; width:34px; height:34px;
+  border-radius:50% 50% 50% 0; transform:rotate(-45deg);
+  background:var(--bernstein); color:var(--nacht); border:2px solid var(--schaum);
+}
+.kneipe-pin span i{transform:rotate(45deg); font-style:normal; line-height:1; font-size:16px}
+.kneipe-pin.fertig span{background:var(--moos); color:#fff}
+.kneipe-pin.fertig span i{font-weight:700}
+
+.map-unten{
+  position:absolute; left:0; right:0; bottom:calc(16px + env(safe-area-inset-bottom)); z-index:900;
+  display:flex; justify-content:center; gap:10px; padding:0 16px;
+}
+.pill{
+  padding:11px 16px; border-radius:999px; cursor:pointer;
+  background:rgba(22,17,13,.9); border:1px solid var(--linie);
+  color:var(--schaum); font-size:13px; font-weight:600;
+  display:inline-flex; align-items:center; gap:7px; backdrop-filter:blur(6px);
+}
+.pill.tipp{background:rgba(22,17,13,.82); color:rgba(247,240,225,.8); font-weight:500; pointer-events:none}
+.pill.add{background:var(--ziegel); border-color:transparent; color:#fff}
+.add-modus .pill.add{background:var(--bernstein); color:var(--nacht)}
+
+/* ── Bierdeckel-Panel ────────────────────────────────────── */
+.overlay{position:absolute; inset:0; z-index:1100; display:none}
+.overlay.auf{display:block}
+.overlay .schirm{position:absolute; inset:0; background:rgba(13,10,7,.55)}
+
+.panel{
+  position:absolute; left:0; right:0; bottom:0;
+  transform:translateY(105%); transition:transform .34s cubic-bezier(.22,.61,.36,1);
+  background:var(--nacht-2); border-top:1px solid var(--linie);
+  border-radius:24px 24px 0 0; padding:22px 22px calc(22px + env(safe-area-inset-bottom));
+  box-shadow:0 -18px 50px rgba(0,0,0,.5);
+}
+.overlay.auf .panel{transform:translateY(0)}
+.griff{width:38px; height:4px; border-radius:2px; background:var(--linie); margin:0 auto 16px}
+.kneipe-kopf{display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:14px}
+.kneipe-kopf h2{font-family:"Bricolage Grotesque",sans-serif; font-weight:800; font-size:23px; letter-spacing:-.02em}
+.kneipe-kopf .adr{font-size:12.5px; color:rgba(247,240,225,.5); margin-top:1px}
+.x{flex:none; width:34px; height:34px; border-radius:50%; border:1px solid var(--linie); background:transparent; color:var(--schaum); font-size:20px; cursor:pointer}
+.x:hover{background:rgba(247,240,225,.08)}
+
+.bierdeckel{
+  position:relative; width:226px; height:226px; margin:6px auto 20px; border-radius:50%;
+  background:radial-gradient(circle at 50% 38%, #fffaf0, var(--schaum) 70%);
+  color:var(--nacht); display:flex; flex-direction:column; align-items:center; justify-content:center;
+  text-align:center; padding:26px;
+  box-shadow:0 0 0 2px var(--schaum), 0 0 0 8px var(--nacht-2),
+             0 0 0 10px var(--bernstein), 0 0 0 12px var(--nacht-2), 0 14px 30px rgba(0,0,0,.45);
+}
+.bierdeckel::before{content:""; position:absolute; inset:14px; border-radius:50%; border:1.5px dashed rgba(194,73,47,.35)}
+.deckel-label{font-family:"Space Mono",monospace; font-weight:700; font-size:10px; letter-spacing:.22em; text-transform:uppercase; color:var(--ziegel)}
+.deckel-titel{font-family:"Bricolage Grotesque",sans-serif; font-weight:800; font-size:25px; line-height:1.05; letter-spacing:-.02em; margin:6px 0 8px; color:var(--ziegel)}
+.deckel-text{font-size:13px; line-height:1.4; color:#3a2f25; max-width:165px}
+
+.zaehler{text-align:center; margin-bottom:14px}
+.zaehler .lbl{font-size:11px; text-transform:uppercase; letter-spacing:.1em; color:rgba(247,240,225,.5)}
+.steuerung{display:flex; align-items:center; justify-content:center; gap:24px; margin:8px 0 2px}
+.steuerung button{width:50px; height:50px; border-radius:50%; border:1px solid var(--linie); background:var(--nacht); color:var(--schaum); font-size:26px; cursor:pointer; transition:background .15s, transform .08s}
+.steuerung button:hover{background:rgba(247,240,225,.08)}
+.steuerung button:active{transform:scale(.92)}
+.steuerung .z{font-family:"Space Mono",monospace; font-weight:700; font-size:46px; min-width:74px; color:var(--bernstein)}
+.par-hinweis{font-size:11px; color:rgba(247,240,225,.42)}
+.par-hinweis.drueber{color:var(--ziegel)}
+
+.panel-aktionen{display:flex; flex-direction:column; gap:9px; margin-top:6px}
+.btn-fertig{width:100%; padding:16px; border:none; border-radius:14px; background:var(--bernstein); color:var(--nacht); font-family:"Bricolage Grotesque",sans-serif; font-weight:800; font-size:16px; cursor:pointer; transition:filter .15s, transform .08s}
+.btn-fertig:hover{filter:brightness(1.06)}
+.btn-fertig:active{transform:scale(.99)}
+.btn-fertig.istfertig{background:var(--moos); color:#fff}
+.btn-text{background:none; border:none; color:rgba(247,240,225,.55); font-size:12.5px; cursor:pointer; padding:4px}
+.btn-text:hover{color:var(--ziegel)}
+
+/* ── Rangliste ───────────────────────────────────────────── */
+#screen-board{z-index:1200; background:var(--nacht)}
+.board-top{display:flex; align-items:center; gap:12px; padding:calc(18px + env(safe-area-inset-top)) 20px 14px}
+.board-top h2{font-family:"Bricolage Grotesque",sans-serif; font-weight:800; font-size:24px; letter-spacing:-.02em}
+.board-top .live{margin-left:auto; font-size:12px}
+.board-zurueck{width:36px; height:36px; border-radius:50%; border:1px solid var(--linie); background:transparent; color:var(--schaum); font-size:20px; cursor:pointer}
+.board-info{padding:0 20px 10px; font-size:12.5px; color:rgba(247,240,225,.5)}
+.board-liste{flex:1; overflow-y:auto; padding:6px 16px 24px; display:flex; flex-direction:column; gap:8px}
+.rang{
+  display:flex; align-items:center; gap:14px; padding:14px 16px; border-radius:14px;
+  background:var(--nacht-2); border:1px solid var(--linie); transition:background .25s;
+}
+.rang.ich{border-color:rgba(240,168,48,.5); background:rgba(240,168,48,.06)}
+.rang.fuehrt{background:linear-gradient(100deg, rgba(107,143,94,.18), var(--nacht-2))}
+.rang .platz{font-family:"Space Mono",monospace; font-weight:700; font-size:18px; width:30px; color:rgba(247,240,225,.55)}
+.rang.fuehrt .platz{color:var(--moos)}
+.rang .krone{font-size:15px}
+.rang .wer{flex:1}
+.rang .wer .nm{font-weight:600; font-size:15px; display:flex; align-items:center; gap:7px}
+.rang .wer .du-tag{font-family:"Space Mono",monospace; font-size:9px; letter-spacing:.1em; background:var(--bernstein); color:var(--nacht); padding:2px 6px; border-radius:5px}
+.rang .wer .meta{font-size:11.5px; color:rgba(247,240,225,.5); margin-top:2px}
+.rang .score{text-align:right}
+.rang .score .pkt{font-family:"Space Mono",monospace; font-weight:700; font-size:22px; color:var(--bernstein)}
+.rang .score .pkt-lbl{font-size:9px; text-transform:uppercase; letter-spacing:.08em; color:rgba(247,240,225,.45)}
+.board-fuss{padding:12px 16px calc(16px + env(safe-area-inset-bottom)); border-top:1px solid var(--linie)}
+.board-fuss .legende{font-size:11px; color:rgba(247,240,225,.45); text-align:center; line-height:1.5}
+
+/* Mini-Modal (Kneipe benennen) */
+.mini{position:absolute; left:16px; right:16px; bottom:calc(80px + env(safe-area-inset-bottom)); z-index:950; display:none; background:var(--nacht-3); border:1px solid var(--linie); border-radius:16px; padding:16px; box-shadow:0 14px 40px rgba(0,0,0,.5)}
+.mini.auf{display:block}
+.mini h3{font-size:14px; margin-bottom:10px}
+.mini .reihe{display:flex; gap:8px}
+.mini .feld{margin:0; flex:1}
+.mini .speichern{padding:0 18px; border:none; border-radius:11px; background:var(--bernstein); color:var(--nacht); font-weight:700; cursor:pointer}
+
+/* Toast */
+.toast{position:absolute; left:50%; top:calc(70px + env(safe-area-inset-top)); transform:translateX(-50%) translateY(-12px); z-index:2000; background:var(--nacht-3); border:1px solid var(--moos); color:var(--schaum); font-size:13px; padding:10px 16px; border-radius:12px; opacity:0; pointer-events:none; transition:opacity .3s, transform .3s; box-shadow:0 10px 30px rgba(0,0,0,.5); white-space:nowrap}
+.toast.zeig{opacity:1; transform:translateX(-50%) translateY(0)}
+
+:focus-visible{outline:2px solid var(--bernstein); outline-offset:2px}
+@media (prefers-reduced-motion:reduce){ .panel{transition:none} .live .dot{animation:none} }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ════════ Beitritt ════════ -->
+  <section id="screen-join" class="screen aktiv">
+    <div class="join-top">
+      <div class="logo-bier">🍺</div>
+      <h1>Kneipen-<span class="akz">Challenge</span></h1>
+      <p class="untertitel">Spiel dich durch die Kneipen – an jeder Station mit so wenig Schlücken wie möglich, aber jedes Mal anders.</p>
+
+      <div class="regeln">
+        <h2>So läuft's</h2>
+        <ul>
+          <li><span class="pkt">🍺</span><span>An jeder Kneipe wird eine Challenge gezogen – alle hier spielen dieselbe.</span></li>
+          <li><span class="pkt">⛳</span><span>Wie beim Golf: wenig Schlücke sind gut, über Par gibt's Minuspunkte.</span></li>
+          <li><span class="pkt">🏆</span><span>Wenigste Punkte gewinnt. Die Rangliste tickt live mit.</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="join-form">
+      <label for="i-code">Tour-Code</label>
+      <input id="i-code" class="feld code" value="BONN-7F3K" />
+      <label for="i-name">Dein Name</label>
+      <input id="i-name" class="feld" placeholder="z.B. Lars" />
+      <button class="btn-haupt" onclick="beitreten()">Tour beitreten</button>
+      <p class="join-alt"><a onclick="beitreten()">oder neue Tour erstellen</a></p>
+      <p class="disclaimer">Spielbar mit jedem Getränk – auch alkoholfrei. Trinkt mit Maß und passt aufeinander auf.</p>
+    </div>
+  </section>
+
+  <!-- ════════ Karte ════════ -->
+  <section id="screen-map" class="screen">
+    <div class="topbar">
+      <div>
+        <div class="marke-name">Kneipen-Challenge</div>
+        <div class="tourzeile">Tour <strong>BONN-7F3K</strong> · <span class="live"><span class="dot"></span>live</span></div>
+      </div>
+      <button class="rang-knopf" onclick="zeigeBoard()">🏆 Rang <span class="pos" id="meine-pos">–</span></button>
+    </div>
+    <div id="map"></div>
+    <div class="map-unten">
+      <span class="pill tipp" id="karten-tipp">Tippe eine Kneipe an</span>
+      <span class="pill add" id="add-pill" onclick="toggleAdd()">＋ Kneipe</span>
+    </div>
+    <div class="mini" id="mini-add">
+      <h3>Neue Kneipe – wie soll sie heißen?</h3>
+      <div class="reihe">
+        <input class="feld" id="neu-name" placeholder="Name der Kneipe" />
+        <button class="speichern" onclick="kneipeSpeichern()">Setzen</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════ Bierdeckel-Panel ════════ -->
+  <div class="overlay" id="overlay-panel">
+    <div class="schirm" onclick="schliessePanel()"></div>
+    <div class="panel">
+      <div class="griff"></div>
+      <div class="kneipe-kopf">
+        <div>
+          <h2 id="p-name">Kneipe</h2>
+          <div class="adr" id="p-adr"></div>
+        </div>
+        <button class="x" onclick="schliessePanel()" aria-label="Schließen">×</button>
+      </div>
+
+      <div class="bierdeckel">
+        <span class="deckel-label">Challenge</span>
+        <div class="deckel-titel" id="p-titel">…</div>
+        <div class="deckel-text" id="p-text">…</div>
+      </div>
+
+      <div class="zaehler">
+        <span class="lbl">Deine Schlücke</span>
+        <div class="steuerung">
+          <button onclick="schluck(-1)" aria-label="weniger">–</button>
+          <span class="z" id="p-zahl">0</span>
+          <button onclick="schluck(1)" aria-label="mehr">+</button>
+        </div>
+        <span class="par-hinweis" id="p-par">Par 3 · darunter bleiben</span>
+      </div>
+
+      <div class="panel-aktionen">
+        <button class="btn-fertig" id="p-fertig" onclick="fertig()">Als erledigt eintragen</button>
+        <button class="btn-text" onclick="nichtMachbar()">Challenge nicht machbar? +5 Strafschlücke</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ Rangliste ════════ -->
+  <section id="screen-board" class="screen">
+    <div class="board-top">
+      <button class="board-zurueck" onclick="zurueckZurKarte()" aria-label="Zurück">←</button>
+      <h2>Rangliste</h2>
+      <span class="live"><span class="dot"></span>live</span>
+    </div>
+    <div class="board-info">Wenigste Punkte führen · Par 3, jeder Schluck darüber zählt extra</div>
+    <div class="board-liste" id="board-liste"></div>
+    <div class="board-fuss">
+      <div class="legende">Punkte = Schlücke + Strafpunkte über Par. Niedrig ist gut. 👑 = führt aktuell.</div>
+    </div>
+  </section>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+// ── Daten ──────────────────────────────────────────────────
+const PAR = 3, STRAFE_PRO = 1, VERWEIGERUNG = 5;
+
+const CHALLENGES = [
+  {t:"Fremde Hand", b:"Dein Teampartner hält das Glas – du darfst es nicht berühren."},
+  {t:"Karussell",   b:"Dreh dich beim Trinken langsam einmal im Kreis."},
+  {t:"Linkshänder", b:"Trink ausschließlich mit der schwächeren Hand."},
+  {t:"Blindflug",   b:"Augen zu, von Anfang bis Ende."},
+  {t:"Storch",      b:"Steh dabei auf nur einem Bein."},
+  {t:"Über Kreuz",  b:"Häng deinen Arm mit dem Partner ein (Hochzeits-Stil)."},
+  {t:"Vornehm",     b:"Der kleine Finger muss die ganze Zeit abstehen."},
+  {t:"Countdown",   b:"Der Tisch zählt laut mit – trink im Takt."},
+  {t:"Rückwärts",   b:"Geh beim Trinken rückwärts ein paar Schritte."},
+  {t:"Sänger",      b:"Summe durchgehend eine Melodie, ohne abzusetzen."},
+];
+
+// Kneipen mit fest gezogener (geteilter) Challenge
+let KNEIPEN = [
+  {id:1, name:"Startpunkt Markt", adr:"Markt, 53111 Bonn",   lat:50.7344, lng:7.0989, chal:4},
+  {id:2, name:"Alte Schänke",     adr:"Beispielstr. 1, Bonn", lat:50.7368, lng:7.1006, chal:0},
+  {id:3, name:"Eckkneipe Süd",    adr:"Beispielstr. 2, Bonn", lat:50.7311, lng:7.0962, chal:1},
+  {id:4, name:"Hafenbar",         adr:"Beispielstr. 3, Bonn", lat:50.7402, lng:7.1051, chal:7},
+  {id:5, name:"Letzte Runde",     adr:"Beispielstr. 4, Bonn", lat:50.7289, lng:7.1023, chal:8},
+];
+
+// Teilnehmer – Fake-Stände machen die Rangliste lebendig
+let SPIELER = [
+  {name:"Du", ich:true, res:{}},
+  {name:"Team Anker",    res:{1:{s:2,x:0,f:true}, 2:{s:3,x:0,f:true}, 3:{s:4,x:0,f:true}}},
+  {name:"Lisa",          res:{1:{s:3,x:0,f:true}, 2:{s:2,x:0,f:true}}},
+  {name:"Die Durstigen", res:{1:{s:5,x:0,f:true}, 2:{s:4,x:0,f:true}, 3:{s:3,x:0,f:true}}},
+];
+const ich = SPIELER[0];
+
+// ── Wertung (Golf) ─────────────────────────────────────────
+function punkteFuer(sp){
+  let summe = 0;
+  for(const k in sp.res){
+    const r = sp.res[k]; if(!r.f) continue;
+    const roh = r.s + r.x;
+    const strafe = Math.max(0, roh - PAR) * STRAFE_PRO;
+    summe += roh + strafe;
+  }
+  return summe;
+}
+function erledigtAnzahl(sp){ return Object.values(sp.res).filter(r=>r.f).length; }
+
+function rangliste(){
+  return [...SPIELER]
+    .map(sp => ({sp, pkt:punkteFuer(sp), erl:erledigtAnzahl(sp)}))
+    .sort((a,b)=> a.erl===0 && b.erl===0 ? 0 : a.pkt - b.pkt || b.erl - a.erl);
+}
+function meinePosition(){
+  const r = rangliste(); const i = r.findIndex(e=>e.sp.ich); return i<0?"–":(i+1);
+}
+
+// ── Screens ────────────────────────────────────────────────
+function zeige(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.remove('aktiv')); document.getElementById(id).classList.add('aktiv'); }
+
+function beitreten(){
+  const n = document.getElementById('i-name').value.trim();
+  if(n) ich.name = n;
+  document.getElementById('i-name').value = "";
+  zeige('screen-map');
+  if(!karte){ initKarte(); } else { setTimeout(()=>karte.invalidateSize(), 60); }
+  aktualisierePos();
+  setTimeout(liveSimulation, 9000); // jemand anderes punktet → live-Gefühl
+}
+
+// ── Karte ──────────────────────────────────────────────────
+let karte=null; const marker={};
+function pinIcon(fertig){
+  return L.divIcon({ className:"kneipe-pin"+(fertig?" fertig":""),
+    html:`<span><i>${fertig?"✓":"🍺"}</i></span>`, iconSize:[40,40], iconAnchor:[20,40] });
+}
+function initKarte(){
+  karte = L.map('map',{zoomControl:false}).setView([50.7344,7.0989],14);
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"&copy; OpenStreetMap"}).addTo(karte);
+  L.control.zoom({position:"bottomright"}).addTo(karte);
+  karte.on('click', kartenKlick);
+  zeichne();
+  setTimeout(()=>karte.invalidateSize(), 80);
+}
+function zeichne(){
+  Object.values(marker).forEach(m=>karte.removeLayer(m));
+  const pts=[];
+  KNEIPEN.forEach(k=>{
+    const fertig = ich.res[k.id]?.f===true;
+    const m = L.marker([k.lat,k.lng],{icon:pinIcon(fertig)}).addTo(karte).on('click',(e)=>{L.DomEvent.stop(e); oeffne(k);});
+    marker[k.id]=m; pts.push([k.lat,k.lng]);
+  });
+  if(pts.length && !addModus) karte.fitBounds(pts,{padding:[55,55]});
+}
+
+// ── Panel ──────────────────────────────────────────────────
+let aktiv=null;
+function oeffne(k){
+  if(addModus) return;
+  aktiv=k;
+  const c = CHALLENGES[k.chal];
+  const r = ich.res[k.id] || {s:0,x:0,f:false};
+  ich.res[k.id]=r;
+  document.getElementById('p-name').textContent=k.name;
+  document.getElementById('p-adr').textContent=k.adr||"";
+  document.getElementById('p-titel').textContent=c.t;
+  document.getElementById('p-text').textContent=c.b;
+  zeichnePanel();
+  document.getElementById('overlay-panel').classList.add('auf');
+}
+function zeichnePanel(){
+  const r = ich.res[aktiv.id];
+  document.getElementById('p-zahl').textContent=r.s;
+  const ges = r.s + r.x;
+  const par = document.getElementById('p-par');
+  if(r.x>0){ par.textContent=`+${r.x} Strafschlücke · gesamt ${ges}`; par.className="par-hinweis drueber"; }
+  else if(ges>PAR){ par.textContent=`${ges - PAR} über Par → +${(ges-PAR)*STRAFE_PRO} Strafpunkte`; par.className="par-hinweis drueber"; }
+  else { par.textContent=`Par ${PAR} · noch ${PAR-ges} unter Par`; par.className="par-hinweis"; }
+  const btn=document.getElementById('p-fertig');
+  btn.textContent = r.f ? "Erledigt ✓ – Eintrag ändern" : "Als erledigt eintragen";
+  btn.classList.toggle('istfertig', r.f);
+}
+function schluck(d){ const r=ich.res[aktiv.id]; r.s=Math.max(0,r.s+d); zeichnePanel(); }
+function fertig(){
+  const r=ich.res[aktiv.id]; r.f=true;
+  marker[aktiv.id].setIcon(pinIcon(true));
+  schliessePanel(); aktualisierePos();
+  toast(`„${KNEIPEN.find(k=>k.id===aktiv.id).name}" eingetragen`);
+}
+function nichtMachbar(){
+  const r=ich.res[aktiv.id]; r.x=VERWEIGERUNG; r.f=true;
+  marker[aktiv.id].setIcon(pinIcon(true));
+  schliessePanel(); aktualisierePos();
+  toast(`Challenge ausgelassen · +${VERWEIGERUNG} Strafschlücke`);
+}
+function schliessePanel(){ document.getElementById('overlay-panel').classList.remove('auf'); }
+
+// ── Kneipe hinzufügen ──────────────────────────────────────
+let addModus=false, neuLatLng=null;
+function toggleAdd(){
+  addModus=!addModus;
+  document.getElementById('screen-map').classList.toggle('add-modus',addModus);
+  document.getElementById('karten-tipp').textContent = addModus ? "Tippe auf die Karte" : "Tippe eine Kneipe an";
+  if(!addModus) document.getElementById('mini-add').classList.remove('auf');
+}
+function kartenKlick(e){
+  if(!addModus) return;
+  neuLatLng=e.latlng;
+  document.getElementById('mini-add').classList.add('auf');
+  document.getElementById('neu-name').focus();
+}
+function kneipeSpeichern(){
+  const n=document.getElementById('neu-name').value.trim()||"Neue Kneipe";
+  const id=Math.max(...KNEIPEN.map(k=>k.id))+1;
+  KNEIPEN.push({id, name:n, adr:"selbst hinzugefügt", lat:neuLatLng.lat, lng:neuLatLng.lng, chal:Math.floor(Math.random()*CHALLENGES.length)});
+  document.getElementById('neu-name').value="";
+  document.getElementById('mini-add').classList.remove('auf');
+  toggleAdd();
+  const k=KNEIPEN[KNEIPEN.length-1];
+  marker[k.id]=L.marker([k.lat,k.lng],{icon:pinIcon(false)}).addTo(karte).on('click',(e)=>{L.DomEvent.stop(e); oeffne(k);});
+  toast(`„${n}" zur Tour hinzugefügt`);
+}
+
+// ── Rangliste ──────────────────────────────────────────────
+function zeigeBoard(){ renderBoard(); zeige('screen-board'); }
+function zurueckZurKarte(){ zeige('screen-map'); setTimeout(()=>karte&&karte.invalidateSize(),60); }
+function renderBoard(){
+  const liste=document.getElementById('board-liste');
+  const r=rangliste();
+  liste.innerHTML = r.map((e,i)=>{
+    const fuehrt = i===0 && e.erl>0;
+    const meta = e.erl>0 ? `${e.erl}/${KNEIPEN.length} Kneipen` : "noch nicht gestartet";
+    return `<div class="rang ${e.sp.ich?'ich':''} ${fuehrt?'fuehrt':''}">
+      <div class="platz">${i+1}</div>
+      <div class="wer"><div class="nm">${fuehrt?'<span class="krone">👑</span>':''}${e.sp.name}${e.sp.ich?'<span class="du-tag">DU</span>':''}</div>
+      <div class="meta">${meta}</div></div>
+      <div class="score"><div class="pkt">${e.erl>0?e.pkt:'–'}</div><div class="pkt-lbl">Punkte</div></div>
+    </div>`;
+  }).join("");
+}
+function aktualisierePos(){ document.getElementById('meine-pos').textContent = meinePosition(); }
+
+// ── Live-Simulation (ein anderes Team punktet) ─────────────
+function liveSimulation(){
+  const d=SPIELER[3];
+  if(!d.res[4]){ d.res[4]={s:2,x:0,f:true}; aktualisierePos();
+    if(document.getElementById('screen-board').classList.contains('aktiv')) renderBoard();
+    toast("Die Durstigen haben gerade eingetragen");
+  }
+}
+
+// ── Toast ──────────────────────────────────────────────────
+let toastT;
+function toast(txt){
+  const t=document.getElementById('toast'); t.textContent=txt; t.classList.add('zeig');
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('zeig'),2600);
+}
+</script>
+</body>
+</html>

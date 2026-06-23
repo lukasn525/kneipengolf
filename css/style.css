@@ -1,0 +1,211 @@
+/* Kneipen-Challenge – Stylesheet
+   Look: Tavernen-Nacht. Warmes Dunkel, Bernstein-Gold, Schaum-Creme.
+   Signature: die Challenge erscheint auf einem runden Bierdeckel. */
+
+:root {
+  --nacht:    #16110d;
+  --nacht-2:  #211913;
+  --bernstein:#f0a830;
+  --schaum:   #f7f0e1;
+  --ziegel:   #c2492f;
+  --moos:     #6b8f5e;
+  --linie:    rgba(247,240,225,.14);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body { height: 100%; }
+
+body {
+  font-family: "Inter", system-ui, sans-serif;
+  color: var(--schaum);
+  background: var(--nacht);
+  overflow: hidden;
+}
+
+/* ── Kopfleiste ───────────────────────────────────────────── */
+.topbar {
+  position: fixed; inset: 0 0 auto 0; z-index: 1000;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px;
+  padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
+  background: linear-gradient(var(--nacht) 70%, transparent);
+}
+
+.marke-name {
+  display: block;
+  font-family: "Bricolage Grotesque", sans-serif;
+  font-weight: 800; font-size: 18px; letter-spacing: -.02em;
+  color: var(--schaum);
+}
+.tour {
+  font-size: 11px; color: rgba(247,240,225,.55);
+}
+.tour strong { color: var(--bernstein); font-family: "Space Mono", monospace; }
+
+.scoreboard { display: flex; gap: 14px; }
+.stat { text-align: center; min-width: 38px; }
+.stat .zahl {
+  display: block;
+  font-family: "Space Mono", monospace; font-weight: 700;
+  font-size: 16px; color: var(--bernstein); line-height: 1;
+}
+.stat .lbl {
+  font-size: 9px; text-transform: uppercase; letter-spacing: .08em;
+  color: rgba(247,240,225,.45);
+}
+
+/* ── Karte ────────────────────────────────────────────────── */
+#map { position: absolute; inset: 0; background: var(--nacht-2); }
+
+/* OSM-Kacheln in die Nacht eintönen */
+.leaflet-tile {
+  filter: saturate(.65) brightness(.62) contrast(1.05) hue-rotate(-8deg);
+}
+.leaflet-container { background: var(--nacht-2); }
+.leaflet-control-attribution {
+  background: rgba(22,17,13,.7) !important; color: rgba(247,240,225,.5) !important;
+  font-size: 9px !important;
+}
+.leaflet-control-attribution a { color: rgba(240,168,48,.7) !important; }
+
+/* Eigene Pins */
+.kneipe-pin {
+  display: grid; place-items: center;
+  width: 40px; height: 40px;
+  font-size: 20px;
+  filter: drop-shadow(0 3px 4px rgba(0,0,0,.5));
+  transition: transform .15s ease;
+}
+.kneipe-pin span {
+  display: grid; place-items: center;
+  width: 34px; height: 34px; border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: var(--bernstein); color: var(--nacht);
+  border: 2px solid var(--schaum);
+}
+.kneipe-pin span i {
+  transform: rotate(45deg);      /* Inhalt aufrecht stellen */
+  font-style: normal; line-height: 1; font-size: 16px;
+}
+.kneipe-pin.erledigt span {
+  background: var(--moos); color: var(--schaum);
+}
+.kneipe-pin.erledigt span i { font-weight: 700; }
+
+.hinweis {
+  position: fixed; bottom: calc(14px + env(safe-area-inset-bottom));
+  left: 50%; transform: translateX(-50%); z-index: 900;
+  padding: 8px 16px; border-radius: 999px;
+  background: rgba(22,17,13,.85); border: 1px solid var(--linie);
+  font-size: 12px; color: rgba(247,240,225,.75);
+  white-space: nowrap; pointer-events: none;
+  transition: opacity .25s ease;
+}
+.panel.offen ~ .hinweis { opacity: 0; }
+
+/* ── Challenge-Panel (Bottom-Sheet) ───────────────────────── */
+.panel {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 1100;
+  transform: translateY(105%);
+  transition: transform .32s cubic-bezier(.22,.61,.36,1);
+  background: var(--nacht-2);
+  border-top: 1px solid var(--linie);
+  border-radius: 22px 22px 0 0;
+  padding: 22px 20px calc(22px + env(safe-area-inset-bottom));
+  max-width: 480px; margin: 0 auto;
+  box-shadow: 0 -18px 40px rgba(0,0,0,.5);
+}
+.panel.offen { transform: translateY(0); }
+
+.panel-zu {
+  position: absolute; top: 12px; right: 14px;
+  width: 34px; height: 34px; border-radius: 50%;
+  border: 1px solid var(--linie); background: transparent;
+  color: var(--schaum); font-size: 22px; line-height: 1; cursor: pointer;
+}
+.panel-zu:hover { background: rgba(247,240,225,.08); }
+
+.kneipe-kopf { margin-bottom: 18px; padding-right: 40px; }
+#k-name {
+  font-family: "Bricolage Grotesque", sans-serif;
+  font-weight: 800; font-size: 24px; letter-spacing: -.02em;
+}
+.adresse { font-size: 13px; color: rgba(247,240,225,.5); margin-top: 2px; }
+
+/* Der Bierdeckel */
+.bierdeckel {
+  position: relative;
+  width: 230px; height: 230px; margin: 4px auto 22px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 38%, #fffaf0, var(--schaum) 70%);
+  color: var(--nacht);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; padding: 28px;
+  box-shadow:
+    0 0 0 2px var(--schaum),
+    0 0 0 8px var(--nacht-2),
+    0 0 0 10px var(--bernstein),         /* Bernstein-Ring */
+    0 0 0 12px var(--nacht-2),
+    0 14px 30px rgba(0,0,0,.45);
+}
+/* gestrichelter Innenring wie ein echter Bierdeckel-Aufdruck */
+.bierdeckel::before {
+  content: ""; position: absolute; inset: 14px;
+  border-radius: 50%;
+  border: 1.5px dashed rgba(194,73,47,.35);
+}
+.deckel-label {
+  font-family: "Space Mono", monospace; font-weight: 700;
+  font-size: 10px; letter-spacing: .22em; text-transform: uppercase;
+  color: var(--ziegel);
+}
+#s-titel {
+  font-family: "Bricolage Grotesque", sans-serif;
+  font-weight: 800; font-size: 26px; line-height: 1.05;
+  letter-spacing: -.02em; margin: 6px 0 8px; color: var(--ziegel);
+}
+#s-text { font-size: 13px; line-height: 1.4; color: #3a2f25; max-width: 170px; }
+
+/* Schluck-Zähler */
+.zaehler { text-align: center; margin-bottom: 18px; }
+.zaehler-lbl {
+  display: block; font-size: 11px; text-transform: uppercase;
+  letter-spacing: .1em; color: rgba(247,240,225,.5);
+}
+.zaehler-steuerung {
+  display: flex; align-items: center; justify-content: center; gap: 22px;
+  margin: 6px 0 4px;
+}
+.zaehler-steuerung button {
+  width: 48px; height: 48px; border-radius: 50%;
+  border: 1px solid var(--linie); background: var(--nacht);
+  color: var(--schaum); font-size: 26px; line-height: 1; cursor: pointer;
+  transition: background .15s ease, transform .1s ease;
+}
+.zaehler-steuerung button:hover { background: rgba(247,240,225,.08); }
+.zaehler-steuerung button:active { transform: scale(.92); }
+.zaehler-zahl {
+  font-family: "Space Mono", monospace; font-weight: 700;
+  font-size: 44px; min-width: 70px; color: var(--bernstein);
+}
+.zaehler-tipp { font-size: 11px; color: rgba(247,240,225,.4); }
+
+.erledigt-btn {
+  width: 100%; padding: 16px; border: none; border-radius: 14px;
+  background: var(--bernstein); color: var(--nacht);
+  font-family: "Bricolage Grotesque", sans-serif; font-weight: 800;
+  font-size: 16px; cursor: pointer;
+  transition: filter .15s ease, transform .1s ease;
+}
+.erledigt-btn:hover { filter: brightness(1.06); }
+.erledigt-btn:active { transform: scale(.99); }
+
+/* Fokus sichtbar (Barrierefreiheit) */
+:focus-visible { outline: 2px solid var(--bernstein); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .panel { transition: none; }
+  .kneipe-pin { transition: none; }
+}

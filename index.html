@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Kneipen-Challenge</title>
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Schriften -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Inter:wght@400;500&family=Space+Mono:wght@700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <!-- Kopfleiste -->
+  <header class="topbar">
+    <div class="marke">
+      <span class="marke-name">Kneipen-Challenge</span>
+      <span class="tour">Tour <strong id="tourcode">…</strong> · <span id="modus">…</span></span>
+    </div>
+    <div class="scoreboard">
+      <div class="stat"><span class="zahl" id="stat-erledigt">0/0</span><span class="lbl">Stops</span></div>
+      <div class="stat"><span class="zahl" id="stat-schlucke">0</span><span class="lbl">Schlücke</span></div>
+      <div class="stat"><span class="zahl" id="stat-schnitt">0</span><span class="lbl">Ø</span></div>
+    </div>
+  </header>
+
+  <!-- Karte -->
+  <div id="map"></div>
+
+  <p class="hinweis">Tippe eine Kneipe an, um deine Challenge zu ziehen.</p>
+
+  <!-- Challenge-Panel (Bierdeckel) -->
+  <div id="panel" class="panel" aria-hidden="true">
+    <button id="panel-zu" class="panel-zu" aria-label="Schließen">×</button>
+
+    <div class="kneipe-kopf">
+      <h2 id="k-name">Kneipe</h2>
+      <p id="k-adresse" class="adresse"></p>
+    </div>
+
+    <div class="bierdeckel">
+      <span class="deckel-label">Challenge</span>
+      <h3 id="s-titel">…</h3>
+      <p id="s-text">…</p>
+    </div>
+
+    <div class="zaehler">
+      <span class="zaehler-lbl">Schlücke</span>
+      <div class="zaehler-steuerung">
+        <button id="schluck-minus" aria-label="weniger">–</button>
+        <span id="schluck-zahl" class="zaehler-zahl">0</span>
+        <button id="schluck-plus" aria-label="mehr">+</button>
+      </div>
+      <span class="zaehler-tipp">Ziel: so wenig wie möglich</span>
+    </div>
+
+    <button id="erledigt-btn" class="erledigt-btn">Als erledigt markieren</button>
+  </div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
