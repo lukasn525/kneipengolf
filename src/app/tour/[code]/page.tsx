@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useCallbackRef } from "@/components/useCallbackRef";
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useSession } from "@/components/SessionProvider";
 import { Guard } from "@/components/Guard";
@@ -31,6 +31,7 @@ function TourInner() {
   const { code } = useParams<{ code: string }>();
   const upper = (code || "").toUpperCase();
   const { user } = useSession();
+  const router = useRouter();
 
   const [tour, setTour] = useState<Tour | null>(null);
   const [stadt, setStadt] = useState<Stadt | null>(null);
@@ -118,6 +119,11 @@ function TourInner() {
     const { data } = await supabase().from("teilnehmer").select("*").eq("tour_id", tourId).order("erstellt_am");
     setTeilnehmer((data as Teilnehmer[]) ?? []);
   }
+
+  // Bei Tour-Ende automatisch zur Auswertung springen (für alle Geräte)
+  useEffect(() => {
+    if (tour?.status === "beendet") setTab("rangliste");
+  }, [tour?.status]);
 
   // ── Abgeleitet ─────────────────────────────────────────
   const istHost = tour?.host_user_id === user?.id;
@@ -268,10 +274,18 @@ function TourInner() {
       ) : (
         <div className="flex-1 overflow-auto mx-auto w-full max-w-md px-4 pb-6">
           <Ranglisten tour={tour} teilnehmer={teilnehmer} ergebnisse={ergebnisse} aktivId={aktivId} />
-          {istHost && (
+          {tour.status === "laufend" && istHost && (
             <Button variant="danger" className="w-full mt-4" onClick={() => setStatus("beendet")}>
               Tour beenden & auswerten
             </Button>
+          )}
+          {tour.status === "beendet" && (
+            <div className="mt-4 space-y-2">
+              <p className="text-center text-sm text-schaum/60">Die Tour ist beendet. 🍻</p>
+              <Button className="w-full" onClick={() => router.push("/dashboard")}>
+                Zurück zum Dashboard
+              </Button>
+            </div>
           )}
         </div>
       )}
