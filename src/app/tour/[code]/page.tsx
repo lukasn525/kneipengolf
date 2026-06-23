@@ -42,6 +42,7 @@ function TourInner() {
   const [ergebnisse, setErgebnisse] = useState<Ergebnis[]>([]);
   const [aktivId, setAktivId] = useState<string | null>(null);
   const [tab, setTab] = useState<"karte" | "rangliste">("karte");
+  const [aktionsFehler, setAktionsFehler] = useState<string | null>(null);
   const [panel, setPanel] = useState<TourKneipe | null>(null);
   const [ladefehler, setLadefehler] = useState<string | null>(null);
   const [bereit, setBereit] = useState(false);
@@ -125,6 +126,12 @@ function TourInner() {
     if (tour?.status === "beendet") setTab("rangliste");
   }, [tour?.status]);
 
+  useEffect(() => {
+    if (!aktionsFehler) return;
+    const t = setTimeout(() => setAktionsFehler(null), 5000);
+    return () => clearTimeout(t);
+  }, [aktionsFehler]);
+
   // ── Abgeleitet ─────────────────────────────────────────
   const istHost = tour?.host_user_id === user?.id;
   const erledigtSet = useMemo(() => {
@@ -146,11 +153,15 @@ function TourInner() {
   // ── Aktionen ───────────────────────────────────────────
   async function teilnehmerHinzufuegen(name: string, alsGeraet: boolean) {
     if (!tour || !name.trim()) return;
-    const { data } = await supabase()
+    const { data, error } = await supabase()
       .from("teilnehmer")
       .insert({ tour_id: tour.id, name: name.trim(), user_id: alsGeraet ? user?.id ?? null : null })
       .select()
       .single();
+    if (error) {
+      setAktionsFehler("Beitreten fehlgeschlagen: " + error.message);
+      return;
+    }
     if (data) {
       await ladeTeilnehmer(tour.id);
       if (alsGeraet) waehleAktiv((data as Teilnehmer).id);
@@ -174,9 +185,10 @@ function TourInner() {
       const rest = prev.filter((e) => !(e.tour_kneipe_id === kneipeId && e.teilnehmer_id === aktivId));
       return [...rest, { ...(bestehend ?? {}), ...merged, id: bestehend?.id ?? `tmp-${kneipeId}-${aktivId}` } as Ergebnis];
     });
-    await supabase()
+    const { error } = await supabase()
       .from("ergebnisse")
       .upsert(merged, { onConflict: "tour_id,tour_kneipe_id,teilnehmer_id" });
+    if (error) setAktionsFehler("Speichern fehlgeschlagen: " + error.message);
     await ladeErgebnisse(tour.id);
   }
 
@@ -218,12 +230,15 @@ function TourInner() {
         onWaehleAktiv={waehleAktiv}
         onAdd={teilnehmerHinzufuegen}
         onStart={() => setStatus("laufend")}
+        fehler={aktionsFehler}
+        onFehlerClose={() => setAktionsFehler(null)}
       />
     );
   }
 
   return (
     <div className="flex flex-col h-dvh">
+      {aktionsFehler && <Toast msg={aktionsFehler} onClose={() => setAktionsFehler(null)} />}
       <div className="mx-auto w-full max-w-md px-4">
         <TopBar />
       </div>
@@ -321,6 +336,17 @@ function TourInner() {
   );
 }
 
+function Toast({ msg, onClose }: { msg: string; onClose: () => void }) {
+  return (
+    <button
+      onClick={onClose}
+      className="fixed inset-x-0 top-3 z-[1100] mx-auto block w-fit max-w-[92%] rounded-xl bg-ziegel px-4 py-2 text-sm text-schaum shadow-lg"
+    >
+      {msg} ✕
+    </button>
+  );
+}
+
 // ── Lobby ────────────────────────────────────────────────
 function Lobby({
   tour,
@@ -330,6 +356,8 @@ function Lobby({
   onWaehleAktiv,
   onAdd,
   onStart,
+  fehler,
+  onFehlerClose,
 }: {
   tour: Tour;
   teilnehmer: Teilnehmer[];
@@ -338,6 +366,8 @@ function Lobby({
   onWaehleAktiv: (id: string) => void;
   onAdd: (name: string, alsGeraet: boolean) => void;
   onStart: () => void;
+  fehler?: string | null;
+  onFehlerClose?: () => void;
 }) {
   const [name, setName] = useState("");
   const [weitere, setWeitere] = useState("");
@@ -354,6 +384,7 @@ function Lobby({
 
   return (
     <Shell>
+      {fehler && <Toast msg={fehler} onClose={() => onFehlerClose?.()} />}
       <TopBar />
       <div className="space-y-5 mt-2">
         <Card className="text-center space-y-2">
@@ -506,7 +537,7 @@ function ChallengePanel({
   return (
     <div className="fixed inset-0 z-[1000] flex items-end justify-center bg-black/50" onClick={onClose}>
       <div
-        className="w-full max-w-md rounded-t-3xl bg-nacht-2 border-t border-[var(--linie)] p-5 pb-8 space-y-4"
+        className="w-full max-w-md rounded-t-3xl bg-nacht-2 border-t border-[var(--linie)] p-5 pb-8 space-y-4 max-h-[88dvh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between">

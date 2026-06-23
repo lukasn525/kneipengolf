@@ -190,13 +190,13 @@ function CreateInner() {
                     <span className="block truncate">{s.name}</span>
                     {s.adresse && <span className="block text-xs text-schaum/50 truncate">{s.adresse}</span>}
                   </span>
-                  <button onClick={() => move(i, -1)} className="px-2 text-schaum/60 hover:text-schaum" aria-label="hoch">
+                  <button onClick={() => move(i, -1)} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-schaum/70 hover:bg-nacht-2" aria-label="hoch">
                     ▲
                   </button>
-                  <button onClick={() => move(i, 1)} className="px-2 text-schaum/60 hover:text-schaum" aria-label="runter">
+                  <button onClick={() => move(i, 1)} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-schaum/70 hover:bg-nacht-2" aria-label="runter">
                     ▼
                   </button>
-                  <button onClick={() => entfernen(i)} className="px-2 text-ziegel hover:brightness-125" aria-label="entfernen">
+                  <button onClick={() => entfernen(i)} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-ziegel hover:bg-nacht-2" aria-label="entfernen">
                     ✕
                   </button>
                 </li>

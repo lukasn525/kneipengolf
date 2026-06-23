@@ -6,6 +6,9 @@ export const metadata: Metadata = {
   title: "Kneipen-Golf",
   description:
     "Spiel dich mit Freunden durch die Kneipen – wenig Schlücke, verrückte Spielformen, Golf-Wertung.",
+  manifest: "/manifest.json",
+  icons: { icon: "/icon-192.png", apple: "/apple-touch-icon.png" },
+  appleWebApp: { capable: true, title: "Kneipen-Golf", statusBarStyle: "black-translucent" },
 };
 
 export const viewport: Viewport = {
