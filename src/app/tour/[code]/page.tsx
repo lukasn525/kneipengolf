@@ -264,7 +264,14 @@ function TourInner() {
 
       {tab === "karte" ? (
         <div className="relative flex-1 min-h-0">
-          <Map stops={kneipen} erledigt={erledigtSet} onPin={setPanel} center={center} zoom={stadt?.zoom ?? 14} />
+          <Map
+            stops={kneipen}
+            erledigt={erledigtSet}
+            onPin={setPanel}
+            center={center}
+            zoom={stadt?.zoom ?? 14}
+            glas={tour.glas_typ ?? "bier"}
+          />
           {!aktivId && (
             <div className="absolute inset-x-0 top-2 mx-auto w-fit rounded-full bg-ziegel px-4 py-2 text-sm">
               Wähle oben deinen Spieler, dann tippe eine Kneipe an.

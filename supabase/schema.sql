@@ -57,8 +57,12 @@ create table if not exists touren (
   strafe_pro_schluck  int     default 1,
   verweigerung_strafe int     default 5,
   status              text    default 'lobby',   -- lobby | laufend | beendet
+  glas_typ            text    default 'bier',    -- bier | wein | sekt | cocktail (Pin-Symbol)
   erstellt_am         timestamptz default now()
 );
+
+-- Falls die Tabelle schon existierte (fruehere Version): Spalte nachruesten
+alter table touren add column if not exists glas_typ text default 'bier';
 
 -- Konkrete, sortierte Route dieser Tour (Kopie aus Vorlage + eigene Stops)
 create table if not exists tour_kneipen (

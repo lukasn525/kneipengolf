@@ -37,8 +37,11 @@ export type Tour = {
   strafe_pro_schluck: number;
   verweigerung_strafe: number;
   status: TourStatus;
+  glas_typ: GlasTyp;
   erstellt_am: string;
 };
+
+export type GlasTyp = "bier" | "wein" | "sekt" | "cocktail";
 
 export type TourKneipe = {
   id: string;

@@ -8,7 +8,9 @@ import { Guard } from "@/components/Guard";
 import { TopBar } from "@/components/TopBar";
 import { Button, Card, Field, Input, Shell } from "@/components/ui";
 import { tourCode, zieheSpielform } from "@/lib/game";
-import type { KneipenVorlage, Spielform, Stadt } from "@/lib/types";
+import { GlasIcon } from "@/components/GlasIcon";
+import { GLAESER } from "@/lib/glas";
+import type { GlasTyp, KneipenVorlage, Spielform, Stadt } from "@/lib/types";
 
 type Stop = { name: string; lat: number; lng: number; adresse: string | null };
 
@@ -25,6 +27,7 @@ function CreateInner() {
   const [strafeAktiv, setStrafeAktiv] = useState(true);
   const [strafeProSchluck, setStrafeProSchluck] = useState(1);
   const [verweigerung, setVerweigerung] = useState(5);
+  const [glas, setGlas] = useState<GlasTyp>("bier");
   const [busy, setBusy] = useState(false);
   const [fehler, setFehler] = useState<string | null>(null);
 
@@ -98,6 +101,7 @@ function CreateInner() {
           strafe_aktiv: strafeAktiv,
           strafe_pro_schluck: strafeProSchluck,
           verweigerung_strafe: verweigerung,
+          glas_typ: glas,
           status: "lobby",
         })
         .select()
@@ -209,6 +213,31 @@ function CreateInner() {
               <p className="text-xs text-schaum/40">
                 Eigene Stops landen am Stadtzentrum – die genaue Position lässt sich später auf der Karte feinjustieren.
               </p>
+            </div>
+          </Card>
+        )}
+
+        {stadt && (
+          <Card className="space-y-3">
+            <h2 className="font-display text-xl">Pin-Symbol</h2>
+            <p className="text-sm text-schaum/60">Welches Glas markiert die Kneipen auf der Karte?</p>
+            <div className="grid grid-cols-4 gap-2">
+              {GLAESER.map((g) => (
+                <button
+                  key={g.typ}
+                  onClick={() => setGlas(g.typ)}
+                  className={`flex flex-col items-center gap-1 rounded-xl border px-2 py-3 transition ${
+                    glas === g.typ
+                      ? "border-bernstein bg-nacht-3"
+                      : "border-[var(--linie)] bg-nacht-2 hover:bg-nacht-3"
+                  }`}
+                >
+                  <span className="grid h-11 w-11 place-items-center rounded-full bg-schaum">
+                    <GlasIcon typ={g.typ} size={30} />
+                  </span>
+                  <span className="text-xs text-schaum/80">{g.label}</span>
+                </button>
+              ))}
             </div>
           </Card>
         )}

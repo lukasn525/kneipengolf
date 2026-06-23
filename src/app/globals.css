@@ -39,31 +39,19 @@ h3,
   background: #1a140e;
 }
 
-/* Kneipen-Pin */
+/* Kneipen-Pin (SVG-Tropfen mit Comic-Glas) */
 .kneipe-pin {
-  display: grid;
-  place-items: center;
+  background: none;
+  border: none;
 }
-.kneipe-pin span {
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 50% 50% 50% 0;
-  transform: rotate(-45deg);
-  background: var(--bernstein);
-  color: #2a1d0a;
-  border: 2px solid #2a1d0a;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
-  font-size: 18px;
+.kneipe-pin svg {
+  display: block;
+  filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.45));
+  transition: transform 0.12s ease;
+  transform-origin: 50% 100%;
 }
-.kneipe-pin span i {
-  transform: rotate(45deg);
-  font-style: normal;
-}
-.kneipe-pin.erledigt span {
-  background: var(--moos, #6b8f5e);
-  color: #0d1a0a;
+.kneipe-pin:hover svg {
+  transform: scale(1.08);
 }
 
 /* sanftes Panel-Slide */
