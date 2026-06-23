@@ -140,11 +140,37 @@ create policy "touren_neu"    on touren for insert to authenticated with check (
 create policy "touren_aend"   on touren for update to authenticated using (host_user_id = auth.uid()) with check (host_user_id = auth.uid());
 create policy "touren_loesch" on touren for delete to authenticated using (host_user_id = auth.uid());
 
--- Spiel-Tabellen: für Angemeldete offen (erster Test)
-create policy "tk_alle" on tour_kneipen      for all to authenticated using (true) with check (true);
-create policy "tn_alle" on teilnehmer        for all to authenticated using (true) with check (true);
-create policy "kc_alle" on kneipen_challenge for all to authenticated using (true) with check (true);
-create policy "er_alle" on ergebnisse        for all to authenticated using (true) with check (true);
+-- Spiel-Tabellen: mitgliedschaftsbasiert (Host oder Teilnehmer der Tour).
+-- Helper-Funktion (SECURITY DEFINER umgeht RLS im Inneren -> keine Rekursion):
+create or replace function public.darf_tour(t uuid)
+returns boolean language sql security definer set search_path = public stable as $func$
+  select exists (select 1 from touren     where id = t      and host_user_id = auth.uid())
+      or exists (select 1 from teilnehmer where tour_id = t and user_id      = auth.uid());
+$func$;
+grant execute on function public.darf_tour(uuid) to authenticated;
+
+-- tour_kneipen: lesen Mitglieder/Host, schreiben nur Host
+create policy "tk_lesen" on tour_kneipen for select to authenticated using (darf_tour(tour_id));
+create policy "tk_host"  on tour_kneipen for all to authenticated
+  using      (exists (select 1 from touren where id = tour_id and host_user_id = auth.uid()))
+  with check (exists (select 1 from touren where id = tour_id and host_user_id = auth.uid()));
+
+-- kneipen_challenge: lesen Mitglieder/Host, schreiben nur Host
+create policy "kc_lesen" on kneipen_challenge for select to authenticated using (darf_tour(tour_id));
+create policy "kc_host"  on kneipen_challenge for all to authenticated
+  using      (exists (select 1 from touren where id = tour_id and host_user_id = auth.uid()))
+  with check (exists (select 1 from touren where id = tour_id and host_user_id = auth.uid()));
+
+-- teilnehmer: lesen Mitglieder/Host, beitreten (selbst) oder als Mitglied, löschen Host/selbst
+create policy "tn_lesen"     on teilnehmer for select to authenticated using (darf_tour(tour_id));
+create policy "tn_beitreten" on teilnehmer for insert to authenticated
+  with check (user_id = auth.uid() or darf_tour(tour_id));
+create policy "tn_verwalten" on teilnehmer for delete to authenticated
+  using (user_id = auth.uid() or exists (select 1 from touren where id = tour_id and host_user_id = auth.uid()));
+
+-- ergebnisse: nur Mitglieder/Host lesen & schreiben
+create policy "er_mitglied" on ergebnisse for all to authenticated
+  using (darf_tour(tour_id)) with check (darf_tour(tour_id));
 
 -- ════════════════════════════════════════════════════════════════
 -- Seed: Spielformen (alkoholneutral – „Getränk“ statt „Bier“)
