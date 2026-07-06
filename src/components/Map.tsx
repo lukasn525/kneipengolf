@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Polyline, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { TourKneipe, GlasTyp } from "@/lib/types";
@@ -61,6 +61,7 @@ export default function Map({
   center,
   zoom = 14,
   glas = "bier",
+  route = false,
 }: {
   stops: TourKneipe[];
   erledigt: Set<string>;
@@ -68,6 +69,8 @@ export default function Map({
   center: [number, number];
   zoom?: number;
   glas?: GlasTyp;
+  /** Zeichnet eine gestrichelte Linie in Stop-Reihenfolge (Routenvorschau). */
+  route?: boolean;
 }) {
   return (
     <MapContainer center={center} zoom={zoom} zoomControl={false} className="h-full w-full">
@@ -79,6 +82,12 @@ export default function Map({
         detectRetina
       />
       <FitBounds stops={stops} />
+      {route && stops.length > 1 && (
+        <Polyline
+          positions={stops.map((s) => [s.lat, s.lng] as [number, number])}
+          pathOptions={{ color: "#f6b943", weight: 3, opacity: 0.7, dashArray: "6 8" }}
+        />
+      )}
       {stops.map((k, i) => (
         <Marker
           key={k.id}

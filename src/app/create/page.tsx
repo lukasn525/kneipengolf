@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useSession } from "@/components/SessionProvider";
@@ -10,9 +11,17 @@ import { Button, Card, Field, Input, Shell } from "@/components/ui";
 import { tourCode, zieheSpielform } from "@/lib/game";
 import { GlasIcon } from "@/components/GlasIcon";
 import { GLAESER } from "@/lib/glas";
+import { AdressSuche, type GeoTreffer } from "@/components/AdressSuche";
 import type { GlasTyp, KneipenVorlage, Spielform, Stadt } from "@/lib/types";
 
 type Stop = { name: string; lat: number; lng: number; adresse: string | null };
+
+const Map = dynamic(() => import("@/components/Map"), {
+  ssr: false,
+  loading: () => (
+    <div className="grid h-full w-full place-items-center text-sm text-schaum/40">Karte lädt…</div>
+  ),
+});
 
 function CreateInner() {
   const router = useRouter();
@@ -31,11 +40,23 @@ function CreateInner() {
   const [busy, setBusy] = useState(false);
   const [fehler, setFehler] = useState<string | null>(null);
 
-  // eigene Kneipe
+  const [eigenerModus, setEigenerModus] = useState(false);
+
+  // eigene Kneipe (per Adresssuche, echte Koordinaten)
   const [neuName, setNeuName] = useState("");
-  const [neuAdresse, setNeuAdresse] = useState("");
+  const [neuTreffer, setNeuTreffer] = useState<GeoTreffer | null>(null);
 
   const stadt = useMemo(() => staedte.find((s) => s.id === stadtId) ?? null, [staedte, stadtId]);
+  const aktiv = Boolean(stadt) || eigenerModus;
+  const mapCenter = useMemo<[number, number]>(() => {
+    if (stops.length) {
+      const la = stops.reduce((a, s) => a + s.lat, 0) / stops.length;
+      const ln = stops.reduce((a, s) => a + s.lng, 0) / stops.length;
+      return [la, ln];
+    }
+    if (stadt) return [stadt.lat, stadt.lng];
+    return [51.1657, 10.4515]; // Deutschland-Mitte als Fallback
+  }, [stops, stadt]);
 
   useEffect(() => {
     const sb = supabase();
@@ -44,6 +65,7 @@ function CreateInner() {
   }, []);
 
   async function stadtWaehlen(id: number) {
+    setEigenerModus(false);
     setStadtId(id);
     const { data } = await supabase()
       .from("kneipen_vorlage")
@@ -52,6 +74,12 @@ function CreateInner() {
       .order("sortierung");
     const vs = (data as KneipenVorlage[]) ?? [];
     setStops(vs.map((v) => ({ name: v.name, lat: v.lat, lng: v.lng, adresse: v.adresse })));
+  }
+
+  function eigeneStadtWaehlen() {
+    setEigenerModus(true);
+    setStadtId(null);
+    setStops([]);
   }
 
   function move(i: number, dir: -1 | 1) {
@@ -67,35 +95,33 @@ function CreateInner() {
     setStops((prev) => prev.filter((_, k) => k !== i));
   }
   function eigeneHinzufuegen() {
-    if (!neuName.trim() || !stadt) return;
-    // Position nahe dem Stadtzentrum (leichter Zufallsversatz, spaeter anpassbar)
-    const off = () => (Math.random() - 0.5) * 0.01;
+    if (!neuTreffer) return;
     setStops((prev) => [
       ...prev,
       {
-        name: neuName.trim(),
-        adresse: neuAdresse.trim() || null,
-        lat: stadt.lat + off(),
-        lng: stadt.lng + off(),
+        name: neuName.trim() || neuTreffer.name,
+        adresse: neuTreffer.label,
+        lat: neuTreffer.lat,
+        lng: neuTreffer.lng,
       },
     ]);
     setNeuName("");
-    setNeuAdresse("");
+    setNeuTreffer(null);
   }
 
   async function erstellen() {
-    if (!user || !stadt || stops.length === 0) return;
+    if (!user || stops.length === 0 || (!stadt && !eigenerModus)) return;
     setBusy(true);
     setFehler(null);
     const sb = supabase();
     try {
-      const code = tourCode(stadt.name);
+      const code = tourCode(stadt ? stadt.name : name || "TOUR");
       const { data: tour, error: e1 } = await sb
         .from("touren")
         .insert({
           code,
           name: name.trim() || null,
-          stadt_id: stadt.id,
+          stadt_id: stadt ? stadt.id : null,
           host_user_id: user.id,
           par_schwelle: par,
           strafe_aktiv: strafeAktiv,
@@ -167,17 +193,29 @@ function CreateInner() {
                   Keine Städte gefunden. Wurde das SQL-Schema in Supabase ausgeführt?
                 </p>
               )}
+              <button
+                onClick={eigeneStadtWaehlen}
+                className={`col-span-2 rounded-xl border px-4 py-3 text-left transition ${
+                  eigenerModus
+                    ? "border-bernstein bg-nacht-3"
+                    : "border-dashed border-[var(--linie)] bg-nacht-2 hover:bg-nacht-3"
+                }`}
+              >
+                ✏️ Eigene Stadt / Route
+              </button>
             </div>
           </Field>
         </Card>
 
-        {stadt && (
+        {aktiv && (
           <Card className="space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="font-display text-xl">Route ({stops.length} Stops)</h2>
             </div>
             <p className="text-sm text-schaum/60">
-              Reihenfolge anpassen, Stops entfernen oder eigene Kneipen ergänzen.
+              {eigenerModus
+                ? "Stops per Adresssuche hinzufügen, Reihenfolge anpassen, entfernen."
+                : "Reihenfolge anpassen, Stops entfernen oder eigene Kneipen ergänzen."}
             </p>
             <ul className="space-y-2">
               {stops.map((s, i) => (
@@ -203,21 +241,54 @@ function CreateInner() {
               ))}
             </ul>
 
+            {stops.length > 0 && (
+              <div className="h-64 overflow-hidden rounded-xl border border-[var(--linie)]">
+                <Map
+                  stops={stops.map((s, i) => ({
+                    id: String(i),
+                    tour_id: "",
+                    name: s.name,
+                    lat: s.lat,
+                    lng: s.lng,
+                    adresse: s.adresse,
+                    position: i,
+                  }))}
+                  erledigt={new Set<string>()}
+                  onPin={() => {}}
+                  center={mapCenter}
+                  glas={glas}
+                  route
+                />
+              </div>
+            )}
+
             <div className="rounded-xl border border-dashed border-[var(--linie)] p-3 space-y-2">
               <span className="text-sm text-schaum/70">Eigene Kneipe hinzufügen</span>
-              <Input value={neuName} onChange={(e) => setNeuName(e.target.value)} placeholder="Name" />
-              <Input value={neuAdresse} onChange={(e) => setNeuAdresse(e.target.value)} placeholder="Adresse (optional)" />
-              <Button variant="ghost" className="w-full" onClick={eigeneHinzufuegen} disabled={!neuName.trim()}>
+              <AdressSuche
+                naehe={stadt ? [stadt.lat, stadt.lng] : null}
+                placeholder="Adresse oder Name suchen…"
+                onWaehlen={(t) => {
+                  setNeuTreffer(t);
+                  setNeuName((prev) => prev || t.name);
+                }}
+              />
+              {neuTreffer && (
+                <div className="space-y-2 rounded-lg border border-[var(--linie)] bg-nacht-2 p-2">
+                  <Input value={neuName} onChange={(e) => setNeuName(e.target.value)} placeholder="Anzeigename" />
+                  <p className="truncate text-xs text-schaum/50">📍 {neuTreffer.label}</p>
+                </div>
+              )}
+              <Button variant="ghost" className="w-full" onClick={eigeneHinzufuegen} disabled={!neuTreffer}>
                 + Hinzufügen
               </Button>
               <p className="text-xs text-schaum/40">
-                Eigene Stops landen am Stadtzentrum – die genaue Position lässt sich später auf der Karte feinjustieren.
+                Adresse suchen und auswählen – der Stop wird exakt an dieser Position gesetzt.
               </p>
             </div>
           </Card>
         )}
 
-        {stadt && (
+        {aktiv && (
           <Card className="space-y-3">
             <h2 className="font-display text-xl">Pin-Symbol</h2>
             <p className="text-sm text-schaum/60">Welches Glas markiert die Kneipen auf der Karte?</p>
@@ -242,7 +313,7 @@ function CreateInner() {
           </Card>
         )}
 
-        {stadt && (
+        {aktiv && (
           <Card className="space-y-4">
             <h2 className="font-display text-xl">Golf-Wertung</h2>
             <Field label={`Par-Schwelle: ${par} Schlücke`}>
@@ -292,7 +363,7 @@ function CreateInner() {
         {fehler && <p className="text-sm text-ziegel">{fehler}</p>}
       </div>
 
-      {stadt && stops.length > 0 && (
+      {aktiv && stops.length > 0 && (
         <div className="fixed inset-x-0 bottom-0 border-t border-[var(--linie)] bg-nacht/95 backdrop-blur p-4">
           <div className="mx-auto max-w-md">
             <Button className="w-full" onClick={erstellen} disabled={busy}>
