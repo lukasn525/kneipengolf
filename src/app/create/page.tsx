@@ -59,6 +59,7 @@ function CreateInner() {
   const [vorlagen, setVorlagen] = useState<KneipenVorlage[]>([]);
   const [pickerOffen, setPickerOffen] = useState(false);
   const [pickerTab, setPickerTab] = useState<"liste" | "selbst">("liste");
+  const [erweitertOffen, setErweitertOffen] = useState(false);
 
   const stadt = useMemo(() => staedte.find((s) => s.id === stadtId) ?? null, [staedte, stadtId]);
   const aktiv = Boolean(stadt) || eigenerModus;
@@ -381,73 +382,93 @@ function CreateInner() {
 
         {aktiv && (
           <Card className="space-y-3">
-            <h2 className="font-display text-xl">Pin-Symbol</h2>
-            <p className="text-sm text-schaum/60">Welches Glas markiert die Kneipen auf der Karte?</p>
-            <div className="grid grid-cols-4 gap-2">
-              {GLAESER.map((g) => (
-                <button
-                  key={g.typ}
-                  onClick={() => setGlas(g.typ)}
-                  className={`flex flex-col items-center gap-1 rounded-xl border px-2 py-3 transition ${
-                    glas === g.typ
-                      ? "border-bernstein bg-nacht-3"
-                      : "border-[var(--linie)] bg-nacht-2 hover:bg-nacht-3"
-                  }`}
-                >
-                  <span className="grid h-11 w-11 place-items-center rounded-full bg-schaum">
-                    <GlasIcon typ={g.typ} size={30} />
-                  </span>
-                  <span className="text-xs text-schaum/80">{g.label}</span>
-                </button>
-              ))}
-            </div>
-          </Card>
-        )}
+            <button
+              type="button"
+              onClick={() => setErweitertOffen((o) => !o)}
+              className="flex w-full items-center justify-between text-left"
+            >
+              <span className="font-display text-xl">Erweiterte Einstellungen</span>
+              <span className="text-sm text-schaum/50">{erweitertOffen ? "▲ zu" : "▼ auf"}</span>
+            </button>
 
-        {aktiv && (
-          <Card className="space-y-4">
-            <h2 className="font-display text-xl">Golf-Wertung</h2>
-            <Field label={`Par-Schwelle: ${par} Schlücke`}>
-              <input
-                type="range"
-                min={1}
-                max={8}
-                value={par}
-                onChange={(e) => setPar(Number(e.target.value))}
-                className="w-full accent-bernstein"
-              />
-            </Field>
-            <label className="flex items-center gap-3">
-              <input
-                type="checkbox"
-                checked={strafeAktiv}
-                onChange={(e) => setStrafeAktiv(e.target.checked)}
-                className="h-5 w-5 accent-bernstein"
-              />
-              <span className="text-sm">Strafpunkte über Par aktiv</span>
-            </label>
-            {strafeAktiv && (
-              <Field label={`Strafpunkte pro Schluck über Par: ${strafeProSchluck}`}>
-                <input
-                  type="range"
-                  min={1}
-                  max={5}
-                  value={strafeProSchluck}
-                  onChange={(e) => setStrafeProSchluck(Number(e.target.value))}
-                  className="w-full accent-bernstein"
-                />
-              </Field>
+            {!erweitertOffen ? (
+              <p className="text-xs text-schaum/50">
+                Par {par} · {strafeAktiv ? "Strafpunkte an" : "Strafpunkte aus"} · Pin:{" "}
+                {GLAESER.find((g) => g.typ === glas)?.label}
+              </p>
+            ) : (
+              <div className="space-y-6 pt-1">
+                <div className="space-y-2">
+                  <h3 className="font-display text-lg">Pin-Symbol</h3>
+                  <p className="text-sm text-schaum/60">
+                    Welches Glas markiert die Kneipen auf der Karte?
+                  </p>
+                  <div className="grid grid-cols-4 gap-2">
+                    {GLAESER.map((g) => (
+                      <button
+                        key={g.typ}
+                        onClick={() => setGlas(g.typ)}
+                        className={`flex flex-col items-center gap-1 rounded-xl border px-2 py-3 transition ${
+                          glas === g.typ
+                            ? "border-bernstein bg-nacht-3"
+                            : "border-[var(--linie)] bg-nacht-2 hover:bg-nacht-3"
+                        }`}
+                      >
+                        <span className="grid h-11 w-11 place-items-center rounded-full bg-schaum">
+                          <GlasIcon typ={g.typ} size={30} />
+                        </span>
+                        <span className="text-xs text-schaum/80">{g.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h3 className="font-display text-lg">Golf-Wertung</h3>
+                  <Field label={`Par-Schwelle: ${par} Schlücke`}>
+                    <input
+                      type="range"
+                      min={1}
+                      max={8}
+                      value={par}
+                      onChange={(e) => setPar(Number(e.target.value))}
+                      className="w-full accent-bernstein"
+                    />
+                  </Field>
+                  <label className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={strafeAktiv}
+                      onChange={(e) => setStrafeAktiv(e.target.checked)}
+                      className="h-5 w-5 accent-bernstein"
+                    />
+                    <span className="text-sm">Strafpunkte über Par aktiv</span>
+                  </label>
+                  {strafeAktiv && (
+                    <Field label={`Strafpunkte pro Schluck über Par: ${strafeProSchluck}`}>
+                      <input
+                        type="range"
+                        min={1}
+                        max={5}
+                        value={strafeProSchluck}
+                        onChange={(e) => setStrafeProSchluck(Number(e.target.value))}
+                        className="w-full accent-bernstein"
+                      />
+                    </Field>
+                  )}
+                  <Field label={`Strafschlücke bei „nicht machbar“: ${verweigerung}`}>
+                    <input
+                      type="range"
+                      min={0}
+                      max={10}
+                      value={verweigerung}
+                      onChange={(e) => setVerweigerung(Number(e.target.value))}
+                      className="w-full accent-bernstein"
+                    />
+                  </Field>
+                </div>
+              </div>
             )}
-            <Field label={`Strafschlücke bei „nicht machbar“: ${verweigerung}`}>
-              <input
-                type="range"
-                min={0}
-                max={10}
-                value={verweigerung}
-                onChange={(e) => setVerweigerung(Number(e.target.value))}
-                className="w-full accent-bernstein"
-              />
-            </Field>
           </Card>
         )}
 
