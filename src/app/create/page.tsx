@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
@@ -52,6 +52,8 @@ function CreateInner() {
   const [pendingBusy, setPendingBusy] = useState(false);
   const [flyTo, setFlyTo] = useState<[number, number] | null>(null);
   const [routeCoords, setRouteCoords] = useState<[number, number][]>([]);
+  const routeReqId = useRef(0); // stellt sicher, dass nur die neueste Route greift
+  const eigeneIdRef = useRef(0); // eindeutige (negative) IDs für selbst gesetzte Kneipen
 
   // Kneipen-Auswahl
   const [vorlagen, setVorlagen] = useState<KneipenVorlage[]>([]);
@@ -78,21 +80,20 @@ function CreateInner() {
     setSpielModus(getStandardModus()); // Voreinstellung aus den Einstellungen
   }, []);
 
-  // Straßenfolgende Route aktualisieren, wenn sich die Stops ändern
+  // Route neu berechnen, sobald sich die Stops ändern.
+  // Die gezeichnete Linie muss immer zur aktuellen Reihenfolge passen:
+  // - solide Route sofort verwerfen (in der Zwischenzeit zeigt die Karte die
+  //   gestrichelte Verbindung in korrekter Reihenfolge, nie eine veraltete Route)
+  // - nur die jeweils neueste Antwort anwenden (keine Races bei schnellem Add/Delete)
   useEffect(() => {
-    if (stops.length < 2) {
-      setRouteCoords([]);
-      return;
-    }
-    let abbruch = false;
+    setRouteCoords([]);
+    if (stops.length < 2) return;
+    const reqId = ++routeReqId.current;
     const t = setTimeout(async () => {
       const r = await holeRoute(stops.map((s) => [s.lat, s.lng] as [number, number]));
-      if (!abbruch) setRouteCoords(r?.coords ?? []);
-    }, 400);
-    return () => {
-      abbruch = true;
-      clearTimeout(t);
-    };
+      if (reqId === routeReqId.current) setRouteCoords(r?.coords ?? []);
+    }, 350);
+    return () => clearTimeout(t);
   }, [stops]);
 
   async function stadtWaehlen(id: number) {
@@ -158,9 +159,22 @@ function CreateInner() {
   }
   function pendingBestaetigen() {
     if (!pending || !pending.name.trim()) return;
+    // Selbst gesetzte Kneipe bekommt eine eigene (negative) ID und landet auch
+    // im Auswahl-Pool -> danach unter "Aus Liste" wieder auswählbar.
+    const id = --eigeneIdRef.current;
+    const eigene: KneipenVorlage = {
+      id,
+      stadt_id: stadt?.id ?? 0,
+      name: pending.name.trim(),
+      lat: pending.lat,
+      lng: pending.lng,
+      adresse: pending.adresse,
+      sortierung: 0,
+    };
+    setVorlagen((prev) => [...prev, eigene]);
     setStops((prev) => [
       ...prev,
-      { name: pending.name.trim(), adresse: pending.adresse, lat: pending.lat, lng: pending.lng },
+      { vorlageId: id, name: eigene.name, lat: eigene.lat, lng: eigene.lng, adresse: eigene.adresse },
     ]);
     setPending(null);
   }
