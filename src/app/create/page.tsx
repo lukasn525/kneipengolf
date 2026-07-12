@@ -12,6 +12,7 @@ import { tourCode, zieheSpielform } from "@/lib/game";
 import { GlasIcon } from "@/components/GlasIcon";
 import { GLAESER } from "@/lib/glas";
 import { AdressSuche, type GeoTreffer } from "@/components/AdressSuche";
+import { holeRoute, reverseGeocode } from "@/lib/nav";
 import type { GlasTyp, KneipenVorlage, SpielModus, Spielform, Stadt } from "@/lib/types";
 
 type Stop = { name: string; lat: number; lng: number; adresse: string | null };
@@ -43,9 +44,13 @@ function CreateInner() {
 
   const [eigenerModus, setEigenerModus] = useState(false);
 
-  // eigene Kneipe (per Adresssuche, echte Koordinaten)
-  const [neuName, setNeuName] = useState("");
-  const [neuTreffer, setNeuTreffer] = useState<GeoTreffer | null>(null);
+  // Stop-Erstellung: Vorschau-Pin (per Kartentipp oder Suche), verschiebbar
+  const [pending, setPending] = useState<
+    { lat: number; lng: number; name: string; adresse: string | null } | null
+  >(null);
+  const [pendingBusy, setPendingBusy] = useState(false);
+  const [flyTo, setFlyTo] = useState<[number, number] | null>(null);
+  const [routeCoords, setRouteCoords] = useState<[number, number][]>([]);
 
   const stadt = useMemo(() => staedte.find((s) => s.id === stadtId) ?? null, [staedte, stadtId]);
   const aktiv = Boolean(stadt) || eigenerModus;
@@ -64,6 +69,23 @@ function CreateInner() {
     sb.from("staedte").select("*").order("name").then(({ data }) => setStaedte((data as Stadt[]) ?? []));
     sb.from("spielformen").select("*").then(({ data }) => setSpielformen((data as Spielform[]) ?? []));
   }, []);
+
+  // Straßenfolgende Route aktualisieren, wenn sich die Stops ändern
+  useEffect(() => {
+    if (stops.length < 2) {
+      setRouteCoords([]);
+      return;
+    }
+    let abbruch = false;
+    const t = setTimeout(async () => {
+      const r = await holeRoute(stops.map((s) => [s.lat, s.lng] as [number, number]));
+      if (!abbruch) setRouteCoords(r?.coords ?? []);
+    }, 400);
+    return () => {
+      abbruch = true;
+      clearTimeout(t);
+    };
+  }, [stops]);
 
   async function stadtWaehlen(id: number) {
     setEigenerModus(false);
@@ -95,19 +117,36 @@ function CreateInner() {
   function entfernen(i: number) {
     setStops((prev) => prev.filter((_, k) => k !== i));
   }
-  function eigeneHinzufuegen() {
-    if (!neuTreffer) return;
+  async function aufKarteTippen(lat: number, lng: number) {
+    setPending({ lat, lng, name: "", adresse: null });
+    setPendingBusy(true);
+    const rev = await reverseGeocode(lat, lng);
+    setPending((p) =>
+      p ? { ...p, name: p.name || (rev?.name ?? ""), adresse: rev?.label ?? p.adresse } : p
+    );
+    setPendingBusy(false);
+  }
+  function ausSucheWaehlen(t: GeoTreffer) {
+    setPending({ lat: t.lat, lng: t.lng, name: t.name, adresse: t.label });
+    setFlyTo([t.lat, t.lng]);
+  }
+  async function pendingBewegt(lat: number, lng: number) {
+    setPending((p) => (p ? { ...p, lat, lng } : p));
+    setPendingBusy(true);
+    const rev = await reverseGeocode(lat, lng);
+    setPending((p) => (p ? { ...p, adresse: rev?.label ?? p.adresse } : p));
+    setPendingBusy(false);
+  }
+  function pendingBestaetigen() {
+    if (!pending || !pending.name.trim()) return;
     setStops((prev) => [
       ...prev,
-      {
-        name: neuName.trim() || neuTreffer.name,
-        adresse: neuTreffer.label,
-        lat: neuTreffer.lat,
-        lng: neuTreffer.lng,
-      },
+      { name: pending.name.trim(), adresse: pending.adresse, lat: pending.lat, lng: pending.lng },
     ]);
-    setNeuName("");
-    setNeuTreffer(null);
+    setPending(null);
+  }
+  function pendingVerwerfen() {
+    setPending(null);
   }
 
   async function erstellen() {
@@ -236,78 +275,93 @@ function CreateInner() {
               <h2 className="font-display text-xl">Route ({stops.length} Stops)</h2>
             </div>
             <p className="text-sm text-schaum/60">
-              {eigenerModus
-                ? "Stops per Adresssuche hinzufügen, Reihenfolge anpassen, entfernen."
-                : "Reihenfolge anpassen, Stops entfernen oder eigene Kneipen ergänzen."}
+              Tippe auf die Karte, um einen Stop zu setzen – oder such eine Adresse. Den Pin kannst
+              du für die exakte Position verschieben.
             </p>
-            <ul className="space-y-2">
-              {stops.map((s, i) => (
-                <li
-                  key={i}
-                  className="flex items-center gap-2 rounded-xl bg-nacht-3 border border-[var(--linie)] px-3 py-2"
-                >
-                  <span className="mono text-bernstein w-6 text-center">{i + 1}</span>
-                  <span className="flex-1 min-w-0">
-                    <span className="block truncate">{s.name}</span>
-                    {s.adresse && <span className="block text-xs text-schaum/50 truncate">{s.adresse}</span>}
-                  </span>
-                  <button onClick={() => move(i, -1)} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-schaum/70 hover:bg-nacht-2" aria-label="hoch">
-                    ▲
-                  </button>
-                  <button onClick={() => move(i, 1)} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-schaum/70 hover:bg-nacht-2" aria-label="runter">
-                    ▼
-                  </button>
-                  <button onClick={() => entfernen(i)} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-ziegel hover:bg-nacht-2" aria-label="entfernen">
-                    ✕
-                  </button>
-                </li>
-              ))}
-            </ul>
 
-            {stops.length > 0 && (
-              <div className="h-64 overflow-hidden rounded-xl border border-[var(--linie)]">
-                <Map
-                  stops={stops.map((s, i) => ({
-                    id: String(i),
-                    tour_id: "",
-                    name: s.name,
-                    lat: s.lat,
-                    lng: s.lng,
-                    adresse: s.adresse,
-                    position: i,
-                  }))}
-                  erledigt={new Set<string>()}
-                  onPin={() => {}}
-                  center={mapCenter}
-                  glas={glas}
-                  route
+            <AdressSuche
+              naehe={stadt ? [stadt.lat, stadt.lng] : null}
+              placeholder="Adresse oder Kneipe suchen…"
+              onWaehlen={ausSucheWaehlen}
+            />
+
+            <div className="relative h-72 overflow-hidden rounded-xl border border-[var(--linie)]">
+              <Map
+                stops={stops.map((s, i) => ({
+                  id: String(i),
+                  tour_id: "",
+                  name: s.name,
+                  lat: s.lat,
+                  lng: s.lng,
+                  adresse: s.adresse,
+                  position: i,
+                }))}
+                erledigt={new Set<string>()}
+                onPin={() => {}}
+                center={mapCenter}
+                zoom={stadt?.zoom ?? (stops.length ? 15 : 6)}
+                glas={glas}
+                routeCoords={routeCoords}
+                route
+                onMapClick={aufKarteTippen}
+                pending={pending ? [pending.lat, pending.lng] : null}
+                onPendingMove={pendingBewegt}
+                flyTo={flyTo}
+              />
+              {pendingBusy && (
+                <div className="absolute left-2 top-2 rounded-full bg-nacht/90 px-3 py-1 text-xs text-schaum/80">
+                  Adresse wird gesucht…
+                </div>
+              )}
+            </div>
+
+            {pending && (
+              <div className="space-y-2 rounded-xl border border-bernstein/50 bg-nacht-3 p-3">
+                <span className="text-sm text-schaum/70">Neuen Stop hinzufügen</span>
+                <Input
+                  value={pending.name}
+                  onChange={(e) => setPending((p) => (p ? { ...p, name: e.target.value } : p))}
+                  placeholder="Name der Kneipe"
                 />
+                <p className="truncate text-xs text-schaum/50">
+                  📍 {pending.adresse ?? "Position auf der Karte gewählt"}
+                </p>
+                <div className="flex gap-2">
+                  <Button className="flex-1" onClick={pendingBestaetigen} disabled={!pending.name.trim()}>
+                    + Als Stop hinzufügen
+                  </Button>
+                  <Button variant="ghost" onClick={pendingVerwerfen}>
+                    Verwerfen
+                  </Button>
+                </div>
               </div>
             )}
 
-            <div className="rounded-xl border border-dashed border-[var(--linie)] p-3 space-y-2">
-              <span className="text-sm text-schaum/70">Eigene Kneipe hinzufügen</span>
-              <AdressSuche
-                naehe={stadt ? [stadt.lat, stadt.lng] : null}
-                placeholder="Adresse oder Name suchen…"
-                onWaehlen={(t) => {
-                  setNeuTreffer(t);
-                  setNeuName((prev) => prev || t.name);
-                }}
-              />
-              {neuTreffer && (
-                <div className="space-y-2 rounded-lg border border-[var(--linie)] bg-nacht-2 p-2">
-                  <Input value={neuName} onChange={(e) => setNeuName(e.target.value)} placeholder="Anzeigename" />
-                  <p className="truncate text-xs text-schaum/50">📍 {neuTreffer.label}</p>
-                </div>
-              )}
-              <Button variant="ghost" className="w-full" onClick={eigeneHinzufuegen} disabled={!neuTreffer}>
-                + Hinzufügen
-              </Button>
-              <p className="text-xs text-schaum/40">
-                Adresse suchen und auswählen – der Stop wird exakt an dieser Position gesetzt.
-              </p>
-            </div>
+            {stops.length > 0 && (
+              <ul className="space-y-2">
+                {stops.map((s, i) => (
+                  <li
+                    key={i}
+                    className="flex items-center gap-2 rounded-xl bg-nacht-3 border border-[var(--linie)] px-3 py-2"
+                  >
+                    <span className="mono text-bernstein w-6 text-center">{i + 1}</span>
+                    <span className="flex-1 min-w-0">
+                      <span className="block truncate">{s.name}</span>
+                      {s.adresse && <span className="block text-xs text-schaum/50 truncate">{s.adresse}</span>}
+                    </span>
+                    <button onClick={() => move(i, -1)} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-schaum/70 hover:bg-nacht-2" aria-label="hoch">
+                      ▲
+                    </button>
+                    <button onClick={() => move(i, 1)} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-schaum/70 hover:bg-nacht-2" aria-label="runter">
+                      ▼
+                    </button>
+                    <button onClick={() => entfernen(i)} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-ziegel hover:bg-nacht-2" aria-label="entfernen">
+                      ✕
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </Card>
         )}
 

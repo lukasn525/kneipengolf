@@ -10,6 +10,7 @@ import { Guard } from "@/components/Guard";
 import { TopBar } from "@/components/TopBar";
 import { Button, Card, Field, Input, Shell } from "@/components/ui";
 import { rangliste } from "@/lib/game";
+import { holeRoute, googleMapsUrl } from "@/lib/nav";
 import type {
   Ergebnis,
   KneipenChallenge,
@@ -46,6 +47,7 @@ function TourInner() {
   const [panel, setPanel] = useState<TourKneipe | null>(null);
   const [ladefehler, setLadefehler] = useState<string | null>(null);
   const [bereit, setBereit] = useState(false);
+  const [routeCoords, setRouteCoords] = useState<[number, number][]>([]);
 
   // ── Laden ──────────────────────────────────────────────
   const ladeAlles = useCallbackRef(async () => {
@@ -125,6 +127,21 @@ function TourInner() {
   useEffect(() => {
     if (tour?.status === "beendet") setTab("rangliste");
   }, [tour?.status]);
+
+  // Straßenfolgende Route zwischen den Stops laden
+  useEffect(() => {
+    if (kneipen.length < 2) {
+      setRouteCoords([]);
+      return;
+    }
+    let ab = false;
+    holeRoute(kneipen.map((k) => [k.lat, k.lng] as [number, number])).then((r) => {
+      if (!ab) setRouteCoords(r?.coords ?? []);
+    });
+    return () => {
+      ab = true;
+    };
+  }, [kneipen]);
 
   useEffect(() => {
     if (!aktionsFehler) return;
@@ -288,11 +305,23 @@ function TourInner() {
             center={center}
             zoom={stadt?.zoom ?? 14}
             glas={tour.glas_typ ?? "bier"}
+            routeCoords={routeCoords}
+            route
           />
           {!aktivId && (
             <div className="absolute inset-x-0 top-2 mx-auto w-fit rounded-full bg-ziegel px-4 py-2 text-sm">
               Wähle oben deinen Spieler, dann tippe eine Kneipe an.
             </div>
+          )}
+          {kneipen.length > 0 && (
+            <a
+              href={googleMapsUrl(kneipen.map((k) => [k.lat, k.lng] as [number, number]))}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="absolute bottom-4 right-4 z-[900] flex items-center gap-2 rounded-full bg-bernstein px-4 py-3 text-sm font-semibold text-[#2a1d0a] shadow-lg active:brightness-95"
+            >
+              🧭 Navigieren
+            </a>
           )}
         </div>
       ) : (

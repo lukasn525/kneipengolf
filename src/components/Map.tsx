@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { MapContainer, TileLayer, Marker, Polyline, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Polyline, useMap, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { TourKneipe, GlasTyp } from "@/lib/types";
@@ -44,13 +44,64 @@ function pinIcon(glas: GlasTyp, erledigt: boolean, nummer: number) {
   });
 }
 
-function FitBounds({ stops }: { stops: TourKneipe[] }) {
+// Vorschau-/Bearbeitungs-Pin (noch nicht bestätigter Stop, verschiebbar)
+function pendingIcon() {
+  const html = `
+  <svg width="46" height="58" viewBox="0 0 46 58" xmlns="http://www.w3.org/2000/svg">
+    <ellipse cx="23" cy="55" rx="7" ry="2.4" fill="rgba(0,0,0,.35)"/>
+    <path d="M23 3 C13 3 5 11 5 21 C5 33 23 53 23 53 C23 53 41 33 41 21 C41 11 33 3 23 3 Z"
+          fill="#f6b943" stroke="#2a1d0a" stroke-width="2"/>
+    <circle cx="23" cy="21" r="11" fill="#2a1d0a"/>
+    <text x="23" y="21" text-anchor="middle" dominant-baseline="central"
+          font-size="15" font-weight="800" fill="#f6b943">+</text>
+  </svg>`;
+  return L.divIcon({
+    className: "kneipe-pin kneipe-pin-pending",
+    html,
+    iconSize: [46, 58],
+    iconAnchor: [23, 56],
+  });
+}
+
+function FitBounds({
+  stops,
+  pending,
+}: {
+  stops: TourKneipe[];
+  pending?: [number, number] | null;
+}) {
+  const map = useMap();
+  // Signatur nur aus Stop-Koordinaten -> refit nur wenn sich Stops ändern,
+  // nicht bei jedem Render oder beim Verschieben des Pending-Pins.
+  const sig = stops.map((s) => `${s.lat.toFixed(5)},${s.lng.toFixed(5)}`).join("|");
+  useEffect(() => {
+    const pts = stops.map((s) => [s.lat, s.lng] as [number, number]);
+    if (pts.length === 0 && pending) {
+      map.setView(pending, Math.max(map.getZoom(), 15));
+      return;
+    }
+    if (pts.length === 0) return;
+    const bounds = L.latLngBounds(pts);
+    map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sig]);
+  return null;
+}
+
+function FlyTo({ ziel }: { ziel?: [number, number] | null }) {
   const map = useMap();
   useEffect(() => {
-    if (!stops.length) return;
-    const bounds = L.latLngBounds(stops.map((s) => [s.lat, s.lng] as [number, number]));
-    map.fitBounds(bounds, { padding: [60, 60], maxZoom: 16 });
-  }, [stops, map]);
+    if (ziel) map.flyTo(ziel, Math.max(map.getZoom(), 16), { duration: 0.6 });
+  }, [ziel, map]);
+  return null;
+}
+
+function ClickHandler({ onMapClick }: { onMapClick: (lat: number, lng: number) => void }) {
+  useMapEvents({
+    click(e) {
+      onMapClick(e.latlng.lat, e.latlng.lng);
+    },
+  });
   return null;
 }
 
@@ -62,6 +113,11 @@ export default function Map({
   zoom = 14,
   glas = "bier",
   route = false,
+  routeCoords,
+  onMapClick,
+  pending,
+  onPendingMove,
+  flyTo,
 }: {
   stops: TourKneipe[];
   erledigt: Set<string>;
@@ -69,8 +125,18 @@ export default function Map({
   center: [number, number];
   zoom?: number;
   glas?: GlasTyp;
-  /** Zeichnet eine gestrichelte Linie in Stop-Reihenfolge (Routenvorschau). */
+  /** gestrichelte Luftlinie in Stop-Reihenfolge (Fallback ohne echte Route) */
   route?: boolean;
+  /** echte, straßenfolgende Route als [lat,lng]-Punkte */
+  routeCoords?: [number, number][];
+  /** Tippen auf die Karte -> Koordinaten */
+  onMapClick?: (lat: number, lng: number) => void;
+  /** noch nicht bestätigter Pin [lat,lng] */
+  pending?: [number, number] | null;
+  /** Pin wurde verschoben */
+  onPendingMove?: (lat: number, lng: number) => void;
+  /** sanft dorthin schwenken, wenn gesetzt */
+  flyTo?: [number, number] | null;
 }) {
   return (
     <MapContainer center={center} zoom={zoom} zoomControl={false} className="h-full w-full">
@@ -81,13 +147,29 @@ export default function Map({
         maxZoom={20}
         detectRetina
       />
-      <FitBounds stops={stops} />
-      {route && stops.length > 1 && (
+      <FitBounds stops={stops} pending={pending} />
+      <FlyTo ziel={flyTo} />
+      {onMapClick && <ClickHandler onMapClick={onMapClick} />}
+
+      {routeCoords && routeCoords.length > 1 ? (
+        <>
+          {/* dezenter Schein unter der Linie für bessere Lesbarkeit */}
+          <Polyline
+            positions={routeCoords}
+            pathOptions={{ color: "#000000", weight: 9, opacity: 0.25 }}
+          />
+          <Polyline
+            positions={routeCoords}
+            pathOptions={{ color: "#f6b943", weight: 5, opacity: 0.95, lineJoin: "round", lineCap: "round" }}
+          />
+        </>
+      ) : route && stops.length > 1 ? (
         <Polyline
           positions={stops.map((s) => [s.lat, s.lng] as [number, number])}
-          pathOptions={{ color: "#f6b943", weight: 3, opacity: 0.7, dashArray: "6 8" }}
+          pathOptions={{ color: "#f6b943", weight: 3, opacity: 0.55, dashArray: "6 8" }}
         />
-      )}
+      ) : null}
+
       {stops.map((k, i) => (
         <Marker
           key={k.id}
@@ -96,6 +178,22 @@ export default function Map({
           eventHandlers={{ click: () => onPin(k) }}
         />
       ))}
+
+      {pending && (
+        <Marker
+          position={pending}
+          icon={pendingIcon()}
+          draggable={Boolean(onPendingMove)}
+          zIndexOffset={1000}
+          eventHandlers={{
+            dragend: (e) => {
+              const m = e.target as L.Marker;
+              const ll = m.getLatLng();
+              onPendingMove?.(ll.lat, ll.lng);
+            },
+          }}
+        />
+      )}
     </MapContainer>
   );
 }

@@ -12,6 +12,30 @@ export async function GET(req: Request) {
   const lat = searchParams.get("lat");
   const lon = searchParams.get("lon");
 
+  // Reverse-Geocoding: Koordinaten -> Adresse (wenn kein Suchtext, aber lat/lon da)
+  if (q.length < 3 && lat && lon) {
+    try {
+      const r = await fetch(
+        `https://photon.komoot.io/reverse?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&lang=de`,
+        { headers: { "User-Agent": "Kneipen-Golf/1.0 (https://www.kneipen-golf.de)" } }
+      );
+      if (!r.ok) return NextResponse.json({ ergebnisse: [] as Treffer[] });
+      const data = await r.json();
+      const f = (data.features ?? [])[0];
+      if (!f) return NextResponse.json({ ergebnisse: [] as Treffer[] });
+      const p = f.properties ?? {};
+      const strasse = [p.street, p.housenumber].filter(Boolean).join(" ");
+      const ort = [p.postcode, p.city].filter(Boolean).join(" ");
+      const name = p.name || strasse || p.city || "Gewählter Ort";
+      const label = [p.name, strasse, ort].filter(Boolean).join(", ") || name;
+      return NextResponse.json({
+        ergebnisse: [{ label, name, lat: Number(lat), lng: Number(lon) }] as Treffer[],
+      });
+    } catch {
+      return NextResponse.json({ ergebnisse: [] as Treffer[] });
+    }
+  }
+
   if (q.length < 3) return NextResponse.json({ ergebnisse: [] as Treffer[] });
 
   const params = new URLSearchParams({ q, limit: "6", lang: "de" });
