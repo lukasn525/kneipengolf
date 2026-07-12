@@ -38,8 +38,11 @@ export type Tour = {
   verweigerung_strafe: number;
   status: TourStatus;
   glas_typ: GlasTyp;
+  spiel_modus: SpielModus;
   erstellt_am: string;
 };
+
+export type SpielModus = "einzel" | "team";
 
 export type GlasTyp = "bier" | "wein" | "sekt" | "cocktail";
 

@@ -8,6 +8,7 @@ import { useSession } from "@/components/SessionProvider";
 import { Guard } from "@/components/Guard";
 import { TopBar } from "@/components/TopBar";
 import { Button, Card, Field, Input, Shell } from "@/components/ui";
+import { handicapWert } from "@/lib/game";
 import type { Tour } from "@/lib/types";
 
 function DashboardInner() {
@@ -17,6 +18,7 @@ function DashboardInner() {
   const [fehler, setFehler] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [meine, setMeine] = useState<Tour[]>([]);
+  const [handicap, setHandicap] = useState<{ wert: number | null; stops: number } | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -27,6 +29,45 @@ function DashboardInner() {
       .order("erstellt_am", { ascending: false })
       .then(({ data }) => setMeine((data as Tour[]) ?? []));
   }, [user]);
+
+  // Handicap über alle Touren berechnen, an denen der Nutzer teilgenommen hat
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const sb = supabase();
+      const { data: tn } = await sb.from("teilnehmer").select("id,tour_id").eq("user_id", user.id);
+      const tnRows = (tn as { id: string; tour_id: string }[]) ?? [];
+      if (!tnRows.length) {
+        setHandicap({ wert: null, stops: 0 });
+        return;
+      }
+      const { data: erg } = await sb
+        .from("ergebnisse")
+        .select("schlucke,erledigt,tour_id")
+        .in("teilnehmer_id", tnRows.map((t) => t.id))
+        .eq("erledigt", true);
+      const ergRows = (erg as { schlucke: number; erledigt: boolean; tour_id: string }[]) ?? [];
+      const tourIds = [...new Set(ergRows.map((e) => e.tour_id))];
+      const parProTour: Record<string, number> = {};
+      if (tourIds.length) {
+        const { data: tr } = await sb.from("touren").select("id,par_schwelle").in("id", tourIds);
+        for (const t of (tr as { id: string; par_schwelle: number }[]) ?? []) {
+          parProTour[t.id] = t.par_schwelle;
+        }
+      }
+      setHandicap(handicapWert(ergRows, parProTour));
+    })();
+  }, [user]);
+
+  async function loeschen(t: Tour) {
+    if (!confirm(`Tour ${t.code} wirklich löschen? Alle Daten dieser Tour gehen verloren.`)) return;
+    const { error } = await supabase().from("touren").delete().eq("id", t.id);
+    if (error) {
+      setFehler("Löschen fehlgeschlagen: " + error.message);
+      return;
+    }
+    setMeine((prev) => prev.filter((x) => x.id !== t.id));
+  }
 
   async function beitreten(e: React.FormEvent) {
     e.preventDefault();
@@ -50,6 +91,21 @@ function DashboardInner() {
     <Shell>
       <TopBar />
       <div className="space-y-5 mt-2">
+        {handicap && handicap.wert !== null && (
+          <Card className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-schaum/60">Dein Handicap</p>
+              <p className="text-xs text-schaum/40">
+                {handicap.stops} gewertete Stops · niedriger ist besser
+              </p>
+            </div>
+            <p className="mono text-3xl text-bernstein">
+              {handicap.wert > 0 ? "+" : ""}
+              {handicap.wert}
+            </p>
+          </Card>
+        )}
+
         <Card className="space-y-3">
           <h2 className="font-display text-xl">Neues Spiel</h2>
           <p className="text-sm text-schaum/70">
@@ -83,10 +139,10 @@ function DashboardInner() {
             <h2 className="font-display text-xl">Deine Spiele</h2>
             <ul className="divide-y divide-[var(--linie)]">
               {meine.map((t) => (
-                <li key={t.id}>
+                <li key={t.id} className="flex items-center gap-2">
                   <Link
                     href={`/tour/${t.code}`}
-                    className="flex items-center justify-between py-3 hover:text-bernstein"
+                    className="flex flex-1 items-center justify-between py-3 hover:text-bernstein"
                   >
                     <span>
                       <span className="mono text-bernstein">{t.code}</span>
@@ -94,6 +150,14 @@ function DashboardInner() {
                     </span>
                     <span className="text-xs text-schaum/50">{statusLabel(t.status)}</span>
                   </Link>
+                  <button
+                    onClick={() => loeschen(t)}
+                    className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-ziegel hover:bg-nacht-3"
+                    aria-label="Tour löschen"
+                    title="Tour löschen"
+                  >
+                    🗑
+                  </button>
                 </li>
               ))}
             </ul>

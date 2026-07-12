@@ -12,7 +12,7 @@ import { tourCode, zieheSpielform } from "@/lib/game";
 import { GlasIcon } from "@/components/GlasIcon";
 import { GLAESER } from "@/lib/glas";
 import { AdressSuche, type GeoTreffer } from "@/components/AdressSuche";
-import type { GlasTyp, KneipenVorlage, Spielform, Stadt } from "@/lib/types";
+import type { GlasTyp, KneipenVorlage, SpielModus, Spielform, Stadt } from "@/lib/types";
 
 type Stop = { name: string; lat: number; lng: number; adresse: string | null };
 
@@ -37,6 +37,7 @@ function CreateInner() {
   const [strafeProSchluck, setStrafeProSchluck] = useState(1);
   const [verweigerung, setVerweigerung] = useState(5);
   const [glas, setGlas] = useState<GlasTyp>("bier");
+  const [spielModus, setSpielModus] = useState<SpielModus>("einzel");
   const [busy, setBusy] = useState(false);
   const [fehler, setFehler] = useState<string | null>(null);
 
@@ -128,6 +129,7 @@ function CreateInner() {
           strafe_pro_schluck: strafeProSchluck,
           verweigerung_strafe: verweigerung,
           glas_typ: glas,
+          spiel_modus: spielModus,
           status: "lobby",
         })
         .select()
@@ -173,6 +175,27 @@ function CreateInner() {
           <Field label="Name des Spiels (optional)">
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="z. B. Geburtstags-Tour" />
           </Field>
+          <Field label="Modus">
+            <div className="grid grid-cols-2 gap-1 rounded-xl bg-nacht-3 p-1">
+              {(["einzel", "team"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setSpielModus(m)}
+                  className={`rounded-lg py-2 text-sm font-semibold transition ${
+                    spielModus === m ? "bg-bernstein text-[#2a1d0a]" : "text-schaum/70"
+                  }`}
+                >
+                  {m === "einzel" ? "Einzelspieler" : "Team"}
+                </button>
+              ))}
+            </div>
+          </Field>
+          <p className="text-xs text-schaum/50">
+            {spielModus === "team"
+              ? "Team-Modus: Jedes Gerät spielt als ein Team (Pass-and-Play im Team), die Rangliste vergleicht Teams."
+              : "Einzelspieler: jede Person wertet für sich."}
+          </p>
           <Field label="Stadt">
             <div className="grid grid-cols-2 gap-2">
               {staedte.map((s) => (

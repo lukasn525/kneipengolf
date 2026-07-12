@@ -246,7 +246,9 @@ function TourInner() {
       {/* aktiver Spieler + Tabs */}
       <div className="mx-auto w-full max-w-md px-4 pb-2 space-y-2">
         <div className="flex items-center gap-2">
-          <span className="text-sm text-schaum/60 whitespace-nowrap">Du spielst als</span>
+          <span className="text-sm text-schaum/60 whitespace-nowrap">
+            {tour.spiel_modus === "team" ? "Ihr spielt als" : "Du spielst als"}
+          </span>
           <select
             value={aktivId ?? ""}
             onChange={(e) => waehleAktiv(e.target.value)}
@@ -373,6 +375,7 @@ function Lobby({
   const [weitere, setWeitere] = useState("");
   const [kopiert, setKopiert] = useState(false);
   const habeMich = teilnehmer.some((t) => t.id === aktivId);
+  const team = tour.spiel_modus === "team";
 
   function teilen() {
     const url = typeof window !== "undefined" ? window.location.href : "";
@@ -398,7 +401,9 @@ function Lobby({
         </Card>
 
         <Card className="space-y-3">
-          <h2 className="font-display text-xl">Mitspieler ({teilnehmer.length})</h2>
+          <h2 className="font-display text-xl">
+            {team ? "Teams" : "Mitspieler"} ({teilnehmer.length})
+          </h2>
           {teilnehmer.length === 0 ? (
             <p className="text-sm text-schaum/50">Noch niemand dabei.</p>
           ) : (
@@ -421,8 +426,12 @@ function Lobby({
 
           {!habeMich && (
             <div className="space-y-2 pt-2">
-              <Field label="Tritt bei mit deinem Namen">
-                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Dein Name" />
+              <Field label={team ? "Tritt bei mit eurem Team-Namen" : "Tritt bei mit deinem Namen"}>
+                <Input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder={team ? "Team-Name" : "Dein Name"}
+                />
               </Field>
               <Button
                 className="w-full"
@@ -438,7 +447,9 @@ function Lobby({
           )}
 
           <div className="rounded-xl border border-dashed border-[var(--linie)] p-3 space-y-2">
-            <span className="text-sm text-schaum/70">Weitere Person auf diesem Gerät</span>
+            <span className="text-sm text-schaum/70">
+              {team ? "Weiteres Team auf diesem Gerät" : "Weitere Person auf diesem Gerät"}
+            </span>
             <Input value={weitere} onChange={(e) => setWeitere(e.target.value)} placeholder="Name" />
             <Button
               variant="ghost"

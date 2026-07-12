@@ -61,6 +61,25 @@ export function fortschritt(
   return { erledigt, gesamt };
 }
 
+/**
+ * Golf-Handicap eines Nutzers: durchschnittliche Schlücke über Par pro
+ * erledigtem Stop, gemittelt über alle (auch tour-übergreifend) übergebenen
+ * Ergebnisse. Niedriger ist besser; negativ = im Schnitt unter Par.
+ */
+export function handicapWert(
+  ergebnisse: { schlucke: number; erledigt: boolean; tour_id: string }[],
+  parProTour: Record<string, number>
+): { wert: number | null; stops: number } {
+  const diffs: number[] = [];
+  for (const e of ergebnisse) {
+    if (!e.erledigt) continue;
+    diffs.push((e.schlucke || 0) - (parProTour[e.tour_id] ?? 0));
+  }
+  if (!diffs.length) return { wert: null, stops: 0 };
+  const avg = diffs.reduce((a, b) => a + b, 0) / diffs.length;
+  return { wert: Math.round(avg * 10) / 10, stops: diffs.length };
+}
+
 /** Erzeugt einen lesbaren Tour-Code, z.B. "KOELN-7F3K". */
 export function tourCode(praefix: string): string {
   const zufall = Math.random().toString(36).slice(2, 6).toUpperCase();
