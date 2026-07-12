@@ -13,9 +13,10 @@ import { GlasIcon } from "@/components/GlasIcon";
 import { GLAESER } from "@/lib/glas";
 import { AdressSuche, type GeoTreffer } from "@/components/AdressSuche";
 import { holeRoute, reverseGeocode } from "@/lib/nav";
+import { getStandardModus } from "@/lib/einstellungen";
 import type { GlasTyp, KneipenVorlage, SpielModus, Spielform, Stadt } from "@/lib/types";
 
-type Stop = { name: string; lat: number; lng: number; adresse: string | null };
+type Stop = { name: string; lat: number; lng: number; adresse: string | null; vorlageId?: number };
 
 const Map = dynamic(() => import("@/components/Map"), {
   ssr: false,
@@ -52,8 +53,14 @@ function CreateInner() {
   const [flyTo, setFlyTo] = useState<[number, number] | null>(null);
   const [routeCoords, setRouteCoords] = useState<[number, number][]>([]);
 
+  // Kneipen-Auswahl
+  const [vorlagen, setVorlagen] = useState<KneipenVorlage[]>([]);
+  const [pickerOffen, setPickerOffen] = useState(false);
+  const [pickerTab, setPickerTab] = useState<"liste" | "selbst">("liste");
+
   const stadt = useMemo(() => staedte.find((s) => s.id === stadtId) ?? null, [staedte, stadtId]);
   const aktiv = Boolean(stadt) || eigenerModus;
+  const verfuegbareVorlagen = vorlagen.filter((v) => !stops.some((s) => s.vorlageId === v.id));
   const mapCenter = useMemo<[number, number]>(() => {
     if (stops.length) {
       const la = stops.reduce((a, s) => a + s.lat, 0) / stops.length;
@@ -68,6 +75,7 @@ function CreateInner() {
     const sb = supabase();
     sb.from("staedte").select("*").order("name").then(({ data }) => setStaedte((data as Stadt[]) ?? []));
     sb.from("spielformen").select("*").then(({ data }) => setSpielformen((data as Spielform[]) ?? []));
+    setSpielModus(getStandardModus()); // Voreinstellung aus den Einstellungen
   }, []);
 
   // Straßenfolgende Route aktualisieren, wenn sich die Stops ändern
@@ -96,13 +104,24 @@ function CreateInner() {
       .eq("stadt_id", id)
       .order("sortierung");
     const vs = (data as KneipenVorlage[]) ?? [];
-    setStops(vs.map((v) => ({ name: v.name, lat: v.lat, lng: v.lng, adresse: v.adresse })));
+    setVorlagen(vs);
+    // Standardmäßig 9 Kneipen laden (wie 9 Golf-Löcher)
+    setStops(
+      vs.slice(0, 9).map((v) => ({
+        vorlageId: v.id,
+        name: v.name,
+        lat: v.lat,
+        lng: v.lng,
+        adresse: v.adresse,
+      }))
+    );
   }
 
   function eigeneStadtWaehlen() {
     setEigenerModus(true);
     setStadtId(null);
     setStops([]);
+    setVorlagen([]);
   }
 
   function move(i: number, dir: -1 | 1) {
@@ -147,6 +166,18 @@ function CreateInner() {
   }
   function pendingVerwerfen() {
     setPending(null);
+  }
+
+  function vorlageHinzufuegen(v: KneipenVorlage) {
+    setStops((prev) => [
+      ...prev,
+      { vorlageId: v.id, name: v.name, lat: v.lat, lng: v.lng, adresse: v.adresse },
+    ]);
+  }
+  function openPicker() {
+    setPending(null);
+    setPickerTab(eigenerModus || verfuegbareVorlagen.length === 0 ? "selbst" : "liste");
+    setPickerOffen(true);
   }
 
   async function erstellen() {
@@ -275,65 +306,30 @@ function CreateInner() {
               <h2 className="font-display text-xl">Route ({stops.length} Stops)</h2>
             </div>
             <p className="text-sm text-schaum/60">
-              Tippe auf die Karte, um einen Stop zu setzen – oder such eine Adresse. Den Pin kannst
-              du für die exakte Position verschieben.
+              Standardmäßig sind 9 Kneipen geladen. Reihenfolge anpassen, entfernen – oder über „Kneipe
+              hinzufügen" ergänzen.
             </p>
 
-            <AdressSuche
-              naehe={stadt ? [stadt.lat, stadt.lng] : null}
-              placeholder="Adresse oder Kneipe suchen…"
-              onWaehlen={ausSucheWaehlen}
-            />
-
-            <div className="relative h-72 overflow-hidden rounded-xl border border-[var(--linie)]">
-              <Map
-                stops={stops.map((s, i) => ({
-                  id: String(i),
-                  tour_id: "",
-                  name: s.name,
-                  lat: s.lat,
-                  lng: s.lng,
-                  adresse: s.adresse,
-                  position: i,
-                }))}
-                erledigt={new Set<string>()}
-                onPin={() => {}}
-                center={mapCenter}
-                zoom={stadt?.zoom ?? (stops.length ? 15 : 6)}
-                glas={glas}
-                routeCoords={routeCoords}
-                route
-                onMapClick={aufKarteTippen}
-                pending={pending ? [pending.lat, pending.lng] : null}
-                onPendingMove={pendingBewegt}
-                flyTo={flyTo}
-              />
-              {pendingBusy && (
-                <div className="absolute left-2 top-2 rounded-full bg-nacht/90 px-3 py-1 text-xs text-schaum/80">
-                  Adresse wird gesucht…
-                </div>
-              )}
-            </div>
-
-            {pending && (
-              <div className="space-y-2 rounded-xl border border-bernstein/50 bg-nacht-3 p-3">
-                <span className="text-sm text-schaum/70">Neuen Stop hinzufügen</span>
-                <Input
-                  value={pending.name}
-                  onChange={(e) => setPending((p) => (p ? { ...p, name: e.target.value } : p))}
-                  placeholder="Name der Kneipe"
+            {stops.length > 0 && (
+              <div className="h-64 overflow-hidden rounded-xl border border-[var(--linie)]">
+                <Map
+                  stops={stops.map((s, i) => ({
+                    id: String(i),
+                    tour_id: "",
+                    name: s.name,
+                    lat: s.lat,
+                    lng: s.lng,
+                    adresse: s.adresse,
+                    position: i,
+                  }))}
+                  erledigt={new Set<string>()}
+                  onPin={() => {}}
+                  center={mapCenter}
+                  zoom={stadt?.zoom ?? (stops.length ? 15 : 6)}
+                  glas={glas}
+                  routeCoords={routeCoords}
+                  route
                 />
-                <p className="truncate text-xs text-schaum/50">
-                  📍 {pending.adresse ?? "Position auf der Karte gewählt"}
-                </p>
-                <div className="flex gap-2">
-                  <Button className="flex-1" onClick={pendingBestaetigen} disabled={!pending.name.trim()}>
-                    + Als Stop hinzufügen
-                  </Button>
-                  <Button variant="ghost" onClick={pendingVerwerfen}>
-                    Verwerfen
-                  </Button>
-                </div>
               </div>
             )}
 
@@ -362,6 +358,10 @@ function CreateInner() {
                 ))}
               </ul>
             )}
+
+            <Button variant="ghost" className="w-full" onClick={openPicker}>
+              + Kneipe hinzufügen
+            </Button>
           </Card>
         )}
 
@@ -440,12 +440,152 @@ function CreateInner() {
         {fehler && <p className="text-sm text-ziegel">{fehler}</p>}
       </div>
 
-      {aktiv && stops.length > 0 && (
+      {aktiv && stops.length > 0 && !pickerOffen && (
         <div className="fixed inset-x-0 bottom-0 border-t border-[var(--linie)] bg-nacht/95 backdrop-blur p-4">
           <div className="mx-auto max-w-md">
             <Button className="w-full" onClick={erstellen} disabled={busy}>
               {busy ? "erstelle…" : "Spiel erstellen & Code generieren"}
             </Button>
+          </div>
+        </div>
+      )}
+
+      {pickerOffen && (
+        <div className="fixed inset-0 z-[1000] flex flex-col bg-nacht/95 backdrop-blur">
+          <div className="mx-auto flex h-full w-full max-w-md flex-col px-4">
+            <div className="flex items-center justify-between py-3">
+              <h2 className="font-display text-xl">Kneipe hinzufügen</h2>
+              <button
+                onClick={() => setPickerOffen(false)}
+                className="text-3xl leading-none text-schaum/60 hover:text-schaum"
+                aria-label="schließen"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="mb-3 grid grid-cols-2 gap-1 rounded-xl bg-nacht-3 p-1">
+              <button
+                onClick={() => setPickerTab("liste")}
+                disabled={vorlagen.length === 0}
+                className={`rounded-lg py-2 text-sm font-semibold transition disabled:opacity-40 ${
+                  pickerTab === "liste" ? "bg-bernstein text-[#2a1d0a]" : "text-schaum/70"
+                }`}
+              >
+                Aus Liste
+              </button>
+              <button
+                onClick={() => setPickerTab("selbst")}
+                className={`rounded-lg py-2 text-sm font-semibold transition ${
+                  pickerTab === "selbst" ? "bg-bernstein text-[#2a1d0a]" : "text-schaum/70"
+                }`}
+              >
+                Selbst hinzufügen
+              </button>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto pb-4">
+              {pickerTab === "liste" ? (
+                verfuegbareVorlagen.length === 0 ? (
+                  <p className="mt-6 text-center text-sm text-schaum/50">
+                    Alle vorgeschlagenen Kneipen sind schon in der Route. Wechsle zu „Selbst
+                    hinzufügen".
+                  </p>
+                ) : (
+                  <ul className="space-y-2">
+                    {verfuegbareVorlagen.map((v) => (
+                      <li
+                        key={v.id}
+                        className="flex items-center gap-2 rounded-xl border border-[var(--linie)] bg-nacht-3 px-3 py-2"
+                      >
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate">{v.name}</span>
+                          {v.adresse && (
+                            <span className="block truncate text-xs text-schaum/50">{v.adresse}</span>
+                          )}
+                        </span>
+                        <button
+                          onClick={() => vorlageHinzufuegen(v)}
+                          className="shrink-0 rounded-lg bg-bernstein px-3 py-2 text-sm font-semibold text-[#2a1d0a]"
+                        >
+                          + Hinzufügen
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )
+              ) : (
+                <div className="space-y-3">
+                  <AdressSuche
+                    naehe={stadt ? [stadt.lat, stadt.lng] : null}
+                    placeholder="Adresse oder Kneipe suchen…"
+                    onWaehlen={ausSucheWaehlen}
+                  />
+                  <div className="relative h-64 overflow-hidden rounded-xl border border-[var(--linie)]">
+                    <Map
+                      stops={stops.map((s, i) => ({
+                        id: String(i),
+                        tour_id: "",
+                        name: s.name,
+                        lat: s.lat,
+                        lng: s.lng,
+                        adresse: s.adresse,
+                        position: i,
+                      }))}
+                      erledigt={new Set<string>()}
+                      onPin={() => {}}
+                      center={mapCenter}
+                      zoom={stadt?.zoom ?? (stops.length ? 15 : 6)}
+                      glas={glas}
+                      onMapClick={aufKarteTippen}
+                      pending={pending ? [pending.lat, pending.lng] : null}
+                      onPendingMove={pendingBewegt}
+                      flyTo={flyTo}
+                    />
+                    {pendingBusy && (
+                      <div className="absolute left-2 top-2 rounded-full bg-nacht/90 px-3 py-1 text-xs text-schaum/80">
+                        Adresse wird gesucht…
+                      </div>
+                    )}
+                  </div>
+                  {pending ? (
+                    <div className="space-y-2 rounded-xl border border-bernstein/50 bg-nacht-3 p-3">
+                      <Input
+                        value={pending.name}
+                        onChange={(e) => setPending((p) => (p ? { ...p, name: e.target.value } : p))}
+                        placeholder="Name der Kneipe"
+                      />
+                      <p className="truncate text-xs text-schaum/50">
+                        📍 {pending.adresse ?? "Position auf der Karte gewählt"}
+                      </p>
+                      <div className="flex gap-2">
+                        <Button
+                          className="flex-1"
+                          onClick={pendingBestaetigen}
+                          disabled={!pending.name.trim()}
+                        >
+                          + Als Stop hinzufügen
+                        </Button>
+                        <Button variant="ghost" onClick={pendingVerwerfen}>
+                          Verwerfen
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-schaum/40">
+                      Tippe auf die Karte oder such eine Adresse. Den Pin kannst du zum Feinjustieren
+                      verschieben.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="py-3">
+              <Button className="w-full" onClick={() => setPickerOffen(false)}>
+                Fertig · {stops.length} Stops
+              </Button>
+            </div>
           </div>
         </div>
       )}

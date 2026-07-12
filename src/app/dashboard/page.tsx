@@ -47,7 +47,7 @@ function DashboardInner() {
         .in("teilnehmer_id", tnRows.map((t) => t.id))
         .eq("erledigt", true);
       const ergRows = (erg as { schlucke: number; erledigt: boolean; tour_id: string }[]) ?? [];
-      const tourIds = [...new Set(ergRows.map((e) => e.tour_id))];
+      const tourIds = Array.from(new Set(ergRows.map((e) => e.tour_id)));
       const parProTour: Record<string, number> = {};
       if (tourIds.length) {
         const { data: tr } = await sb.from("touren").select("id,par_schwelle").in("id", tourIds);

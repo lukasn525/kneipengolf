@@ -249,6 +249,7 @@ function TourInner() {
         onStart={() => setStatus("laufend")}
         fehler={aktionsFehler}
         onFehlerClose={() => setAktionsFehler(null)}
+        standardName={(user?.user_metadata?.display_name as string) || ""}
       />
     );
   }
@@ -389,6 +390,7 @@ function Lobby({
   onStart,
   fehler,
   onFehlerClose,
+  standardName,
 }: {
   tour: Tour;
   teilnehmer: Teilnehmer[];
@@ -399,12 +401,18 @@ function Lobby({
   onStart: () => void;
   fehler?: string | null;
   onFehlerClose?: () => void;
+  standardName?: string;
 }) {
   const [name, setName] = useState("");
   const [weitere, setWeitere] = useState("");
   const [kopiert, setKopiert] = useState(false);
   const habeMich = teilnehmer.some((t) => t.id === aktivId);
   const team = tour.spiel_modus === "team";
+
+  // Im Einzelspieler-Modus den festen Nickname vorschlagen
+  useEffect(() => {
+    if (standardName && !team) setName((n) => n || standardName);
+  }, [standardName, team]);
 
   function teilen() {
     const url = typeof window !== "undefined" ? window.location.href : "";

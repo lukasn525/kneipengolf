@@ -6,6 +6,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { TourKneipe, GlasTyp } from "@/lib/types";
 import { glasInnerSvg } from "@/lib/glas";
+import { kartenTile } from "@/lib/einstellungen";
 
 function pinHtml(glas: GlasTyp, erledigt: boolean, nummer: number): string {
   const id = `${nummer}-${erledigt ? "d" : "o"}`;
@@ -138,11 +139,12 @@ export default function Map({
   /** sanft dorthin schwenken, wenn gesetzt */
   flyTo?: [number, number] | null;
 }) {
+  const tile = kartenTile();
   return (
     <MapContainer center={center} zoom={zoom} zoomControl={false} className="h-full w-full">
       <TileLayer
-        url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-        subdomains="abcd"
+        url={tile.url}
+        subdomains={tile.sub}
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
         maxZoom={20}
         detectRetina
