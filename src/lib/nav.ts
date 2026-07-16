@@ -48,9 +48,3 @@ export function googleMapsUrl(punkte: [number, number][]): string {
   if (waypoints) p.set("waypoints", waypoints);
   return `https://www.google.com/maps/dir/?${p.toString()}`;
 }
-
-/** Meter menschenlesbar, z. B. "1,2 km" oder "450 m". */
-export function formatDistanz(meters: number): string {
-  if (meters >= 1000) return `${(meters / 1000).toFixed(1).replace(".", ",")} km`;
-  return `${Math.round(meters)} m`;
-}

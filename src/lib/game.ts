@@ -1,9 +1,4 @@
-import type { Ergebnis, Teilnehmer, Tour, TourKneipe } from "./types";
-
-/** Zieht zufaellig eine Spielform-ID aus einer Liste. */
-export function zieheSpielform(spielformIds: number[]): number {
-  return spielformIds[Math.floor(Math.random() * spielformIds.length)];
-}
+import type { Ergebnis, Teilnehmer, Tour } from "./types";
 
 /** Golf-Score fuer einen einzelnen Ergebnis-Eintrag (eine Kneipe). */
 export function scoreEintrag(e: Ergebnis, tour: Tour): { roh: number; straf: number; gesamt: number } {
@@ -48,17 +43,6 @@ export function rangliste(
     return b.erledigt - a.erledigt; // bei Gleichstand: mehr erledigte Stops zuerst
   });
   return zeilen;
-}
-
-/** Wie viele Stops sind ueber alle Teilnehmer hinweg erledigt vs. moeglich. */
-export function fortschritt(
-  teilnehmer: Teilnehmer[],
-  kneipen: TourKneipe[],
-  ergebnisse: Ergebnis[]
-): { erledigt: number; gesamt: number } {
-  const gesamt = teilnehmer.length * kneipen.length;
-  const erledigt = ergebnisse.filter((e) => e.erledigt).length;
-  return { erledigt, gesamt };
 }
 
 /**
