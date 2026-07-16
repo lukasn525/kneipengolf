@@ -9,7 +9,7 @@ import { useSession } from "@/components/SessionProvider";
 import { Guard } from "@/components/Guard";
 import { TopBar } from "@/components/TopBar";
 import { Button, Card, Field, Input, Shell } from "@/components/ui";
-import { rangliste } from "@/lib/game";
+import { rangliste, tourCode } from "@/lib/game";
 import { holeRoute, googleMapsUrl } from "@/lib/nav";
 import type {
   Ergebnis,
@@ -48,6 +48,7 @@ function TourInner() {
   const [ladefehler, setLadefehler] = useState<string | null>(null);
   const [bereit, setBereit] = useState(false);
   const [routeCoords, setRouteCoords] = useState<[number, number][]>([]);
+  const [rematchBusy, setRematchBusy] = useState(false);
 
   // ── Laden ──────────────────────────────────────────────
   const ladeAlles = useCallbackRef(async () => {
@@ -224,12 +225,91 @@ function TourInner() {
     setTour({ ...tour, status });
   }
 
+  async function ergebnisTeilen() {
+    const zeilen = rangliste(teilnehmer, ergebnisse, tour!);
+    const liste = zeilen.map((z, i) => `${i + 1}. ${z.teilnehmer.name} – ${z.gesamt}`).join("\n");
+    const text = `🍺 Kneipen-Golf${tour?.name ? " – " + tour.name : ""}\n${liste}`;
+    const url = typeof window !== "undefined" ? window.location.href : "";
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share({ title: "Kneipen-Golf Ergebnis", text, url });
+      } catch {
+        /* Abbruch – ignorieren */
+      }
+    } else {
+      navigator.clipboard?.writeText(`${text}\n${url}`);
+      setAktionsFehler("Ergebnis in die Zwischenablage kopiert.");
+    }
+  }
+
+  async function rematch() {
+    if (!tour || !user || rematchBusy) return;
+    setRematchBusy(true);
+    const sb = supabase();
+    try {
+      const code = tourCode(stadt?.name || tour.name || "TOUR");
+      const { data: neu, error } = await sb
+        .from("touren")
+        .insert({
+          code,
+          name: tour.name,
+          stadt_id: tour.stadt_id,
+          host_user_id: user.id,
+          par_schwelle: tour.par_schwelle,
+          strafe_aktiv: tour.strafe_aktiv,
+          strafe_pro_schluck: tour.strafe_pro_schluck,
+          verweigerung_strafe: tour.verweigerung_strafe,
+          glas_typ: tour.glas_typ,
+          spiel_modus: tour.spiel_modus,
+          status: "lobby",
+        })
+        .select()
+        .single();
+      if (error || !neu) throw error ?? new Error("Fehler");
+      const rows = kneipen.map((k, i) => ({
+        tour_id: neu.id,
+        name: k.name,
+        lat: k.lat,
+        lng: k.lng,
+        adresse: k.adresse,
+        position: i,
+      }));
+      const { data: neueKneipen } = await sb.from("tour_kneipen").insert(rows).select();
+      if (neueKneipen && challenges.length) {
+        const pool = challenges.map((c) => ({
+          spielform_id: c.spielform_id,
+          titel: c.titel ?? null,
+          beschreibung: c.beschreibung ?? null,
+        }));
+        const ch = neueKneipen.map((k: any) => {
+          const p = pool[Math.floor(Math.random() * pool.length)];
+          return {
+            tour_id: neu.id,
+            tour_kneipe_id: k.id,
+            spielform_id: p.spielform_id,
+            titel: p.titel,
+            beschreibung: p.beschreibung,
+          };
+        });
+        await sb.from("kneipen_challenge").insert(ch);
+      }
+      router.push(`/tour/${code}`);
+    } catch {
+      setAktionsFehler("Rematch fehlgeschlagen.");
+      setRematchBusy(false);
+    }
+  }
+
   // ── Render ─────────────────────────────────────────────
   if (!bereit) {
     return (
       <Shell>
         <TopBar />
-        <div className="flex-1 grid place-items-center text-schaum/50">lädt…</div>
+        <div className="mt-2 space-y-3">
+          <div className="kg-skeleton h-24 w-full" />
+          <div className="kg-skeleton h-10 w-full" />
+          <div className="kg-skeleton h-64 w-full" />
+        </div>
       </Shell>
     );
   }
@@ -366,14 +446,33 @@ function TourInner() {
         <div className="flex-1 overflow-auto mx-auto w-full max-w-md px-4 pb-6">
           <Ranglisten tour={tour} teilnehmer={teilnehmer} ergebnisse={ergebnisse} aktivId={aktivId} />
           {tour.status === "laufend" && istHost && (
-            <Button variant="danger" className="w-full mt-4" onClick={() => setStatus("beendet")}>
+            <Button
+              variant="danger"
+              className="w-full mt-4"
+              onClick={() => {
+                if (
+                  window.confirm(
+                    "Tour wirklich beenden und auswerten? Das lässt sich nicht rückgängig machen."
+                  )
+                ) {
+                  setStatus("beendet");
+                }
+              }}
+            >
               Tour beenden & auswerten
             </Button>
           )}
           {tour.status === "beendet" && (
             <div className="mt-4 space-y-2">
-              <p className="text-center text-sm text-schaum/60">Die Tour ist beendet. 🍻</p>
-              <Button className="w-full" onClick={() => router.push("/dashboard")}>
+              <Button className="w-full" onClick={ergebnisTeilen}>
+                Ergebnis teilen
+              </Button>
+              {istHost && (
+                <Button variant="ghost" className="w-full" onClick={rematch} disabled={rematchBusy}>
+                  {rematchBusy ? "…" : "Nochmal spielen (gleiche Route)"}
+                </Button>
+              )}
+              <Button variant="ghost" className="w-full" onClick={() => router.push("/dashboard")}>
                 Zurück zum Dashboard
               </Button>
             </div>
@@ -605,6 +704,13 @@ function Ranglisten({
   const beendet = tour.status === "beendet";
   return (
     <Card className="space-y-3">
+      {beendet && zeilen[0] && zeilen[0].erledigt > 0 && (
+        <div className="kg-pop rounded-2xl border border-bernstein/40 bg-bernstein/10 p-4 text-center">
+          <p className="text-xs uppercase tracking-wide text-schaum/50">Sieger</p>
+          <p className="font-display text-2xl">👑 {zeilen[0].teilnehmer.name}</p>
+          <p className="mono text-bernstein">{zeilen[0].gesamt} Punkte</p>
+        </div>
+      )}
       <h2 className="font-display text-xl">{beendet ? "🏆 Endauswertung" : "Rangliste (live)"}</h2>
       {zeilen.length === 0 ? (
         <p className="text-sm text-schaum/50">Noch keine Wertungen.</p>
@@ -662,7 +768,7 @@ function ChallengePanel({
   return (
     <div className="fixed inset-0 z-[1000] flex items-end justify-center bg-black/50" onClick={onClose}>
       <div
-        className="w-full max-w-md rounded-t-3xl bg-nacht-2 border-t border-[var(--linie)] p-5 pb-8 space-y-4 max-h-[88dvh] overflow-y-auto"
+        className="kg-slide-up w-full max-w-md rounded-t-3xl bg-nacht-2 border-t border-[var(--linie)] p-5 pb-8 space-y-4 max-h-[88dvh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between">
