@@ -433,7 +433,7 @@ function CreateInner() {
               className="flex w-full items-center justify-between text-left"
             >
               <span className="font-display text-xl">Erweiterte Einstellungen</span>
-              <span className="text-sm text-schaum/50">{erweitertOffen ? "▲ zu" : "▼ auf"}</span>
+              <span className="text-schaum/50">{erweitertOffen ? "▲" : "▼"}</span>
             </button>
 
             {!erweitertOffen ? (
@@ -524,50 +524,49 @@ function CreateInner() {
                   <p className="text-sm text-schaum/60">
                     Tippe an, um Spielformen ins Spiel zu nehmen oder rauszunehmen.
                   </p>
-                  <div className="flex flex-wrap gap-2">
-                    {spielformAuswahl.map((s) =>
-                      s.eigen ? (
-                        <span
-                          key={s.id}
-                          className={`inline-flex items-center rounded-full border text-sm transition ${
-                            s.aktiv
-                              ? "border-bernstein bg-bernstein/15 text-schaum"
-                              : "border-[var(--linie)] bg-nacht-2 text-schaum/50"
-                          }`}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => toggleSpielform(s.id)}
-                            className="py-1.5 pl-3 pr-1"
-                            title={s.beschreibung}
-                          >
-                            {s.titel}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => eigeneSpielformEntfernen(s.id)}
-                            className="py-1.5 pr-2 text-ziegel"
-                            aria-label="entfernen"
-                          >
-                            ×
-                          </button>
-                        </span>
-                      ) : (
+                  <div className="space-y-1.5">
+                    {spielformAuswahl.map((s) => (
+                      <div
+                        key={s.id}
+                        className={`flex items-start gap-3 rounded-xl border px-3 py-2 ${
+                          s.aktiv ? "border-bernstein/50 bg-nacht-3" : "border-[var(--linie)] bg-nacht-2"
+                        }`}
+                      >
                         <button
-                          key={s.id}
                           type="button"
                           onClick={() => toggleSpielform(s.id)}
-                          title={s.beschreibung}
-                          className={`rounded-full border px-3 py-1.5 text-sm transition ${
-                            s.aktiv
-                              ? "border-bernstein bg-bernstein/15 text-schaum"
-                              : "border-[var(--linie)] bg-nacht-2 text-schaum/50"
-                          }`}
+                          className="min-w-0 flex-1 text-left"
                         >
-                          {s.titel}
+                          <span className={`block text-sm font-semibold ${s.aktiv ? "" : "text-schaum/60"}`}>
+                            {s.titel}
+                          </span>
+                          {s.beschreibung && (
+                            <span className="block text-xs text-schaum/50">{s.beschreibung}</span>
+                          )}
                         </button>
-                      )
-                    )}
+                        <div className="flex shrink-0 items-center gap-2 pt-0.5">
+                          {s.eigen && (
+                            <button
+                              type="button"
+                              onClick={() => eigeneSpielformEntfernen(s.id)}
+                              className="text-ziegel"
+                              aria-label="entfernen"
+                            >
+                              ×
+                            </button>
+                          )}
+                          <span
+                            className={`grid h-6 w-6 place-items-center rounded-full border text-xs ${
+                              s.aktiv
+                                ? "border-bernstein bg-bernstein text-[#2a1d0a]"
+                                : "border-[var(--linie)] text-transparent"
+                            }`}
+                          >
+                            ✓
+                          </span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
 
                   {sfFormOffen ? (
@@ -617,7 +616,7 @@ function CreateInner() {
       </div>
 
       {aktiv && stops.length > 0 && !pickerOffen && (
-        <div className="fixed inset-x-0 bottom-0 border-t border-[var(--linie)] bg-nacht/95 backdrop-blur p-4">
+        <div className="fixed inset-x-0 bottom-0 z-[1100] border-t border-[var(--linie)] bg-nacht p-4">
           <div className="mx-auto max-w-md">
             <Button className="w-full" onClick={erstellen} disabled={busy}>
               {busy ? "erstelle…" : "Spiel erstellen & Code generieren"}

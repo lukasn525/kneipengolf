@@ -776,6 +776,14 @@ function ChallengePanel({
             <p className="text-xs text-schaum/50">Stop {nummer}</p>
             <h2 className="font-display text-xl">{kneipe.name}</h2>
             {kneipe.adresse && <p className="text-sm text-schaum/50">{kneipe.adresse}</p>}
+            <a
+              href={`https://www.google.com/maps/dir/?api=1&destination=${kneipe.lat},${kneipe.lng}&travelmode=walking`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-1 inline-flex items-center gap-1 text-sm font-semibold text-bernstein active:brightness-95"
+            >
+              🧭 Hierhin navigieren
+            </a>
           </div>
           <button onClick={onClose} className="text-2xl text-schaum/50 leading-none">
             ×
