@@ -161,10 +161,14 @@ function TourInner() {
   function ergebnisFuer(kneipeId: string, tid: string) {
     return ergebnisse.find((e) => e.tour_kneipe_id === kneipeId && e.teilnehmer_id === tid) ?? null;
   }
-  function spielformFuer(kneipeId: string): Spielform | null {
+  function challengeFuer(kneipeId: string): { titel: string; beschreibung: string } | null {
     const c = challenges.find((x) => x.tour_kneipe_id === kneipeId);
     if (!c) return null;
-    return spielformen.find((s) => s.id === c.spielform_id) ?? null;
+    // Neue Touren speichern den Challenge-Text direkt (Snapshot, auch eigene Spielformen);
+    // ältere Touren nutzen den Verweis auf die Spielformen-Tabelle.
+    if (c.titel) return { titel: c.titel, beschreibung: c.beschreibung ?? "" };
+    const sf = spielformen.find((s) => s.id === c.spielform_id);
+    return sf ? { titel: sf.titel, beschreibung: sf.beschreibung } : null;
   }
 
   // ── Aktionen ───────────────────────────────────────────
@@ -356,7 +360,7 @@ function TourInner() {
         <ChallengePanel
           kneipe={panel}
           nummer={kneipen.findIndex((k) => k.id === panel.id) + 1}
-          spielform={spielformFuer(panel.id)}
+          challenge={challengeFuer(panel.id)}
           ergebnis={aktivId ? ergebnisFuer(panel.id, aktivId) : null}
           aktiv={Boolean(aktivId) && tour.status === "laufend"}
           verweigerungStrafe={tour.verweigerung_strafe}
@@ -562,7 +566,7 @@ function Ranglisten({
 function ChallengePanel({
   kneipe,
   nummer,
-  spielform,
+  challenge,
   ergebnis,
   aktiv,
   verweigerungStrafe,
@@ -571,7 +575,7 @@ function ChallengePanel({
 }: {
   kneipe: TourKneipe;
   nummer: number;
-  spielform: Spielform | null;
+  challenge: { titel: string; beschreibung: string } | null;
   ergebnis: Ergebnis | null;
   aktiv: boolean;
   verweigerungStrafe: number;
@@ -601,10 +605,10 @@ function ChallengePanel({
 
         <div className="rounded-2xl bg-nacht-3 border border-[var(--linie)] p-4">
           <p className="text-xs uppercase tracking-wide text-bernstein mb-1">Challenge</p>
-          {spielform ? (
+          {challenge ? (
             <>
-              <h3 className="font-display text-lg">{spielform.titel}</h3>
-              <p className="text-sm text-schaum/80">{spielform.beschreibung}</p>
+              <h3 className="font-display text-lg">{challenge.titel}</h3>
+              <p className="text-sm text-schaum/80">{challenge.beschreibung}</p>
             </>
           ) : (
             <p className="text-sm text-schaum/50">Keine Spielform hinterlegt.</p>

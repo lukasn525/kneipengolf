@@ -8,7 +8,7 @@ import { useSession } from "@/components/SessionProvider";
 import { Guard } from "@/components/Guard";
 import { TopBar } from "@/components/TopBar";
 import { Button, Card, Field, Input, Shell } from "@/components/ui";
-import { tourCode, zieheSpielform } from "@/lib/game";
+import { tourCode } from "@/lib/game";
 import { GlasIcon } from "@/components/GlasIcon";
 import { GLAESER } from "@/lib/glas";
 import { AdressSuche, type GeoTreffer } from "@/components/AdressSuche";
@@ -30,7 +30,6 @@ function CreateInner() {
   const { user } = useSession();
 
   const [staedte, setStaedte] = useState<Stadt[]>([]);
-  const [spielformen, setSpielformen] = useState<Spielform[]>([]);
   const [stadtId, setStadtId] = useState<number | null>(null);
   const [stops, setStops] = useState<Stop[]>([]);
   const [name, setName] = useState("");
@@ -61,6 +60,15 @@ function CreateInner() {
   const [pickerTab, setPickerTab] = useState<"liste" | "selbst">("liste");
   const [erweitertOffen, setErweitertOffen] = useState(false);
 
+  // Spielformen: an-/abwählbar + eigene
+  const [spielformAuswahl, setSpielformAuswahl] = useState<
+    { id: number; titel: string; beschreibung: string; aktiv: boolean; eigen: boolean }[]
+  >([]);
+  const [sfTitel, setSfTitel] = useState("");
+  const [sfBesch, setSfBesch] = useState("");
+  const [sfFormOffen, setSfFormOffen] = useState(false);
+  const eigeneSpielformIdRef = useRef(0);
+
   const stadt = useMemo(() => staedte.find((s) => s.id === stadtId) ?? null, [staedte, stadtId]);
   const aktiv = Boolean(stadt) || eigenerModus;
   const verfuegbareVorlagen = vorlagen.filter((v) => !stops.some((s) => s.vorlageId === v.id));
@@ -77,7 +85,18 @@ function CreateInner() {
   useEffect(() => {
     const sb = supabase();
     sb.from("staedte").select("*").order("name").then(({ data }) => setStaedte((data as Stadt[]) ?? []));
-    sb.from("spielformen").select("*").then(({ data }) => setSpielformen((data as Spielform[]) ?? []));
+    sb.from("spielformen").select("*").then(({ data }) => {
+      const sf = (data as Spielform[]) ?? [];
+      setSpielformAuswahl(
+        sf.map((s) => ({
+          id: s.id,
+          titel: s.titel,
+          beschreibung: s.beschreibung,
+          aktiv: true,
+          eigen: false,
+        }))
+      );
+    });
     setSpielModus(getStandardModus()); // Voreinstellung aus den Einstellungen
   }, []);
 
@@ -195,8 +214,31 @@ function CreateInner() {
     setPickerOffen(true);
   }
 
+  function toggleSpielform(id: number) {
+    setSpielformAuswahl((prev) => prev.map((s) => (s.id === id ? { ...s, aktiv: !s.aktiv } : s)));
+  }
+  function eigeneSpielformHinzufuegen() {
+    if (!sfTitel.trim()) return;
+    const id = --eigeneSpielformIdRef.current;
+    setSpielformAuswahl((prev) => [
+      ...prev,
+      { id, titel: sfTitel.trim(), beschreibung: sfBesch.trim(), aktiv: true, eigen: true },
+    ]);
+    setSfTitel("");
+    setSfBesch("");
+    setSfFormOffen(false);
+  }
+  function eigeneSpielformEntfernen(id: number) {
+    setSpielformAuswahl((prev) => prev.filter((s) => s.id !== id));
+  }
+
   async function erstellen() {
     if (!user || stops.length === 0 || (!stadt && !eigenerModus)) return;
+    const aktiveSpielformen = spielformAuswahl.filter((s) => s.aktiv);
+    if (aktiveSpielformen.length === 0) {
+      setFehler("Mindestens eine Spielform muss aktiv sein.");
+      return;
+    }
     setBusy(true);
     setFehler(null);
     const sb = supabase();
@@ -232,16 +274,19 @@ function CreateInner() {
       const { data: kneipen, error: e2 } = await sb.from("tour_kneipen").insert(rows).select();
       if (e2 || !kneipen) throw e2 ?? new Error("Kneipen konnten nicht gespeichert werden.");
 
-      // Pro Kneipe einmalig eine Spielform ziehen (geteilt fuer alle)
-      const ids = spielformen.map((s) => s.id);
-      if (ids.length) {
-        const ch = kneipen.map((k: any) => ({
+      // Pro Kneipe einmalig eine aktive Spielform ziehen und als Snapshot speichern
+      // (Titel + Beschreibung), damit auch eigene Spielformen funktionieren.
+      const ch = kneipen.map((k: any) => {
+        const s = aktiveSpielformen[Math.floor(Math.random() * aktiveSpielformen.length)];
+        return {
           tour_id: tour.id,
           tour_kneipe_id: k.id,
-          spielform_id: zieheSpielform(ids),
-        }));
-        await sb.from("kneipen_challenge").insert(ch);
-      }
+          spielform_id: s.eigen ? null : s.id,
+          titel: s.titel,
+          beschreibung: s.beschreibung,
+        };
+      });
+      await sb.from("kneipen_challenge").insert(ch);
 
       router.push(`/tour/${code}`);
     } catch (err: any) {
@@ -393,7 +438,8 @@ function CreateInner() {
 
             {!erweitertOffen ? (
               <p className="text-xs text-schaum/50">
-                Par {par} · {strafeAktiv ? "Strafpunkte an" : "Strafpunkte aus"} · Pin:{" "}
+                Par {par} · {strafeAktiv ? "Strafpunkte an" : "Strafpunkte aus"} ·{" "}
+                {spielformAuswahl.filter((s) => s.aktiv).length} Spielformen · Pin:{" "}
                 {GLAESER.find((g) => g.typ === glas)?.label}
               </p>
             ) : (
@@ -466,6 +512,101 @@ function CreateInner() {
                       className="w-full accent-bernstein"
                     />
                   </Field>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-display text-lg">Spielformen</h3>
+                    <span className="text-xs text-schaum/50">
+                      {spielformAuswahl.filter((s) => s.aktiv).length} aktiv
+                    </span>
+                  </div>
+                  <p className="text-sm text-schaum/60">
+                    Tippe an, um Spielformen ins Spiel zu nehmen oder rauszunehmen.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {spielformAuswahl.map((s) =>
+                      s.eigen ? (
+                        <span
+                          key={s.id}
+                          className={`inline-flex items-center rounded-full border text-sm transition ${
+                            s.aktiv
+                              ? "border-bernstein bg-bernstein/15 text-schaum"
+                              : "border-[var(--linie)] bg-nacht-2 text-schaum/50"
+                          }`}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => toggleSpielform(s.id)}
+                            className="py-1.5 pl-3 pr-1"
+                            title={s.beschreibung}
+                          >
+                            {s.titel}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => eigeneSpielformEntfernen(s.id)}
+                            className="py-1.5 pr-2 text-ziegel"
+                            aria-label="entfernen"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ) : (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onClick={() => toggleSpielform(s.id)}
+                          title={s.beschreibung}
+                          className={`rounded-full border px-3 py-1.5 text-sm transition ${
+                            s.aktiv
+                              ? "border-bernstein bg-bernstein/15 text-schaum"
+                              : "border-[var(--linie)] bg-nacht-2 text-schaum/50"
+                          }`}
+                        >
+                          {s.titel}
+                        </button>
+                      )
+                    )}
+                  </div>
+
+                  {sfFormOffen ? (
+                    <div className="space-y-2 rounded-xl border border-[var(--linie)] bg-nacht-2 p-3">
+                      <Input
+                        value={sfTitel}
+                        onChange={(e) => setSfTitel(e.target.value)}
+                        placeholder="Titel, z. B. Einbeinig"
+                      />
+                      <Input
+                        value={sfBesch}
+                        onChange={(e) => setSfBesch(e.target.value)}
+                        placeholder="Kurze Regel / Beschreibung"
+                      />
+                      <div className="flex gap-2">
+                        <Button
+                          className="flex-1"
+                          onClick={eigeneSpielformHinzufuegen}
+                          disabled={!sfTitel.trim()}
+                        >
+                          Hinzufügen
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          onClick={() => {
+                            setSfFormOffen(false);
+                            setSfTitel("");
+                            setSfBesch("");
+                          }}
+                        >
+                          Abbrechen
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <Button variant="ghost" className="w-full" onClick={() => setSfFormOffen(true)}>
+                      + Eigene Spielform
+                    </Button>
+                  )}
                 </div>
               </div>
             )}

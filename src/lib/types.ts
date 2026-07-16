@@ -67,7 +67,9 @@ export type Teilnehmer = {
 export type KneipenChallenge = {
   tour_id: string;
   tour_kneipe_id: string;
-  spielform_id: number;
+  spielform_id: number | null;
+  titel?: string | null;
+  beschreibung?: string | null;
 };
 
 export type Ergebnis = {
