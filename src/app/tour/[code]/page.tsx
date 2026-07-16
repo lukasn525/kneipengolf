@@ -157,6 +157,11 @@ function TourInner() {
     ergebnisse.filter((e) => e.teilnehmer_id === aktivId && e.erledigt).forEach((e) => s.add(e.tour_kneipe_id));
     return s;
   }, [ergebnisse, aktivId]);
+  // Nächster noch offener Stop des aktiven Spielers (in Routenreihenfolge)
+  const naechsterStop = useMemo(
+    () => (aktivId ? kneipen.find((k) => !erledigtSet.has(k.id)) ?? null : null),
+    [kneipen, erledigtSet, aktivId]
+  );
 
   function ergebnisFuer(kneipeId: string, tid: string) {
     return ergebnisse.find((e) => e.tour_kneipe_id === kneipeId && e.teilnehmer_id === tid) ?? null;
@@ -267,24 +272,25 @@ function TourInner() {
 
       {/* aktiver Spieler + Tabs */}
       <div className="mx-auto w-full max-w-md px-4 pb-2 space-y-2">
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-schaum/60 whitespace-nowrap">
+        <div className="space-y-1">
+          <span className="text-sm text-schaum/60">
             {tour.spiel_modus === "team" ? "Ihr spielt als" : "Du spielst als"}
           </span>
-          <select
-            value={aktivId ?? ""}
-            onChange={(e) => waehleAktiv(e.target.value)}
-            className="flex-1 rounded-lg bg-nacht-2 border border-[var(--linie)] px-3 py-2 text-sm"
-          >
-            <option value="" disabled>
-              Spieler wählen
-            </option>
+          <div className="flex gap-2 overflow-x-auto pb-1">
             {teilnehmer.map((t) => (
-              <option key={t.id} value={t.id}>
+              <button
+                key={t.id}
+                onClick={() => waehleAktiv(t.id)}
+                className={`shrink-0 rounded-full border px-3 py-1.5 text-sm transition ${
+                  t.id === aktivId
+                    ? "border-bernstein bg-bernstein/15 text-schaum"
+                    : "border-[var(--linie)] bg-nacht-2 text-schaum/60"
+                }`}
+              >
                 {t.name}
-              </option>
+              </button>
             ))}
-          </select>
+          </div>
         </div>
         <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-nacht-3">
           {(["karte", "rangliste"] as const).map((m) => (
@@ -300,6 +306,33 @@ function TourInner() {
           ))}
         </div>
       </div>
+
+      {tab === "karte" && aktivId && tour.status === "laufend" && (
+        <div className="mx-auto w-full max-w-md px-4 pb-2">
+          <button
+            onClick={() => naechsterStop && setPanel(naechsterStop)}
+            disabled={!naechsterStop}
+            className="w-full rounded-xl border border-bernstein/50 bg-nacht-2 p-3 text-left disabled:opacity-70"
+          >
+            {naechsterStop ? (
+              <>
+                <span className="text-xs text-schaum/50">
+                  Nächster Stop · {erledigtSet.size}/{kneipen.length} erledigt
+                </span>
+                <span className="block font-display text-lg">{naechsterStop.name}</span>
+              </>
+            ) : (
+              <span className="block font-display text-lg">Alle Stops erledigt 🎉</span>
+            )}
+          </button>
+          <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-nacht-3">
+            <div
+              className="h-full bg-bernstein transition-all"
+              style={{ width: `${kneipen.length ? (erledigtSet.size / kneipen.length) * 100 : 0}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       {tab === "karte" ? (
         <div className="relative flex-1 min-h-0">
@@ -364,6 +397,7 @@ function TourInner() {
           ergebnis={aktivId ? ergebnisFuer(panel.id, aktivId) : null}
           aktiv={Boolean(aktivId) && tour.status === "laufend"}
           verweigerungStrafe={tour.verweigerung_strafe}
+          par={tour.par_schwelle}
           onChange={(patch) => speichereErgebnis(panel.id, patch)}
           onClose={() => setPanel(null)}
         />
@@ -410,20 +444,38 @@ function Lobby({
   const [name, setName] = useState("");
   const [weitere, setWeitere] = useState("");
   const [kopiert, setKopiert] = useState(false);
+  const [einladungsUrl, setEinladungsUrl] = useState("");
   const habeMich = teilnehmer.some((t) => t.id === aktivId);
   const team = tour.spiel_modus === "team";
+
+  useEffect(() => {
+    setEinladungsUrl(window.location.href);
+  }, []);
 
   // Im Einzelspieler-Modus den festen Nickname vorschlagen
   useEffect(() => {
     if (standardName && !team) setName((n) => n || standardName);
   }, [standardName, team]);
 
-  function teilen() {
-    const url = typeof window !== "undefined" ? window.location.href : "";
-    navigator.clipboard?.writeText(url).then(() => {
+  function kopieren() {
+    if (!einladungsUrl) return;
+    navigator.clipboard?.writeText(einladungsUrl).then(() => {
       setKopiert(true);
       setTimeout(() => setKopiert(false), 1500);
     });
+  }
+  async function teilen() {
+    if (!einladungsUrl) return;
+    const text = `Mach mit bei Kneipen-Golf! Code: ${tour.code}`;
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share({ title: "Kneipen-Golf", text, url: einladungsUrl });
+      } catch {
+        /* Abbruch durch Nutzer – ignorieren */
+      }
+    } else {
+      kopieren();
+    }
   }
 
   return (
@@ -431,14 +483,33 @@ function Lobby({
       {fehler && <Toast msg={fehler} onClose={() => onFehlerClose?.()} />}
       <TopBar />
       <div className="space-y-5 mt-2">
-        <Card className="text-center space-y-2">
+        <Card className="text-center space-y-3">
           <p className="text-sm text-schaum/60">Tour-Code</p>
           <p className="mono text-3xl text-bernstein tracking-wider">{tour.code}</p>
           {tour.name && <p className="text-schaum/70">{tour.name}</p>}
-          <Button variant="ghost" className="w-full" onClick={teilen}>
-            {kopiert ? "Link kopiert ✓" : "Einladungslink kopieren"}
-          </Button>
-          <p className="text-xs text-schaum/40">Mitspieler öffnen den Link oder geben den Code im Dashboard ein.</p>
+
+          {einladungsUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=8&data=${encodeURIComponent(
+                einladungsUrl
+              )}`}
+              alt="QR-Code zum Beitreten"
+              className="mx-auto h-44 w-44 rounded-xl bg-white p-1"
+              width={176}
+              height={176}
+            />
+          )}
+          <p className="text-xs text-schaum/40">Scannen zum Beitreten – oder Einladung teilen.</p>
+
+          <div className="flex gap-2">
+            <Button className="flex-1" onClick={teilen}>
+              Teilen
+            </Button>
+            <Button variant="ghost" className="flex-1" onClick={kopieren}>
+              {kopiert ? "Kopiert ✓" : "Link kopieren"}
+            </Button>
+          </div>
         </Card>
 
         <Card className="space-y-3">
@@ -570,6 +641,7 @@ function ChallengePanel({
   ergebnis,
   aktiv,
   verweigerungStrafe,
+  par,
   onChange,
   onClose,
 }: {
@@ -579,6 +651,7 @@ function ChallengePanel({
   ergebnis: Ergebnis | null;
   aktiv: boolean;
   verweigerungStrafe: number;
+  par: number;
   onChange: (patch: Partial<Ergebnis>) => void;
   onClose: () => void;
 }) {
@@ -640,6 +713,14 @@ function ChallengePanel({
               </div>
             </div>
 
+            <p className="text-center text-xs text-schaum/50">
+              {schlucke === par
+                ? "genau Par"
+                : schlucke > par
+                  ? `${schlucke - par} über Par`
+                  : `${par - schlucke} unter Par`}
+            </p>
+
             <Button
               className="w-full"
               onClick={() => onChange({ erledigt: !erledigt })}
@@ -649,7 +730,15 @@ function ChallengePanel({
             </Button>
 
             <button
-              onClick={() => onChange({ erledigt: true, schlucke: 0, strafschlucke: verweigerungStrafe })}
+              onClick={() => {
+                if (
+                  window.confirm(
+                    `Challenge als „nicht machbar" werten? Das gibt +${verweigerungStrafe} Strafschlücke.`
+                  )
+                ) {
+                  onChange({ erledigt: true, schlucke: 0, strafschlucke: verweigerungStrafe });
+                }
+              }}
               className={`w-full text-sm py-2 rounded-xl border border-[var(--linie)] ${
                 verweigert ? "bg-ziegel/20 text-ziegel" : "text-schaum/60 hover:text-schaum"
               }`}
