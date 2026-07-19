@@ -1,15 +1,31 @@
 export type RouteInfo = { coords: [number, number][]; meters: number; sekunden: number };
 
-/** Holt eine straßenfolgende Route (über /api/route) zwischen den Punkten. */
+/**
+ * Holt eine straßenfolgende Route (über /api/route) zwischen den Punkten.
+ * Erfolgreiche Antworten werden lokal gecacht – bei schlechtem Netz (Kneipe!)
+ * kommt die zuletzt bekannte Route zurück statt gar keiner.
+ */
 export async function holeRoute(punkte: [number, number][]): Promise<RouteInfo | null> {
   if (punkte.length < 2) return null;
   const stops = punkte.map(([la, ln]) => `${la},${ln}`).join(";");
+  const cacheKey = `kg-route-${stops}`;
   try {
     const r = await fetch(`/api/route?stops=${encodeURIComponent(stops)}`);
     const d = await r.json();
-    if (!d?.coords?.length) return null;
+    if (!d?.coords?.length) throw new Error("leer");
+    try {
+      localStorage.setItem(cacheKey, JSON.stringify(d));
+    } catch {
+      /* Quota voll – Cache ist nur nice-to-have */
+    }
     return d as RouteInfo;
   } catch {
+    try {
+      const roh = localStorage.getItem(cacheKey);
+      if (roh) return JSON.parse(roh) as RouteInfo;
+    } catch {
+      /* defekter Cache – ignorieren */
+    }
     return null;
   }
 }

@@ -72,6 +72,26 @@ export type KneipenChallenge = {
   beschreibung?: string | null;
 };
 
+/** Dauerhaft am Konto gespeicherte, eigene Kneipe (v2.0). */
+export type MeineKneipe = {
+  id: string;
+  user_id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  adresse: string | null;
+  erstellt_am: string;
+};
+
+/** Dauerhaft am Konto gespeicherte, eigene Spielform (v2.0). */
+export type MeineSpielform = {
+  id: string;
+  user_id: string;
+  titel: string;
+  beschreibung: string;
+  erstellt_am: string;
+};
+
 export type Ergebnis = {
   id: string;
   tour_id: string;

@@ -99,3 +99,21 @@ h3,
   border-radius: 0.75rem;
   animation: kg-shimmer 1.2s ease-in-out infinite;
 }
+
+/* ── Bewegung reduzieren, wenn vom System gewünscht ── */
+@media (prefers-reduced-motion: reduce) {
+  .kg-pop,
+  .kg-slide-up {
+    animation: none;
+  }
+  .kg-skeleton {
+    animation: none;
+    opacity: 0.7;
+  }
+  .kneipe-pin svg {
+    transition: none;
+  }
+  * {
+    scroll-behavior: auto !important;
+  }
+}

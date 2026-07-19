@@ -14,9 +14,26 @@ import { GLAESER } from "@/lib/glas";
 import { AdressSuche, type GeoTreffer } from "@/components/AdressSuche";
 import { holeRoute, reverseGeocode } from "@/lib/nav";
 import { getStandardModus } from "@/lib/einstellungen";
-import type { GlasTyp, KneipenVorlage, SpielModus, Spielform, Stadt } from "@/lib/types";
+import { IconHoch, IconRunter, IconX, IconStift, IconPin } from "@/components/Icons";
+import type {
+  GlasTyp,
+  KneipenVorlage,
+  MeineKneipe,
+  MeineSpielform,
+  SpielModus,
+  Spielform,
+  Stadt,
+} from "@/lib/types";
 
-type Stop = { name: string; lat: number; lng: number; adresse: string | null; vorlageId?: number };
+type Stop = {
+  name: string;
+  lat: number;
+  lng: number;
+  adresse: string | null;
+  vorlageId?: number;
+  /** Verweis auf eine am Konto gespeicherte Kneipe */
+  meineId?: string;
+};
 
 const Map = dynamic(() => import("@/components/Map"), {
   ssr: false,
@@ -49,6 +66,7 @@ function CreateInner() {
     { lat: number; lng: number; name: string; adresse: string | null } | null
   >(null);
   const [pendingBusy, setPendingBusy] = useState(false);
+  const [pendingMerken, setPendingMerken] = useState(false);
   const [flyTo, setFlyTo] = useState<[number, number] | null>(null);
   const [routeCoords, setRouteCoords] = useState<[number, number][]>([]);
   const routeReqId = useRef(0); // stellt sicher, dass nur die neueste Route greift
@@ -60,18 +78,30 @@ function CreateInner() {
   const [pickerTab, setPickerTab] = useState<"liste" | "selbst">("liste");
   const [erweitertOffen, setErweitertOffen] = useState(false);
 
-  // Spielformen: an-/abwählbar + eigene
+  // Spielformen: an-/abwählbar + eigene (optional dauerhaft am Konto)
   const [spielformAuswahl, setSpielformAuswahl] = useState<
-    { id: number; titel: string; beschreibung: string; aktiv: boolean; eigen: boolean }[]
+    {
+      id: number;
+      titel: string;
+      beschreibung: string;
+      aktiv: boolean;
+      eigen: boolean;
+      kontoId?: string;
+    }[]
   >([]);
   const [sfTitel, setSfTitel] = useState("");
   const [sfBesch, setSfBesch] = useState("");
   const [sfFormOffen, setSfFormOffen] = useState(false);
+  const [sfMerken, setSfMerken] = useState(false);
   const eigeneSpielformIdRef = useRef(0);
+
+  // Konto-Features (v2.0): dauerhaft gespeicherte Kneipen
+  const [meineKneipen, setMeineKneipen] = useState<MeineKneipe[]>([]);
 
   const stadt = useMemo(() => staedte.find((s) => s.id === stadtId) ?? null, [staedte, stadtId]);
   const aktiv = Boolean(stadt) || eigenerModus;
   const verfuegbareVorlagen = vorlagen.filter((v) => !stops.some((s) => s.vorlageId === v.id));
+  const verfuegbareMeine = meineKneipen.filter((m) => !stops.some((s) => s.meineId === m.id));
   const mapCenter = useMemo<[number, number]>(() => {
     if (stops.length) {
       const la = stops.reduce((a, s) => a + s.lat, 0) / stops.length;
@@ -99,6 +129,38 @@ function CreateInner() {
     });
     setSpielModus(getStandardModus()); // Voreinstellung aus den Einstellungen
   }, []);
+
+  // Konto-Features laden: eigene Kneipen + eigene Spielformen (dauerhaft)
+  useEffect(() => {
+    if (!user) return;
+    const sb = supabase();
+    sb.from("meine_kneipen")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("name")
+      .then(({ data }) => setMeineKneipen((data as MeineKneipe[]) ?? []));
+    sb.from("meine_spielformen")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("erstellt_am")
+      .then(({ data }) => {
+        const konto = (data as MeineSpielform[]) ?? [];
+        if (!konto.length) return;
+        setSpielformAuswahl((prev) => [
+          ...prev,
+          ...konto
+            .filter((k) => !prev.some((p) => p.kontoId === k.id))
+            .map((k) => ({
+              id: --eigeneSpielformIdRef.current,
+              titel: k.titel,
+              beschreibung: k.beschreibung ?? "",
+              aktiv: true,
+              eigen: true,
+              kontoId: k.id,
+            })),
+        ]);
+      });
+  }, [user]);
 
   // Route neu berechnen, sobald sich die Stops ändern.
   // Die gezeichnete Linie muss immer zur aktuellen Reihenfolge passen:
@@ -177,15 +239,44 @@ function CreateInner() {
     setPending((p) => (p ? { ...p, adresse: rev?.label ?? p.adresse } : p));
     setPendingBusy(false);
   }
-  function pendingBestaetigen() {
+  async function pendingBestaetigen() {
     if (!pending || !pending.name.trim()) return;
+    const name = pending.name.trim();
+
+    // Optional dauerhaft am Konto speichern -> künftig unter "Meine Kneipen".
+    if (pendingMerken && user) {
+      const { data, error } = await supabase()
+        .from("meine_kneipen")
+        .insert({
+          user_id: user.id,
+          name,
+          lat: pending.lat,
+          lng: pending.lng,
+          adresse: pending.adresse,
+        })
+        .select()
+        .single();
+      if (!error && data) {
+        const mk = data as MeineKneipe;
+        setMeineKneipen((prev) => [...prev, mk]);
+        setStops((prev) => [
+          ...prev,
+          { meineId: mk.id, name: mk.name, lat: mk.lat, lng: mk.lng, adresse: mk.adresse },
+        ]);
+        setPending(null);
+        setPendingMerken(false);
+        return;
+      }
+      // Speichern fehlgeschlagen (z. B. Tabelle fehlt noch) -> lokal weitermachen.
+    }
+
     // Selbst gesetzte Kneipe bekommt eine eigene (negative) ID und landet auch
     // im Auswahl-Pool -> danach unter "Aus Liste" wieder auswählbar.
     const id = --eigeneIdRef.current;
     const eigene: KneipenVorlage = {
       id,
       stadt_id: stadt?.id ?? 0,
-      name: pending.name.trim(),
+      name,
       lat: pending.lat,
       lng: pending.lng,
       adresse: pending.adresse,
@@ -197,9 +288,23 @@ function CreateInner() {
       { vorlageId: id, name: eigene.name, lat: eigene.lat, lng: eigene.lng, adresse: eigene.adresse },
     ]);
     setPending(null);
+    setPendingMerken(false);
   }
   function pendingVerwerfen() {
     setPending(null);
+    setPendingMerken(false);
+  }
+
+  function meineKneipeHinzufuegen(m: MeineKneipe) {
+    setStops((prev) => [
+      ...prev,
+      { meineId: m.id, name: m.name, lat: m.lat, lng: m.lng, adresse: m.adresse },
+    ]);
+  }
+  async function meineKneipeLoeschen(m: MeineKneipe) {
+    if (!window.confirm(`„${m.name}" dauerhaft aus deinen Kneipen entfernen?`)) return;
+    await supabase().from("meine_kneipen").delete().eq("id", m.id);
+    setMeineKneipen((prev) => prev.filter((x) => x.id !== m.id));
   }
 
   function vorlageHinzufuegen(v: KneipenVorlage) {
@@ -210,25 +315,41 @@ function CreateInner() {
   }
   function openPicker() {
     setPending(null);
-    setPickerTab(eigenerModus || verfuegbareVorlagen.length === 0 ? "selbst" : "liste");
+    const listeHatEintraege = verfuegbareVorlagen.length > 0 || verfuegbareMeine.length > 0;
+    setPickerTab(eigenerModus && verfuegbareMeine.length === 0 ? "selbst" : listeHatEintraege ? "liste" : "selbst");
     setPickerOffen(true);
   }
 
   function toggleSpielform(id: number) {
     setSpielformAuswahl((prev) => prev.map((s) => (s.id === id ? { ...s, aktiv: !s.aktiv } : s)));
   }
-  function eigeneSpielformHinzufuegen() {
+  async function eigeneSpielformHinzufuegen() {
     if (!sfTitel.trim()) return;
+    const titel = sfTitel.trim();
+    const beschreibung = sfBesch.trim();
+    let kontoId: string | undefined;
+    // Optional dauerhaft am Konto speichern (nicht pro Tour neu tippen).
+    if (sfMerken && user) {
+      const { data, error } = await supabase()
+        .from("meine_spielformen")
+        .insert({ user_id: user.id, titel, beschreibung })
+        .select()
+        .single();
+      if (!error && data) kontoId = (data as MeineSpielform).id;
+    }
     const id = --eigeneSpielformIdRef.current;
-    setSpielformAuswahl((prev) => [
-      ...prev,
-      { id, titel: sfTitel.trim(), beschreibung: sfBesch.trim(), aktiv: true, eigen: true },
-    ]);
+    setSpielformAuswahl((prev) => [...prev, { id, titel, beschreibung, aktiv: true, eigen: true, kontoId }]);
     setSfTitel("");
     setSfBesch("");
+    setSfMerken(false);
     setSfFormOffen(false);
   }
-  function eigeneSpielformEntfernen(id: number) {
+  async function eigeneSpielformEntfernen(id: number) {
+    const eintrag = spielformAuswahl.find((s) => s.id === id);
+    if (eintrag?.kontoId) {
+      if (!window.confirm(`„${eintrag.titel}" dauerhaft aus deinen Spielformen entfernen?`)) return;
+      await supabase().from("meine_spielformen").delete().eq("id", eintrag.kontoId);
+    }
     setSpielformAuswahl((prev) => prev.filter((s) => s.id !== id));
   }
 
@@ -354,7 +475,9 @@ function CreateInner() {
                     : "border-dashed border-[var(--linie)] bg-nacht-2 hover:bg-nacht-3"
                 }`}
               >
-                ✏️ Eigene Stadt / Route
+                <span className="inline-flex items-center gap-2">
+                  <IconStift size={15} /> Eigene Stadt / Route
+                </span>
               </button>
             </div>
           </Field>
@@ -389,6 +512,7 @@ function CreateInner() {
                   glas={glas}
                   routeCoords={routeCoords}
                   route
+                  flyTo={flyTo}
                 />
               </div>
             )}
@@ -401,18 +525,22 @@ function CreateInner() {
                     className="flex items-center gap-2 rounded-xl bg-nacht-3 border border-[var(--linie)] px-3 py-2"
                   >
                     <span className="mono text-bernstein w-6 text-center">{i + 1}</span>
-                    <span className="flex-1 min-w-0">
+                    <button
+                      onClick={() => setFlyTo([s.lat, s.lng])}
+                      className="flex-1 min-w-0 text-left"
+                      title="Auf der Karte zeigen"
+                    >
                       <span className="block truncate">{s.name}</span>
                       {s.adresse && <span className="block text-xs text-schaum/50 truncate">{s.adresse}</span>}
-                    </span>
+                    </button>
                     <button onClick={() => move(i, -1)} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-schaum/70 hover:bg-nacht-2" aria-label="hoch">
-                      ▲
+                      <IconHoch />
                     </button>
                     <button onClick={() => move(i, 1)} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-schaum/70 hover:bg-nacht-2" aria-label="runter">
-                      ▼
+                      <IconRunter />
                     </button>
                     <button onClick={() => entfernen(i)} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-ziegel hover:bg-nacht-2" aria-label="entfernen">
-                      ✕
+                      <IconX />
                     </button>
                   </li>
                 ))}
@@ -433,7 +561,7 @@ function CreateInner() {
               className="flex w-full items-center justify-between text-left"
             >
               <span className="font-display text-xl">Erweiterte Einstellungen</span>
-              <span className="text-schaum/50">{erweitertOffen ? "▲" : "▼"}</span>
+              <span className="text-schaum/50">{erweitertOffen ? <IconHoch /> : <IconRunter />}</span>
             </button>
 
             {!erweitertOffen ? (
@@ -552,7 +680,7 @@ function CreateInner() {
                               className="text-ziegel"
                               aria-label="entfernen"
                             >
-                              ×
+                              <IconX size={16} />
                             </button>
                           )}
                           <span
@@ -581,6 +709,15 @@ function CreateInner() {
                         onChange={(e) => setSfBesch(e.target.value)}
                         placeholder="Kurze Regel / Beschreibung"
                       />
+                      <label className="flex items-center gap-2 text-sm text-schaum/70">
+                        <input
+                          type="checkbox"
+                          checked={sfMerken}
+                          onChange={(e) => setSfMerken(e.target.checked)}
+                          className="h-4 w-4 accent-bernstein"
+                        />
+                        Für künftige Touren merken
+                      </label>
                       <div className="flex gap-2">
                         <Button
                           className="flex-1"
@@ -632,17 +769,17 @@ function CreateInner() {
               <h2 className="font-display text-xl">Kneipe hinzufügen</h2>
               <button
                 onClick={() => setPickerOffen(false)}
-                className="text-3xl leading-none text-schaum/60 hover:text-schaum"
+                className="grid h-10 w-10 place-items-center rounded-lg text-schaum/60 hover:bg-nacht-3 hover:text-schaum"
                 aria-label="schließen"
               >
-                ×
+                <IconX size={22} />
               </button>
             </div>
 
             <div className="mb-3 grid grid-cols-2 gap-1 rounded-xl bg-nacht-3 p-1">
               <button
                 onClick={() => setPickerTab("liste")}
-                disabled={vorlagen.length === 0}
+                disabled={vorlagen.length === 0 && meineKneipen.length === 0}
                 className={`rounded-lg py-2 text-sm font-semibold transition disabled:opacity-40 ${
                   pickerTab === "liste" ? "bg-bernstein text-[#2a1d0a]" : "text-schaum/70"
                 }`}
@@ -661,33 +798,76 @@ function CreateInner() {
 
             <div className="min-h-0 flex-1 overflow-y-auto pb-4">
               {pickerTab === "liste" ? (
-                verfuegbareVorlagen.length === 0 ? (
+                verfuegbareVorlagen.length === 0 && verfuegbareMeine.length === 0 ? (
                   <p className="mt-6 text-center text-sm text-schaum/50">
                     Alle vorgeschlagenen Kneipen sind schon in der Route. Wechsle zu „Selbst
                     hinzufügen".
                   </p>
                 ) : (
-                  <ul className="space-y-2">
-                    {verfuegbareVorlagen.map((v) => (
-                      <li
-                        key={v.id}
-                        className="flex items-center gap-2 rounded-xl border border-[var(--linie)] bg-nacht-3 px-3 py-2"
-                      >
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate">{v.name}</span>
-                          {v.adresse && (
-                            <span className="block truncate text-xs text-schaum/50">{v.adresse}</span>
-                          )}
-                        </span>
-                        <button
-                          onClick={() => vorlageHinzufuegen(v)}
-                          className="shrink-0 rounded-lg bg-bernstein px-3 py-2 text-sm font-semibold text-[#2a1d0a]"
-                        >
-                          + Hinzufügen
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
+                  <div className="space-y-4">
+                    {verfuegbareMeine.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-xs uppercase tracking-wide text-bernstein">Meine Kneipen</p>
+                        <ul className="space-y-2">
+                          {verfuegbareMeine.map((m) => (
+                            <li
+                              key={m.id}
+                              className="flex items-center gap-2 rounded-xl border border-bernstein/30 bg-nacht-3 px-3 py-2"
+                            >
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate">{m.name}</span>
+                                {m.adresse && (
+                                  <span className="block truncate text-xs text-schaum/50">{m.adresse}</span>
+                                )}
+                              </span>
+                              <button
+                                onClick={() => meineKneipeLoeschen(m)}
+                                className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-ziegel hover:bg-nacht-2"
+                                aria-label="dauerhaft entfernen"
+                                title="Dauerhaft entfernen"
+                              >
+                                <IconX size={16} />
+                              </button>
+                              <button
+                                onClick={() => meineKneipeHinzufuegen(m)}
+                                className="shrink-0 rounded-lg bg-bernstein px-3 py-2 text-sm font-semibold text-[#2a1d0a]"
+                              >
+                                + Hinzufügen
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {verfuegbareVorlagen.length > 0 && (
+                      <div className="space-y-2">
+                        {verfuegbareMeine.length > 0 && (
+                          <p className="text-xs uppercase tracking-wide text-schaum/40">Vorschläge</p>
+                        )}
+                        <ul className="space-y-2">
+                          {verfuegbareVorlagen.map((v) => (
+                            <li
+                              key={v.id}
+                              className="flex items-center gap-2 rounded-xl border border-[var(--linie)] bg-nacht-3 px-3 py-2"
+                            >
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate">{v.name}</span>
+                                {v.adresse && (
+                                  <span className="block truncate text-xs text-schaum/50">{v.adresse}</span>
+                                )}
+                              </span>
+                              <button
+                                onClick={() => vorlageHinzufuegen(v)}
+                                className="shrink-0 rounded-lg bg-bernstein px-3 py-2 text-sm font-semibold text-[#2a1d0a]"
+                              >
+                                + Hinzufügen
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
                 )
               ) : (
                 <div className="space-y-3">
@@ -730,9 +910,19 @@ function CreateInner() {
                         onChange={(e) => setPending((p) => (p ? { ...p, name: e.target.value } : p))}
                         placeholder="Name der Kneipe"
                       />
-                      <p className="truncate text-xs text-schaum/50">
-                        📍 {pending.adresse ?? "Position auf der Karte gewählt"}
+                      <p className="flex items-center gap-1.5 truncate text-xs text-schaum/50">
+                        <IconPin size={13} className="shrink-0" />
+                        <span className="truncate">{pending.adresse ?? "Position auf der Karte gewählt"}</span>
                       </p>
+                      <label className="flex items-center gap-2 text-sm text-schaum/70">
+                        <input
+                          type="checkbox"
+                          checked={pendingMerken}
+                          onChange={(e) => setPendingMerken(e.target.checked)}
+                          className="h-4 w-4 accent-bernstein"
+                        />
+                        Für künftige Touren merken
+                      </label>
                       <div className="flex gap-2">
                         <Button
                           className="flex-1"

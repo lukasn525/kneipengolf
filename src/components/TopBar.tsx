@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { Logo } from "./ui";
+import { IconZahnrad } from "./Icons";
 
 export function TopBar() {
   const router = useRouter();
@@ -13,11 +14,11 @@ export function TopBar() {
       </button>
       <button
         onClick={() => router.push("/einstellungen")}
-        className="grid h-9 w-9 place-items-center rounded-lg text-lg text-schaum/70 hover:bg-nacht-3 hover:text-schaum"
+        className="grid h-9 w-9 place-items-center rounded-lg text-schaum/70 hover:bg-nacht-3 hover:text-schaum"
         aria-label="Einstellungen"
         title="Einstellungen"
       >
-        ⚙
+        <IconZahnrad />
       </button>
     </header>
   );

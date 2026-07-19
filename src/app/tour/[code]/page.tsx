@@ -2,15 +2,16 @@
 
 import dynamic from "next/dynamic";
 import { useCallbackRef } from "@/components/useCallbackRef";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useSession } from "@/components/SessionProvider";
 import { Guard } from "@/components/Guard";
 import { TopBar } from "@/components/TopBar";
 import { Button, Card, Field, Input, Shell } from "@/components/ui";
-import { rangliste, tourCode } from "@/lib/game";
+import { rangliste, scoreEintrag, tourCode } from "@/lib/game";
 import { holeRoute, googleMapsUrl } from "@/lib/nav";
+import { IconKompass, IconX } from "@/components/Icons";
 import type {
   Ergebnis,
   KneipenChallenge,
@@ -27,6 +28,18 @@ const Map = dynamic(() => import("@/components/Map"), {
 });
 
 const aktivKey = (code: string) => `kg-aktiv-${code}`;
+const cacheKey = (code: string) => `kg-cache-${code}`;
+
+/** Letzter bekannter Tour-Stand für die Offline-Anzeige (Kneipen-WLAN…). */
+type TourSnapshot = {
+  tour: Tour;
+  stadt: Stadt | null;
+  kneipen: TourKneipe[];
+  challenges: KneipenChallenge[];
+  teilnehmer: Teilnehmer[];
+  ergebnisse: Ergebnis[];
+  spielformen: Spielform[];
+};
 
 function TourInner() {
   const { code } = useParams<{ code: string }>();
@@ -42,41 +55,94 @@ function TourInner() {
   const [teilnehmer, setTeilnehmer] = useState<Teilnehmer[]>([]);
   const [ergebnisse, setErgebnisse] = useState<Ergebnis[]>([]);
   const [aktivId, setAktivId] = useState<string | null>(null);
-  const [tab, setTab] = useState<"karte" | "rangliste">("karte");
+  const [tab, setTab] = useState<"karte" | "stops" | "rangliste">("karte");
   const [aktionsFehler, setAktionsFehler] = useState<string | null>(null);
   const [panel, setPanel] = useState<TourKneipe | null>(null);
   const [ladefehler, setLadefehler] = useState<string | null>(null);
   const [bereit, setBereit] = useState(false);
   const [routeCoords, setRouteCoords] = useState<[number, number][]>([]);
   const [rematchBusy, setRematchBusy] = useState(false);
+  // Offline-Robustheit: zeigen wir gerade einen lokalen Stand? / wartende Wertungen
+  const [offlineStand, setOfflineStand] = useState(false);
+  const [wartend, setWartend] = useState<Record<string, Record<string, unknown>>>({});
+  const wartendRef = useRef(wartend);
+  wartendRef.current = wartend;
 
   // ── Laden ──────────────────────────────────────────────
   const ladeAlles = useCallbackRef(async () => {
     const sb = supabase();
-    const { data: t } = await sb.from("touren").select("*").eq("code", upper).maybeSingle();
-    if (!t) {
-      setLadefehler("Tour nicht gefunden.");
+    try {
+      const { data: t, error: tErr } = await sb
+        .from("touren")
+        .select("*")
+        .eq("code", upper)
+        .maybeSingle();
+      if (tErr) throw tErr; // Netz-/Serverfehler -> Offline-Fallback unten
+      if (!t) {
+        setLadefehler("Tour nicht gefunden.");
+        setBereit(true);
+        return;
+      }
+      const [k, c, te, er, sf] = await Promise.all([
+        sb.from("tour_kneipen").select("*").eq("tour_id", t.id).order("position"),
+        sb.from("kneipen_challenge").select("*").eq("tour_id", t.id),
+        sb.from("teilnehmer").select("*").eq("tour_id", t.id).order("erstellt_am"),
+        sb.from("ergebnisse").select("*").eq("tour_id", t.id),
+        sb.from("spielformen").select("*"),
+      ]);
+      if (k.error) throw k.error;
+      let s: Stadt | null = null;
+      if (t.stadt_id) {
+        const { data } = await sb.from("staedte").select("*").eq("id", t.stadt_id).maybeSingle();
+        s = (data as Stadt) ?? null;
+      }
+      const snap: TourSnapshot = {
+        tour: t as Tour,
+        stadt: s,
+        kneipen: (k.data as TourKneipe[]) ?? [],
+        challenges: (c.data as KneipenChallenge[]) ?? [],
+        teilnehmer: (te.data as Teilnehmer[]) ?? [],
+        ergebnisse: (er.data as Ergebnis[]) ?? [],
+        spielformen: (sf.data as Spielform[]) ?? [],
+      };
+      setTour(snap.tour);
+      setStadt(snap.stadt);
+      setKneipen(snap.kneipen);
+      setChallenges(snap.challenges);
+      setTeilnehmer(snap.teilnehmer);
+      setErgebnisse(snap.ergebnisse);
+      setSpielformen(snap.spielformen);
+      setOfflineStand(false);
       setBereit(true);
-      return;
+      // Stand lokal sichern -> in der Kneipe ohne Netz trotzdem spielbar
+      try {
+        localStorage.setItem(cacheKey(upper), JSON.stringify(snap));
+      } catch {
+        /* Quota voll – Cache ist optional */
+      }
+    } catch {
+      // Kein Netz: letzten lokalen Stand anzeigen, statt leer zu bleiben
+      try {
+        const roh = localStorage.getItem(cacheKey(upper));
+        if (roh) {
+          const snap = JSON.parse(roh) as TourSnapshot;
+          setTour(snap.tour);
+          setStadt(snap.stadt);
+          setKneipen(snap.kneipen);
+          setChallenges(snap.challenges);
+          setTeilnehmer(snap.teilnehmer);
+          setErgebnisse(snap.ergebnisse);
+          setSpielformen(snap.spielformen);
+          setOfflineStand(true);
+          setBereit(true);
+          return;
+        }
+      } catch {
+        /* defekter Cache */
+      }
+      setLadefehler("Gerade keine Verbindung – bitte kurz später nochmal versuchen.");
+      setBereit(true);
     }
-    setTour(t as Tour);
-    const [k, c, te, er, sf] = await Promise.all([
-      sb.from("tour_kneipen").select("*").eq("tour_id", t.id).order("position"),
-      sb.from("kneipen_challenge").select("*").eq("tour_id", t.id),
-      sb.from("teilnehmer").select("*").eq("tour_id", t.id).order("erstellt_am"),
-      sb.from("ergebnisse").select("*").eq("tour_id", t.id),
-      sb.from("spielformen").select("*"),
-    ]);
-    setKneipen((k.data as TourKneipe[]) ?? []);
-    setChallenges((c.data as KneipenChallenge[]) ?? []);
-    setTeilnehmer((te.data as Teilnehmer[]) ?? []);
-    setErgebnisse((er.data as Ergebnis[]) ?? []);
-    setSpielformen((sf.data as Spielform[]) ?? []);
-    if (t.stadt_id) {
-      const { data: s } = await sb.from("staedte").select("*").eq("id", t.stadt_id).maybeSingle();
-      setStadt((s as Stadt) ?? null);
-    }
-    setBereit(true);
   });
 
   useEffect(() => {
@@ -116,12 +182,27 @@ function TourInner() {
   }, [tour?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function ladeErgebnisse(tourId: string) {
-    const { data } = await supabase().from("ergebnisse").select("*").eq("tour_id", tourId);
-    setErgebnisse((data as Ergebnis[]) ?? []);
+    const { data, error } = await supabase().from("ergebnisse").select("*").eq("tour_id", tourId);
+    if (error || !data) return; // bei Netzfehler lokalen (optimistischen) Stand behalten
+    // Wartende, noch nicht synchronisierte Wertungen über den Server-Stand legen
+    let rows = data as Ergebnis[];
+    for (const merged of Object.values(wartendRef.current)) {
+      const m = merged as unknown as Ergebnis;
+      rows = rows.filter(
+        (e) => !(e.tour_kneipe_id === m.tour_kneipe_id && e.teilnehmer_id === m.teilnehmer_id)
+      );
+      rows = [...rows, { ...m, id: `tmp-${m.tour_kneipe_id}-${m.teilnehmer_id}` }];
+    }
+    setErgebnisse(rows);
   }
   async function ladeTeilnehmer(tourId: string) {
-    const { data } = await supabase().from("teilnehmer").select("*").eq("tour_id", tourId).order("erstellt_am");
-    setTeilnehmer((data as Teilnehmer[]) ?? []);
+    const { data, error } = await supabase()
+      .from("teilnehmer")
+      .select("*")
+      .eq("tour_id", tourId)
+      .order("erstellt_am");
+    if (error || !data) return;
+    setTeilnehmer(data as Teilnehmer[]);
   }
 
   // Bei Tour-Ende automatisch zur Auswertung springen (für alle Geräte)
@@ -215,9 +296,56 @@ function TourInner() {
     const { error } = await supabase()
       .from("ergebnisse")
       .upsert(merged, { onConflict: "tour_id,tour_kneipe_id,teilnehmer_id" });
-    if (error) setAktionsFehler("Speichern fehlgeschlagen: " + error.message);
+    if (error) {
+      // Kein Netz? Wertung bleibt sichtbar und wird nachgetragen, sobald es geht.
+      setWartend((prev) => ({ ...prev, [`${kneipeId}:${aktivId}`]: merged }));
+      return;
+    }
+    setWartend((prev) => {
+      if (!(`${kneipeId}:${aktivId}` in prev)) return prev;
+      const n = { ...prev };
+      delete n[`${kneipeId}:${aktivId}`];
+      return n;
+    });
     await ladeErgebnisse(tour.id);
   }
+
+  // Wartende Wertungen nachtragen, sobald wieder Netz da ist
+  useEffect(() => {
+    if (!tour) return;
+    if (!Object.keys(wartend).length && !offlineStand) return;
+    let laeuft = false;
+    const flush = async () => {
+      if (laeuft) return;
+      laeuft = true;
+      try {
+        const eintraege = Object.entries(wartendRef.current);
+        let erfolg = false;
+        for (const [key, merged] of eintraege) {
+          const { error } = await supabase()
+            .from("ergebnisse")
+            .upsert(merged, { onConflict: "tour_id,tour_kneipe_id,teilnehmer_id" });
+          if (error) break; // weiterhin offline -> später erneut
+          erfolg = true;
+          setWartend((prev) => {
+            const n = { ...prev };
+            delete n[key];
+            return n;
+          });
+        }
+        if (erfolg || offlineStand) await ladeAlles(); // frischen Stand holen
+      } finally {
+        laeuft = false;
+      }
+    };
+    const iv = setInterval(flush, 8000);
+    window.addEventListener("online", flush);
+    return () => {
+      clearInterval(iv);
+      window.removeEventListener("online", flush);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [Object.keys(wartend).length, offlineStand, tour?.id]);
 
   async function setStatus(status: Tour["status"]) {
     if (!tour) return;
@@ -352,6 +480,13 @@ function TourInner() {
 
       {/* aktiver Spieler + Tabs */}
       <div className="mx-auto w-full max-w-md px-4 pb-2 space-y-2">
+        {(offlineStand || Object.keys(wartend).length > 0) && (
+          <div className="rounded-xl border border-bernstein/40 bg-bernstein/10 px-3 py-2 text-xs text-schaum/80">
+            {offlineStand
+              ? "Kein Netz – du siehst den letzten bekannten Stand. Es wird automatisch neu verbunden."
+              : `${Object.keys(wartend).length} Wertung${Object.keys(wartend).length > 1 ? "en werden" : " wird"} nachgetragen, sobald es wieder Netz gibt.`}
+          </div>
+        )}
         <div className="space-y-1">
           <span className="text-sm text-schaum/60">
             {tour.spiel_modus === "team" ? "Ihr spielt als" : "Du spielst als"}
@@ -372,8 +507,8 @@ function TourInner() {
             ))}
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-nacht-3">
-          {(["karte", "rangliste"] as const).map((m) => (
+        <div className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-nacht-3">
+          {(["karte", "stops", "rangliste"] as const).map((m) => (
             <button
               key={m}
               onClick={() => setTab(m)}
@@ -381,7 +516,7 @@ function TourInner() {
                 tab === m ? "bg-bernstein text-[#2a1d0a]" : "text-schaum/70"
               }`}
             >
-              {m === "karte" ? "Karte" : "Rangliste"}
+              {m === "karte" ? "Karte" : m === "stops" ? "Stops" : "Rangliste"}
             </button>
           ))}
         </div>
@@ -438,9 +573,20 @@ function TourInner() {
               rel="noopener noreferrer"
               className="absolute bottom-4 right-4 z-[900] flex items-center gap-2 rounded-full bg-bernstein px-4 py-3 text-sm font-semibold text-[#2a1d0a] shadow-lg active:brightness-95"
             >
-              🧭 Navigieren
+              <IconKompass size={16} /> Navigieren
             </a>
           )}
+        </div>
+      ) : tab === "stops" ? (
+        <div className="flex-1 overflow-auto mx-auto w-full max-w-md px-4 pb-6">
+          <Scorecard
+            tour={tour}
+            kneipen={kneipen}
+            ergebnisse={ergebnisse}
+            aktivId={aktivId}
+            challengeFuer={challengeFuer}
+            onOeffnen={setPanel}
+          />
         </div>
       ) : (
         <div className="flex-1 overflow-auto mx-auto w-full max-w-md px-4 pb-6">
@@ -688,6 +834,100 @@ function Lobby({
   );
 }
 
+// ── Scorecard (Stops-Liste als Alternative zur Karte) ────
+function Scorecard({
+  tour,
+  kneipen,
+  ergebnisse,
+  aktivId,
+  challengeFuer,
+  onOeffnen,
+}: {
+  tour: Tour;
+  kneipen: TourKneipe[];
+  ergebnisse: Ergebnis[];
+  aktivId: string | null;
+  challengeFuer: (kneipeId: string) => { titel: string; beschreibung: string } | null;
+  onOeffnen: (k: TourKneipe) => void;
+}) {
+  if (!aktivId) {
+    return (
+      <Card>
+        <p className="text-sm text-schaum/50">Wähle oben einen Spieler, um die Scorecard zu sehen.</p>
+      </Card>
+    );
+  }
+
+  const eintraege = kneipen.map((k) => {
+    const e = ergebnisse.find((x) => x.tour_kneipe_id === k.id && x.teilnehmer_id === aktivId) ?? null;
+    const score = e && e.erledigt ? scoreEintrag(e, tour) : null;
+    const verweigert = Boolean(e?.erledigt && (e?.strafschlucke ?? 0) > 0 && (e?.schlucke ?? 0) === 0);
+    return { kneipe: k, ergebnis: e, score, verweigert };
+  });
+  const gesamt = eintraege.reduce((sum, x) => sum + (x.score?.gesamt ?? 0), 0);
+  const erledigt = eintraege.filter((x) => x.ergebnis?.erledigt).length;
+
+  return (
+    <Card className="space-y-3">
+      <div className="flex items-baseline justify-between">
+        <h2 className="font-display text-xl">Scorecard</h2>
+        <span className="text-xs text-schaum/50">
+          {erledigt}/{kneipen.length} Stops
+        </span>
+      </div>
+      <ol className="space-y-1">
+        {eintraege.map(({ kneipe, ergebnis, score, verweigert }, i) => {
+          const done = Boolean(ergebnis?.erledigt);
+          const challenge = challengeFuer(kneipe.id);
+          return (
+            <li key={kneipe.id}>
+              <button
+                onClick={() => onOeffnen(kneipe)}
+                className={`w-full rounded-lg px-3 py-2.5 text-left transition ${
+                  done ? "bg-moos/10 border border-moos/30" : "bg-nacht-3 border border-transparent"
+                }`}
+              >
+                <span className="flex items-center gap-3">
+                  <span
+                    className={`mono grid h-7 w-7 shrink-0 place-items-center rounded-full text-sm ${
+                      done ? "bg-moos/25 text-moos" : "bg-nacht-2 text-schaum/60"
+                    }`}
+                  >
+                    {done ? "✓" : i + 1}
+                  </span>
+                  <span className="flex-1 min-w-0">
+                    <span className="block truncate">{kneipe.name}</span>
+                    {challenge && (
+                      <span className="block truncate text-xs text-schaum/40">{challenge.titel}</span>
+                    )}
+                  </span>
+                  {done ? (
+                    <span className="text-right">
+                      <span className="mono block text-lg leading-tight">{score?.gesamt ?? 0}</span>
+                      <span className="block text-[10px] text-schaum/40">
+                        {verweigert
+                          ? "nicht machbar"
+                          : `${ergebnis?.schlucke ?? 0} Schlücke${(score?.straf ?? 0) > 0 ? ` +${score?.straf} Straf` : ""}`}
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="text-xs text-schaum/40">offen</span>
+                  )}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+      <div className="flex items-center justify-between rounded-lg bg-nacht-3 px-3 py-2.5">
+        <span className="text-sm text-schaum/70">Gesamt</span>
+        <span className="mono text-xl text-bernstein">{gesamt}</span>
+      </div>
+      <p className="text-xs text-schaum/40">Stop antippen, um die Challenge zu öffnen und zu zählen.</p>
+    </Card>
+  );
+}
+
 // ── Rangliste ────────────────────────────────────────────
 function Ranglisten({
   tour,
@@ -780,13 +1020,13 @@ function ChallengePanel({
               href={`https://www.google.com/maps/dir/?api=1&destination=${kneipe.lat},${kneipe.lng}&travelmode=walking`}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-1 inline-flex items-center gap-1 text-sm font-semibold text-bernstein active:brightness-95"
+              className="mt-1 inline-flex items-center gap-1.5 text-sm font-semibold text-bernstein active:brightness-95"
             >
-              🧭 Hierhin navigieren
+              <IconKompass size={15} /> Hierhin navigieren
             </a>
           </div>
-          <button onClick={onClose} className="text-2xl text-schaum/50 leading-none">
-            ×
+          <button onClick={onClose} className="grid h-9 w-9 place-items-center rounded-lg text-schaum/50 hover:bg-nacht-3" aria-label="schließen">
+            <IconX size={20} />
           </button>
         </div>
 
