@@ -39,8 +39,47 @@ export type Bar = {
   sichtbarkeit: Sichtbarkeit;
   gesperrt: boolean;
   sortierung: number | null;
+  /** 'uebernommen' = aus einer geteilten Route in die eigene Liste kopiert */
+  herkunft?: BarHerkunft;
+  /** Ursprungsbar der Kopie (weich – wird NULL, wenn das Original verschwindet) */
+  quelle_bar_id?: string | null;
   erstellt_am: string;
   geaendert_am: string;
+};
+
+/** Woher eine eigene Bar stammt: selbst angelegt oder aus einer Route übernommen. */
+export type BarHerkunft = "eigen" | "uebernommen";
+
+/**
+ * Route (v2.2) – benannte, geordnete Liste von Stops als Vorlage für Touren.
+ * Rechte- und Sichtbarkeitslogik ist identisch zu Bars und Spielformen.
+ */
+export type Route = {
+  id: string;
+  name: string;
+  beschreibung: string | null;
+  stadt_id: number | null;
+  ersteller_user_id: string;
+  sichtbarkeit: Sichtbarkeit;
+  gesperrt: boolean;
+  /** Geheimnis im Teilen-Link */
+  teilen_token: string;
+  /** gesetzt, wenn diese Route aus einem geteilten Link übernommen wurde */
+  quelle_route_id: string | null;
+  erstellt_am: string;
+  geaendert_am: string;
+};
+
+/** Ein Stop einer Route: Snapshot (Name/Position) + Referenz auf die Bar. */
+export type RoutenStop = {
+  id: string;
+  route_id: string;
+  bar_id: string | null;
+  name: string;
+  lat: number;
+  lng: number;
+  adresse: string | null;
+  position: number;
 };
 
 export type Spielform = {

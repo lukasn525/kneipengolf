@@ -22,6 +22,7 @@ import {
   IconPin,
   IconPlus,
   IconSchloss,
+  IconUebernommen,
   IconWarnung,
   IconX,
 } from "@/components/Icons";
@@ -56,6 +57,19 @@ function SichtbarkeitsChip({ oeffentlich }: { oeffentlich: boolean }) {
     >
       {oeffentlich ? <IconGlobus size={11} /> : <IconSchloss size={11} />}
       {oeffentlich ? "öffentlich" : "privat"}
+    </span>
+  );
+}
+
+/**
+ * Marke für Bars, die aus einer geteilten Route stammen. Sie gehören
+ * dem Konto wie jede andere private Bar – das Symbol erklärt nur, woher
+ * sie kam, damit die eigene Liste nachvollziehbar bleibt.
+ */
+function UebernommenChip() {
+  return (
+    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-nacht-2 px-2 py-0.5 text-[11px] text-schaum/50">
+      <IconUebernommen size={11} /> übernommen
     </span>
   );
 }
@@ -381,9 +395,10 @@ function BarZeile({
       }`}
     >
       <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-2">
+        <span className="flex flex-wrap items-center gap-2">
           <span className="truncate">{bar.name}</span>
           {eigen && <SichtbarkeitsChip oeffentlich={oeffentlich} />}
+          {eigen && bar.herkunft === "uebernommen" && <UebernommenChip />}
           {bar.gesperrt && (
             <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-ziegel/20 px-2 py-0.5 text-[11px] text-ziegel">
               <IconWarnung size={11} /> gesperrt

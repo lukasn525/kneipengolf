@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useSession } from "./SessionProvider";
 import { Shell, Logo } from "./ui";
 import { KonfigHinweis } from "./KonfigHinweis";
@@ -10,10 +10,19 @@ import { KonfigHinweis } from "./KonfigHinweis";
 export function Guard({ children }: { children: React.ReactNode }) {
   const { session, loading, konfiguriert } = useSession();
   const router = useRouter();
+  const pfad = usePathname();
 
   useEffect(() => {
-    if (konfiguriert && !loading && !session) router.replace("/auth?modus=login");
-  }, [konfiguriert, loading, session, router]);
+    if (konfiguriert && !loading && !session) {
+      // Ziel merken, damit man nach dem Anmelden dort landet, wo man wollte
+      // (z. B. bei einem geteilten Routen- oder Tour-Link). Die Query kommt
+      // bewusst aus `window`, nicht aus `useSearchParams` – sonst müsste
+      // jede geschützte Seite in eine Suspense-Grenze.
+      const qs = typeof window === "undefined" ? "" : window.location.search;
+      const ziel = `${pfad ?? "/dashboard"}${qs}`;
+      router.replace(`/auth?modus=login&weiter=${encodeURIComponent(ziel)}`);
+    }
+  }, [konfiguriert, loading, session, router, pfad]);
 
   if (!konfiguriert) {
     return (

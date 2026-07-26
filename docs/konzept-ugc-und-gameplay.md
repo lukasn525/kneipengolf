@@ -7,6 +7,12 @@ getrennte Übersichten für **Bars** und **Spiele** im Hauptmenü, eine
 langfristige Speicher- und Rechtelösung für selbst angelegte Bars, und ein
 unterbrechungsfreier Spielablauf.
 
+> **Fortsetzung:** Die dritte UGC-Ebene – ganze **Routen** speichern,
+> veröffentlichen und per Link teilen – steht in
+> [`konzept-routen-teilen.md`](./konzept-routen-teilen.md) (v2.2). Sie
+> übernimmt das hier beschriebene Sichtbarkeits-, Rechte- und
+> Snapshot-Modell unverändert und ergänzt es um einen vierten Menüpunkt.
+
 ---
 
 ## 1. Architektur-Konzept: Speicherung & Rechte
@@ -202,7 +208,7 @@ Es legt an bzw. ändert:
 | `src/lib/ugc.ts` (neu) | einzige Zugriffsschicht: laden, anlegen, löschen, veröffentlichen, ausblenden, melden, Rollen, `geraetId()` |
 | `src/components/Bibliothek.tsx` (neu) | `BarsAnsicht` + `SpieleAnsicht` mit Verwaltung, Rechte-abhängigen Aktionen und Moderations-Knopf |
 | `src/components/Icons.tsx` | Icons für Auge/Auge-aus, Globus, Schloss, Plus, Weiter, Warnung |
-| `src/app/dashboard/page.tsx` | Hauptmenü mit drei Tabs: **Spielen / Bars / Spiele**; „Deine Spiele" heißt jetzt „Deine Touren" |
+| `src/app/dashboard/page.tsx` | Hauptmenü mit Tabs: **Spielen / Bars / Spiele** (ab v2.2 zusätzlich **Routen**); „Deine Spiele" heißt jetzt „Deine Touren" |
 | `src/app/create/page.tsx` | Picker liest aus `bars` (Meine / Vorschläge / Community); neue Bars werden immer privat gespeichert; `bar_id` wandert in die Route |
 | `src/app/tour/[code]/page.tsx` | `oeffneStop`, `wertungAbschliessen`, Auto-Close-Effekt, `NaechstesGame`-Karte, Spielerkopf im Challenge-Panel, `geraet_id` beim Beitreten |
 

@@ -1,27 +1,70 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useSession } from "@/components/SessionProvider";
 import { Guard } from "@/components/Guard";
 import { TopBar } from "@/components/TopBar";
 import { Button, Card, Field, Input, Shell } from "@/components/ui";
 import { handicapWert } from "@/lib/game";
-import { IconPapierkorb } from "@/components/Icons";
-import type { Tour } from "@/lib/types";
+import { IconPapierkorb, IconPin, IconRoute, IconWeiter } from "@/components/Icons";
+import { BarsAnsicht, SpieleAnsicht } from "@/components/Bibliothek";
+import { RoutenAnsicht } from "@/components/RoutenBibliothek";
+import { ladeRolle } from "@/lib/ugc";
+import { ladeRouten, type RouteMitStops } from "@/lib/routen";
+import type { BenutzerRolle, Stadt, Tour } from "@/lib/types";
+
+/**
+ * Vier Menüpunkte: Spielen, Routen, Bars, Spiele.
+ *
+ * „Spielen" bleibt bewusst die Startansicht und enthält alles, was für
+ * einen Abend nötig ist – inklusive Schnellstart über gespeicherte Routen.
+ * Die drei Verwaltungs-Tabs stören den Ablauf nicht, sie liegen daneben.
+ */
+const TABS = [
+  { key: "spielen", label: "Spielen" },
+  { key: "routen", label: "Routen" },
+  { key: "bars", label: "Bars" },
+  { key: "spiele", label: "Spiele" },
+] as const;
+
+type TabKey = (typeof TABS)[number]["key"];
+
+function istTab(v: string | null): v is TabKey {
+  return TABS.some((t) => t.key === v);
+}
 
 function DashboardInner() {
   const router = useRouter();
+  const params = useSearchParams();
   const { user } = useSession();
+
+  const startTab = params.get("tab");
+  const [tab, setTab] = useState<TabKey>(istTab(startTab) ? startTab : "spielen");
+  const [rolle, setRolle] = useState<BenutzerRolle>(null);
+  const [staedte, setStaedte] = useState<Stadt[]>([]);
+
   const [code, setCode] = useState("");
   const [fehler, setFehler] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [meine, setMeine] = useState<Tour[]>([]);
   const [meineGeladen, setMeineGeladen] = useState(false);
+  const [meineRouten, setMeineRouten] = useState<RouteMitStops[]>([]);
   const [handicap, setHandicap] = useState<{ wert: number | null; stops: number } | null>(null);
   const [statistik, setStatistik] = useState<{ touren: number; bestwert: number | null } | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    ladeRolle(user.id).then(setRolle);
+    supabase()
+      .from("staedte")
+      .select("*")
+      .order("name")
+      .then(({ data }) => setStaedte((data as Stadt[]) ?? []));
+    ladeRouten(user.id).then((l) => setMeineRouten(l.eigene.filter((r) => r.stops.length > 0)));
+  }, [user]);
 
   useEffect(() => {
     if (!user) return;
@@ -105,6 +148,12 @@ function DashboardInner() {
     })();
   }, [user]);
 
+  function tabWechseln(k: TabKey) {
+    setTab(k);
+    // Tab in die URL schreiben, damit „zurück" und geteilte Links stimmen
+    router.replace(k === "spielen" ? "/dashboard" : `/dashboard?tab=${k}`, { scroll: false });
+  }
+
   async function loeschen(t: Tour) {
     if (!confirm(`Tour ${t.code} wirklich löschen? Alle Daten dieser Tour gehen verloren.`)) return;
     const { error } = await supabase().from("touren").delete().eq("id", t.id);
@@ -136,116 +185,173 @@ function DashboardInner() {
   return (
     <Shell>
       <TopBar />
-      <div className="space-y-5 mt-2">
-        {meineGeladen && meine.length === 0 && (
-          <Card className="space-y-3">
-            <h2 className="font-display text-xl">So funktioniert Kneipen-Golf</h2>
-            <ol className="space-y-2">
-              {[
-                ["1", "Route erstellen", "Stadt wählen oder eigene Route bauen – 9 Kneipen wie 9 Löcher."],
-                ["2", "Freunde einladen", "Code oder QR teilen, alle treten mit ihrem Namen bei."],
-                ["3", "Spielen", "Pro Kneipe eine Challenge, Schlücke zählen – der niedrigste Score gewinnt."],
-              ].map(([n, titel, text]) => (
-                <li key={n} className="flex gap-3">
-                  <span className="mono grid h-7 w-7 shrink-0 place-items-center rounded-full bg-bernstein/15 text-sm text-bernstein">
-                    {n}
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block text-sm font-semibold">{titel}</span>
-                    <span className="block text-xs text-schaum/50">{text}</span>
-                  </span>
-                </li>
-              ))}
-            </ol>
-          </Card>
-        )}
 
-        {handicap && handicap.wert !== null && (
-          <Card className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-schaum/60">Dein Handicap</p>
-                <p className="text-xs text-schaum/40">
-                  {handicap.stops} gewertete Stops · niedriger ist besser
-                </p>
-              </div>
-              <p className="mono text-3xl text-bernstein">
-                {handicap.wert > 0 ? "+" : ""}
-                {handicap.wert}
-              </p>
-            </div>
-            {statistik && statistik.touren > 0 && (
-              <div className="grid grid-cols-2 gap-2 border-t border-[var(--linie)] pt-3">
-                <div className="rounded-xl bg-nacht-3 px-3 py-2">
-                  <p className="text-xs text-schaum/50">Gespielte Touren</p>
-                  <p className="mono text-xl">{statistik.touren}</p>
-                </div>
-                <div className="rounded-xl bg-nacht-3 px-3 py-2">
-                  <p className="text-xs text-schaum/50">Bestwert</p>
-                  <p className="mono text-xl">{statistik.bestwert ?? "–"}</p>
-                </div>
-              </div>
+      <nav className="mt-2 grid grid-cols-4 gap-1 rounded-xl bg-nacht-3 p-1">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => tabWechseln(t.key)}
+            className={`rounded-lg py-2 text-sm font-semibold transition ${
+              tab === t.key ? "bg-bernstein text-[#2a1d0a]" : "text-schaum/70 hover:text-schaum"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </nav>
+
+      <div className="space-y-5 mt-4">
+        {tab === "spielen" && (
+          <>
+            {meineGeladen && meine.length === 0 && (
+              <Card className="space-y-3">
+                <h2 className="font-display text-xl">So funktioniert Kneipen-Golf</h2>
+                <ol className="space-y-2">
+                  {[
+                    ["1", "Route erstellen", "Stadt wählen oder eigene Route bauen – 9 Kneipen wie 9 Löcher."],
+                    ["2", "Freunde einladen", "Code oder QR teilen, alle treten mit ihrem Namen bei."],
+                    ["3", "Spielen", "Pro Kneipe eine Challenge, Schlücke zählen – der niedrigste Score gewinnt."],
+                  ].map(([n, titel, text]) => (
+                    <li key={n} className="flex gap-3">
+                      <span className="mono grid h-7 w-7 shrink-0 place-items-center rounded-full bg-bernstein/15 text-sm text-bernstein">
+                        {n}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold">{titel}</span>
+                        <span className="block text-xs text-schaum/50">{text}</span>
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              </Card>
             )}
-          </Card>
-        )}
 
-        <Card className="space-y-3">
-          <h2 className="font-display text-xl">Neues Spiel</h2>
-          <p className="text-sm text-schaum/70">
-            Stadt wählen, Kneipen-Route festlegen, Mitspieler einladen.
-          </p>
-          <Link href="/create">
-            <Button className="w-full">Spiel erstellen</Button>
-          </Link>
-        </Card>
+            {handicap && handicap.wert !== null && (
+              <Card className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-schaum/60">Dein Handicap</p>
+                    <p className="text-xs text-schaum/40">
+                      {handicap.stops} gewertete Stops · niedriger ist besser
+                    </p>
+                  </div>
+                  <p className="mono text-3xl text-bernstein">
+                    {handicap.wert > 0 ? "+" : ""}
+                    {handicap.wert}
+                  </p>
+                </div>
+                {statistik && statistik.touren > 0 && (
+                  <div className="grid grid-cols-2 gap-2 border-t border-[var(--linie)] pt-3">
+                    <div className="rounded-xl bg-nacht-3 px-3 py-2">
+                      <p className="text-xs text-schaum/50">Gespielte Touren</p>
+                      <p className="mono text-xl">{statistik.touren}</p>
+                    </div>
+                    <div className="rounded-xl bg-nacht-3 px-3 py-2">
+                      <p className="text-xs text-schaum/50">Bestwert</p>
+                      <p className="mono text-xl">{statistik.bestwert ?? "–"}</p>
+                    </div>
+                  </div>
+                )}
+              </Card>
+            )}
 
-        <Card className="space-y-3">
-          <h2 className="font-display text-xl">Mit Code beitreten</h2>
-          <form onSubmit={beitreten} className="space-y-3">
-            <Field label="Tour-Code">
-              <Input
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                placeholder="z. B. KOELN-7F3K"
-                className="mono uppercase"
-              />
-            </Field>
-            {fehler && <p className="text-sm text-ziegel">{fehler}</p>}
-            <Button variant="ghost" type="submit" className="w-full" disabled={busy || !code.trim()}>
-              {busy ? "…" : "Beitreten"}
-            </Button>
-          </form>
-        </Card>
-
-        {meine.length > 0 && (
-          <Card className="space-y-2">
-            <h2 className="font-display text-xl">Deine Spiele</h2>
-            <ul className="divide-y divide-[var(--linie)]">
-              {meine.map((t) => (
-                <li key={t.id} className="flex items-center gap-2">
-                  <Link
-                    href={`/tour/${t.code}`}
-                    className="flex flex-1 items-center justify-between py-3 hover:text-bernstein"
-                  >
-                    <span>
-                      <span className="mono text-bernstein">{t.code}</span>
-                      {t.name ? <span className="text-schaum/60"> · {t.name}</span> : null}
-                    </span>
-                    <span className="text-xs text-schaum/50">{statusLabel(t.status)}</span>
-                  </Link>
+            {/* Schnellstart: eine gespeicherte Route ist zwei Tipps vom Spiel entfernt */}
+            {meineRouten.length > 0 && (
+              <Card className="space-y-2">
+                <div className="flex items-baseline justify-between">
+                  <h2 className="font-display text-xl">Nochmal spielen</h2>
                   <button
-                    onClick={() => loeschen(t)}
-                    className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-ziegel hover:bg-nacht-3"
-                    aria-label="Tour löschen"
-                    title="Tour löschen"
+                    onClick={() => tabWechseln("routen")}
+                    className="text-xs text-schaum/50 hover:text-bernstein"
                   >
-                    <IconPapierkorb />
+                    alle Routen
                   </button>
-                </li>
-              ))}
-            </ul>
-          </Card>
+                </div>
+                <ul className="divide-y divide-[var(--linie)]">
+                  {meineRouten.slice(0, 4).map((r) => (
+                    <li key={r.id}>
+                      <Link
+                        href={`/create?route=${r.id}`}
+                        className="flex items-center gap-3 py-3 hover:text-bernstein"
+                      >
+                        <IconRoute size={18} className="shrink-0 text-bernstein" />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate">{r.name}</span>
+                          <span className="flex items-center gap-1 text-xs text-schaum/50">
+                            <IconPin size={11} /> {r.stops.length} Stops
+                          </span>
+                        </span>
+                        <IconWeiter size={16} className="shrink-0 text-schaum/40" />
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </Card>
+            )}
+
+            <Card className="space-y-3">
+              <h2 className="font-display text-xl">Neues Spiel</h2>
+              <p className="text-sm text-schaum/70">
+                Stadt wählen, Kneipen-Route festlegen, Mitspieler einladen.
+              </p>
+              <Link href="/create">
+                <Button className="w-full">Spiel erstellen</Button>
+              </Link>
+            </Card>
+
+            <Card className="space-y-3">
+              <h2 className="font-display text-xl">Mit Code beitreten</h2>
+              <form onSubmit={beitreten} className="space-y-3">
+                <Field label="Tour-Code">
+                  <Input
+                    value={code}
+                    onChange={(e) => setCode(e.target.value)}
+                    placeholder="z. B. KOELN-7F3K"
+                    className="mono uppercase"
+                  />
+                </Field>
+                {fehler && <p className="text-sm text-ziegel">{fehler}</p>}
+                <Button variant="ghost" type="submit" className="w-full" disabled={busy || !code.trim()}>
+                  {busy ? "…" : "Beitreten"}
+                </Button>
+              </form>
+            </Card>
+
+            {meine.length > 0 && (
+              <Card className="space-y-2">
+                <h2 className="font-display text-xl">Deine Touren</h2>
+                <ul className="divide-y divide-[var(--linie)]">
+                  {meine.map((t) => (
+                    <li key={t.id} className="flex items-center gap-2">
+                      <Link
+                        href={`/tour/${t.code}`}
+                        className="flex flex-1 items-center justify-between py-3 hover:text-bernstein"
+                      >
+                        <span>
+                          <span className="mono text-bernstein">{t.code}</span>
+                          {t.name ? <span className="text-schaum/60"> · {t.name}</span> : null}
+                        </span>
+                        <span className="text-xs text-schaum/50">{statusLabel(t.status)}</span>
+                      </Link>
+                      <button
+                        onClick={() => loeschen(t)}
+                        className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-ziegel hover:bg-nacht-3"
+                        aria-label="Tour löschen"
+                        title="Tour löschen"
+                      >
+                        <IconPapierkorb />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </Card>
+            )}
+          </>
         )}
+
+        {tab === "routen" && <RoutenAnsicht userId={user?.id} rolle={rolle} />}
+        {tab === "bars" && <BarsAnsicht userId={user?.id} rolle={rolle} staedte={staedte} />}
+        {tab === "spiele" && <SpieleAnsicht userId={user?.id} rolle={rolle} />}
       </div>
     </Shell>
   );
@@ -258,7 +364,9 @@ function statusLabel(s: Tour["status"]) {
 export default function DashboardPage() {
   return (
     <Guard>
-      <DashboardInner />
+      <Suspense fallback={null}>
+        <DashboardInner />
+      </Suspense>
     </Guard>
   );
 }

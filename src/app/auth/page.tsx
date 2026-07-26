@@ -11,6 +11,10 @@ function AuthInner() {
   const params = useSearchParams();
   const router = useRouter();
   const startModus = params.get("modus") === "registrieren" ? "registrieren" : "login";
+  // Ziel nach dem Anmelden – z. B. ein geteilter Routen-Link. Nur interne
+  // Pfade zulassen, damit der Parameter keine offene Weiterleitung wird.
+  const weiterRoh = params.get("weiter");
+  const weiter = weiterRoh && /^\/(?!\/)/.test(weiterRoh) ? weiterRoh : "/dashboard";
   const [modus, setModus] = useState<"login" | "registrieren">(startModus);
   const [email, setEmail] = useState("");
   const [passwort, setPasswort] = useState("");
@@ -45,7 +49,7 @@ function AuthInner() {
         });
         if (error) throw error;
         if (data.session) {
-          router.replace("/dashboard");
+          router.replace(weiter);
         } else {
           setInfo(
             "Konto angelegt. Falls E-Mail-Bestätigung aktiv ist, bestätige bitte den Link in deiner Mail und melde dich dann an."
@@ -55,7 +59,7 @@ function AuthInner() {
       } else {
         const { error } = await sb.auth.signInWithPassword({ email, password: passwort });
         if (error) throw error;
-        router.replace("/dashboard");
+        router.replace(weiter);
       }
     } catch (err: any) {
       setFehler(err?.message ?? "Etwas ist schiefgelaufen.");

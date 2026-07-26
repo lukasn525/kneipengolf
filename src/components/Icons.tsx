@@ -189,3 +189,51 @@ export function IconPin(p: IconProps) {
     </Basis>
   );
 }
+
+/** Geschlängelter Weg mit Stationen – Route */
+export function IconRoute(p: IconProps) {
+  return (
+    <Basis {...p}>
+      <circle cx="6" cy="19" r="2.5" />
+      <circle cx="18" cy="5" r="2.5" />
+      <path d="M8.5 19h5a3.5 3.5 0 0 0 0-7h-3a3.5 3.5 0 0 1 0-7h5" />
+    </Basis>
+  );
+}
+
+/** Verbundene Knoten – teilen */
+export function IconTeilen(p: IconProps) {
+  return (
+    <Basis {...p}>
+      <circle cx="18" cy="5" r="3" />
+      <circle cx="6" cy="12" r="3" />
+      <circle cx="18" cy="19" r="3" />
+      <line x1="8.6" y1="10.5" x2="15.4" y2="6.5" />
+      <line x1="8.6" y1="13.5" x2="15.4" y2="17.5" />
+    </Basis>
+  );
+}
+
+/** Zwei Blätter – Link kopieren */
+export function IconKopieren(p: IconProps) {
+  return (
+    <Basis {...p}>
+      <rect x="9" y="9" width="12" height="12" rx="2" />
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+    </Basis>
+  );
+}
+
+/**
+ * Pfeil in eine Ablage – „übernommen".
+ * Markiert Bars und Routen, die aus einem geteilten Link stammen.
+ */
+export function IconUebernommen(p: IconProps) {
+  return (
+    <Basis {...p}>
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="7 10 12 15 17 10" />
+      <line x1="12" y1="15" x2="12" y2="3" />
+    </Basis>
+  );
+}

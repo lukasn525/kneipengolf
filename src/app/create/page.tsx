@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useSession } from "@/components/SessionProvider";
 import { Guard } from "@/components/Guard";
@@ -14,7 +14,17 @@ import { GLAESER } from "@/lib/glas";
 import { AdressSuche, type GeoTreffer } from "@/components/AdressSuche";
 import { holeRoute, reverseGeocode } from "@/lib/nav";
 import { getStandardModus } from "@/lib/einstellungen";
-import { IconHoch, IconRunter, IconX, IconStift, IconPin, IconGlobus, IconSchloss } from "@/components/Icons";
+import {
+  IconHoch,
+  IconRunter,
+  IconX,
+  IconStift,
+  IconPin,
+  IconGlobus,
+  IconSchloss,
+  IconRoute,
+  IconUebernommen,
+} from "@/components/Icons";
 import {
   barAnlegen,
   ladeBars,
@@ -23,6 +33,15 @@ import {
   spielformLoeschen,
   type BarListe,
 } from "@/lib/ugc";
+import {
+  freierRoutenName,
+  ladeRoute,
+  ladeRouten,
+  routeAktualisieren,
+  routeSpeichern,
+  type RouteMitStops,
+  type RoutenListe,
+} from "@/lib/routen";
 import type { Bar, GlasTyp, SpielModus, Stadt } from "@/lib/types";
 
 type Stop = {
@@ -43,6 +62,7 @@ const Map = dynamic(() => import("@/components/Map"), {
 
 function CreateInner() {
   const router = useRouter();
+  const params = useSearchParams();
   const { user } = useSession();
 
   const [staedte, setStaedte] = useState<Stadt[]>([]);
@@ -75,6 +95,16 @@ function CreateInner() {
   const [pickerTab, setPickerTab] = useState<"liste" | "selbst">("liste");
   const [erweitertOffen, setErweitertOffen] = useState(false);
 
+  // Routen: laden (eigene / Community) und die aktuelle Stopliste sichern
+  const [routenListe, setRoutenListe] = useState<RoutenListe | null>(null);
+  const [routePickerOffen, setRoutePickerOffen] = useState(false);
+  const [geladeneRoute, setGeladeneRoute] = useState<RouteMitStops | null>(null);
+  const [routeFormOffen, setRouteFormOffen] = useState(false);
+  const [routeName, setRouteName] = useState("");
+  const [routeBesch, setRouteBesch] = useState("");
+  const [routeBusy, setRouteBusy] = useState(false);
+  const [routeMeldung, setRouteMeldung] = useState<string | null>(null);
+
   // Spielformen: an-/abwählbar; eigene werden dauerhaft am Konto gespeichert
   const [spielformAuswahl, setSpielformAuswahl] = useState<
     {
@@ -90,7 +120,22 @@ function CreateInner() {
   const [sfFormOffen, setSfFormOffen] = useState(false);
 
   const stadt = useMemo(() => staedte.find((s) => s.id === stadtId) ?? null, [staedte, stadtId]);
-  const aktiv = Boolean(stadt) || eigenerModus;
+  // Auch aktiv, wenn eine gespeicherte Route geladen wurde, bevor die
+  // Städteliste da war – sonst blinkt die Route kurz weg.
+  const aktiv = Boolean(stadt) || eigenerModus || stops.length > 0;
+
+  /** Namen der eigenen Routen – Grundlage für die Eindeutigkeitsprüfung. */
+  const meineRoutenNamen = useMemo(
+    () => (routenListe?.eigene ?? []).map((r) => r.name),
+    [routenListe]
+  );
+  /** Beim Aktualisieren zählt der eigene alte Name nicht als Konflikt. */
+  const eigeneRoute =
+    geladeneRoute && geladeneRoute.ersteller_user_id === user?.id ? geladeneRoute : null;
+  const namenOhneEigenen = meineRoutenNamen.filter((n) => n !== eigeneRoute?.name);
+  const routeNameKonflikt =
+    routeName.trim().length > 0 &&
+    namenOhneEigenen.some((n) => n.trim().toLowerCase() === routeName.trim().toLowerCase());
 
   // Was steht im Picker zur Auswahl? Ausgeblendete und bereits gesetzte Bars fliegen raus.
   const frei = (b: Bar) => !stops.some((s) => s.barId === b.id) && !barListe?.ausgeblendet.has(b.id);
@@ -142,6 +187,28 @@ function CreateInner() {
     ladeBars(user.id).then(setBarListe);
   }, [user, stadtId]);
 
+  // Gespeicherte Routen laden (eigene + öffentliche der Community)
+  useEffect(() => {
+    if (!user) return;
+    ladeRouten(user.id).then(setRoutenListe);
+  }, [user]);
+
+  // Schnellstart aus dem Hauptmenü: /create?route=<id>
+  useEffect(() => {
+    const id = params.get("route");
+    if (!id || !user || geladeneRoute) return;
+    ladeRoute(id).then((r) => {
+      if (r) routeInsFormular(r);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params, user]);
+
+  useEffect(() => {
+    if (!routeMeldung) return;
+    const t = setTimeout(() => setRouteMeldung(null), 3500);
+    return () => clearTimeout(t);
+  }, [routeMeldung]);
+
   // Route neu berechnen, sobald sich die Stops ändern.
   // Die gezeichnete Linie muss immer zur aktuellen Reihenfolge passen:
   // - solide Route sofort verwerfen (in der Zwischenzeit zeigt die Karte die
@@ -169,6 +236,8 @@ function CreateInner() {
   async function stadtWaehlen(id: number) {
     setEigenerModus(false);
     setStadtId(id);
+    setGeladeneRoute(null); // Standardvorschlag ist keine gespeicherte Route mehr
+    setRouteFormOffen(false);
     const liste = await ladeBars(user?.id, id);
     setBarListe(liste);
     // Standardroute: kuratierte Bars der Stadt, 9 Stops wie 9 Golf-Löcher.
@@ -185,6 +254,8 @@ function CreateInner() {
     setEigenerModus(true);
     setStadtId(null);
     setStops([]);
+    setGeladeneRoute(null);
+    setRouteFormOffen(false);
     setBarListe(await ladeBars(user?.id));
   }
 
@@ -261,6 +332,96 @@ function CreateInner() {
     setPending(null);
     setPickerTab(verfuegbareGesamt > 0 ? "liste" : "selbst");
     setPickerOffen(true);
+  }
+
+  // ── Routen ──────────────────────────────────────────────────────
+
+  /**
+   * Übernimmt eine gespeicherte Route in das Formular. Die Stops sind
+   * Snapshots, `bar_id` bleibt erhalten – dadurch landet in der Tour
+   * wieder die Referenz und Mitspieler sehen auch private Bars.
+   */
+  async function routeInsFormular(r: RouteMitStops) {
+    setRoutePickerOffen(false);
+    setPending(null);
+    if (r.stadt_id) {
+      setStadtId(r.stadt_id);
+      setEigenerModus(false);
+    } else {
+      setStadtId(null);
+      setEigenerModus(true);
+    }
+    setStops(
+      r.stops.map((s) => ({
+        name: s.name,
+        lat: s.lat,
+        lng: s.lng,
+        adresse: s.adresse,
+        barId: s.bar_id ?? undefined,
+      }))
+    );
+    setGeladeneRoute(r);
+    setName((n) => n || r.name);
+    setBarListe(await ladeBars(user?.id, r.stadt_id ?? undefined));
+    setRouteMeldung(`Route „${r.name}" geladen – ${r.stops.length} Stops.`);
+  }
+
+  /** Öffnet das Speichern-Formular mit einem freien Namensvorschlag. */
+  function routeFormOeffnen() {
+    const wunsch = eigeneRoute?.name ?? name.trim() ?? "";
+    const basis = wunsch || stadt?.name || "Meine Route";
+    setRouteName(eigeneRoute ? eigeneRoute.name : freierRoutenName(basis, meineRoutenNamen));
+    setRouteBesch(geladeneRoute?.beschreibung ?? "");
+    setRouteFormOffen(true);
+  }
+
+  const stopsFuerRoute = () =>
+    stops.map((s) => ({
+      name: s.name,
+      lat: s.lat,
+      lng: s.lng,
+      adresse: s.adresse,
+      barId: s.barId ?? null,
+    }));
+
+  async function routeNeuSpeichern() {
+    if (!user || routeNameKonflikt || !routeName.trim()) return;
+    setRouteBusy(true);
+    const res = await routeSpeichern(
+      user.id,
+      { name: routeName, beschreibung: routeBesch, stadtId: stadt?.id ?? null },
+      stopsFuerRoute()
+    );
+    setRouteBusy(false);
+    if (!res.ok) {
+      setRouteMeldung(res.meldung);
+      return;
+    }
+    const liste = await ladeRouten(user.id);
+    setRoutenListe(liste);
+    setGeladeneRoute(liste.eigene.find((r) => r.id === res.route.id) ?? null);
+    setRouteFormOffen(false);
+    setRouteMeldung(`„${res.route.name}" liegt jetzt unter „Routen" im Hauptmenü.`);
+  }
+
+  async function routeUeberschreiben() {
+    if (!user || !eigeneRoute || routeNameKonflikt || !routeName.trim()) return;
+    setRouteBusy(true);
+    const res = await routeAktualisieren(
+      eigeneRoute.id,
+      { name: routeName, beschreibung: routeBesch, stadtId: stadt?.id ?? null },
+      stopsFuerRoute()
+    );
+    setRouteBusy(false);
+    if (!res.ok) {
+      setRouteMeldung(res.meldung);
+      return;
+    }
+    const liste = await ladeRouten(user.id);
+    setRoutenListe(liste);
+    setGeladeneRoute(liste.eigene.find((r) => r.id === eigeneRoute.id) ?? null);
+    setRouteFormOffen(false);
+    setRouteMeldung(`„${res.route.name}" aktualisiert.`);
   }
 
   function toggleSpielform(id: number) {
@@ -425,13 +586,41 @@ function CreateInner() {
               </button>
             </div>
           </Field>
+
+          {/* Der kürzeste Weg zum Spiel: eine fertige Route nehmen. */}
+          {routenListe && routenListe.eigene.length + routenListe.community.length > 0 && (
+            <button
+              onClick={() => setRoutePickerOffen(true)}
+              className="flex w-full items-center gap-2 rounded-xl border border-[var(--linie)] bg-nacht-2 px-4 py-3 text-left transition hover:bg-nacht-3"
+            >
+              <IconRoute size={17} className="shrink-0 text-bernstein" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold">Gespeicherte Route laden</span>
+                <span className="block text-xs text-schaum/50">
+                  {routenListe.eigene.length} eigene · {routenListe.community.length} aus der
+                  Community
+                </span>
+              </span>
+            </button>
+          )}
         </Card>
 
         {aktiv && (
           <Card className="space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="font-display text-xl">Route ({stops.length} Stops)</h2>
+              {geladeneRoute && (
+                <span className="inline-flex min-w-0 items-center gap-1 rounded-full bg-bernstein/15 px-2 py-0.5 text-[11px] text-bernstein">
+                  <IconRoute size={11} className="shrink-0" />
+                  <span className="truncate">{geladeneRoute.name}</span>
+                </span>
+              )}
             </div>
+            {routeMeldung && (
+              <p className="kg-pop rounded-xl border border-bernstein/40 bg-bernstein/10 px-3 py-2 text-sm">
+                {routeMeldung}
+              </p>
+            )}
             <p className="text-sm text-schaum/60">
               Standardmäßig sind 9 Bars geladen. Reihenfolge anpassen, entfernen – oder über „Bar
               hinzufügen" ergänzen.
@@ -494,6 +683,71 @@ function CreateInner() {
             <Button variant="ghost" className="w-full" onClick={openPicker}>
               + Bar hinzufügen
             </Button>
+
+            {/* Route sichern – dieselbe Stopliste, nur dauerhaft. */}
+            {stops.length > 0 &&
+              (routeFormOffen ? (
+                <div className="space-y-2 rounded-xl border border-bernstein/40 bg-nacht-3 p-3">
+                  <Field label="Name der Route">
+                    <Input
+                      value={routeName}
+                      onChange={(e) => setRouteName(e.target.value)}
+                      placeholder="z. B. Südstadt-Runde"
+                    />
+                  </Field>
+                  {routeNameKonflikt && (
+                    <button
+                      onClick={() => setRouteName(freierRoutenName(routeName, namenOhneEigenen))}
+                      className="text-left text-xs text-ziegel underline"
+                    >
+                      Diesen Namen hast du schon – „
+                      {freierRoutenName(routeName, namenOhneEigenen)}" nehmen?
+                    </button>
+                  )}
+                  <Field label="Beschreibung (optional)">
+                    <Input
+                      value={routeBesch}
+                      onChange={(e) => setRouteBesch(e.target.value)}
+                      placeholder="Kurz: für wen oder wofür?"
+                    />
+                  </Field>
+                  <p className="flex items-center gap-1.5 text-xs text-schaum/50">
+                    <IconSchloss size={13} className="shrink-0" />
+                    Wird privat gespeichert. Teilen und Veröffentlichen geht danach im Hauptmenü
+                    unter „Routen".
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {eigeneRoute && (
+                      <Button
+                        className="flex-1"
+                        onClick={routeUeberschreiben}
+                        disabled={routeBusy || routeNameKonflikt || !routeName.trim()}
+                      >
+                        {routeBusy ? "…" : `„${eigeneRoute.name}" aktualisieren`}
+                      </Button>
+                    )}
+                    <Button
+                      variant={eigeneRoute ? "ghost" : "primary"}
+                      className="flex-1"
+                      onClick={routeNeuSpeichern}
+                      disabled={routeBusy || routeNameKonflikt || !routeName.trim()}
+                    >
+                      {routeBusy ? "…" : eigeneRoute ? "Als neue Route" : "Route speichern"}
+                    </Button>
+                    <Button variant="ghost" onClick={() => setRouteFormOffen(false)}>
+                      <IconX size={16} />
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={routeFormOeffnen}
+                  className="flex w-full items-center justify-center gap-2 text-sm text-schaum/60 hover:text-bernstein"
+                >
+                  <IconRoute size={15} />
+                  {eigeneRoute ? "Route aktualisieren oder neu sichern" : "Als Route speichern"}
+                </button>
+              ))}
           </Card>
         )}
 
@@ -691,12 +945,51 @@ function CreateInner() {
         {fehler && <p className="text-sm text-ziegel">{fehler}</p>}
       </div>
 
-      {aktiv && stops.length > 0 && !pickerOffen && (
+      {aktiv && stops.length > 0 && !pickerOffen && !routePickerOffen && (
         <div className="fixed inset-x-0 bottom-0 z-[1100] border-t border-[var(--linie)] bg-nacht p-4">
           <div className="mx-auto max-w-md">
             <Button className="w-full" onClick={erstellen} disabled={busy}>
               {busy ? "erstelle…" : "Spiel erstellen & Code generieren"}
             </Button>
+          </div>
+        </div>
+      )}
+
+      {routePickerOffen && routenListe && (
+        <div className="fixed inset-0 z-[1000] flex flex-col bg-nacht/95 backdrop-blur">
+          <div className="mx-auto flex h-full w-full max-w-md flex-col px-4">
+            <div className="flex items-center justify-between py-3">
+              <h2 className="font-display text-xl">Route laden</h2>
+              <button
+                onClick={() => setRoutePickerOffen(false)}
+                className="grid h-10 w-10 place-items-center rounded-lg text-schaum/60 hover:bg-nacht-3 hover:text-schaum"
+                aria-label="schließen"
+              >
+                <IconX size={22} />
+              </button>
+            </div>
+            <p className="pb-3 text-xs text-schaum/40">
+              Die Stops landen im Formular – Reihenfolge, Bars und Einstellungen kannst du danach
+              noch ändern, ohne die gespeicherte Route zu verändern.
+            </p>
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pb-4">
+              <RoutenGruppe
+                titel="Meine Routen"
+                routen={routenListe.eigene}
+                onWaehlen={routeInsFormular}
+                hervorgehoben
+              />
+              <RoutenGruppe
+                titel="Von der Community"
+                routen={routenListe.community}
+                onWaehlen={routeInsFormular}
+              />
+              {routenListe.eigene.length + routenListe.community.length === 0 && (
+                <p className="mt-6 text-center text-sm text-schaum/50">
+                  Noch keine gespeicherten Routen.
+                </p>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -887,6 +1180,13 @@ function BarGruppe({
                 {b.ersteller_user_id && b.sichtbarkeit === "privat" && (
                   <IconSchloss size={12} className="shrink-0 text-schaum/40" />
                 )}
+                {b.herkunft === "uebernommen" && (
+                  <IconUebernommen
+                    size={12}
+                    className="shrink-0 text-schaum/40"
+                    // aus einer geteilten Route in die eigene Liste kopiert
+                  />
+                )}
               </span>
               {b.adresse && (
                 <span className="block truncate text-xs text-schaum/50">{b.adresse}</span>
@@ -905,10 +1205,74 @@ function BarGruppe({
   );
 }
 
+/** Eine Gruppe im Routen-Picker (Meine / Community). */
+function RoutenGruppe({
+  titel,
+  routen,
+  onWaehlen,
+  hervorgehoben = false,
+}: {
+  titel: string;
+  routen: RouteMitStops[];
+  onWaehlen: (r: RouteMitStops) => void;
+  hervorgehoben?: boolean;
+}) {
+  if (routen.length === 0) return null;
+  return (
+    <div className="space-y-2">
+      <p
+        className={`text-xs uppercase tracking-wide ${
+          hervorgehoben ? "text-bernstein" : "text-schaum/40"
+        }`}
+      >
+        {titel}
+      </p>
+      <ul className="space-y-2">
+        {routen.map((r) => (
+          <li
+            key={r.id}
+            className={`flex items-center gap-2 rounded-xl border bg-nacht-3 px-3 py-2 ${
+              hervorgehoben ? "border-bernstein/30" : "border-[var(--linie)]"
+            }`}
+          >
+            <span className="min-w-0 flex-1">
+              <span className="flex items-center gap-1.5">
+                <span className="truncate">{r.name}</span>
+                {r.sichtbarkeit === "oeffentlich" ? (
+                  <IconGlobus size={12} className="shrink-0 text-moos" />
+                ) : (
+                  <IconSchloss size={12} className="shrink-0 text-schaum/40" />
+                )}
+                {r.quelle_route_id && (
+                  <IconUebernommen size={12} className="shrink-0 text-schaum/40" />
+                )}
+              </span>
+              <span className="flex items-center gap-1 truncate text-xs text-schaum/50">
+                <IconPin size={11} className="shrink-0" />
+                {r.stops.length} Stops
+                {r.beschreibung ? ` · ${r.beschreibung}` : ""}
+              </span>
+            </span>
+            <button
+              onClick={() => onWaehlen(r)}
+              className="shrink-0 rounded-lg bg-bernstein px-3 py-2 text-sm font-semibold text-[#2a1d0a]"
+              disabled={r.stops.length === 0}
+            >
+              Laden
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export default function CreatePage() {
   return (
     <Guard>
-      <CreateInner />
+      <Suspense fallback={null}>
+        <CreateInner />
+      </Suspense>
     </Guard>
   );
 }
