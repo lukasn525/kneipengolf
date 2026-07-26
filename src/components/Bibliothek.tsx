@@ -44,7 +44,7 @@ import {
   type BarListe,
   type SpielformListe,
 } from "@/lib/ugc";
-import { erkenneStadt, type Ortstreffer } from "@/lib/orte";
+import { erkenneStadt, normalisiere, type Ortstreffer } from "@/lib/orte";
 import type { Bar, BenutzerRolle, Spielform, Stadt } from "@/lib/types";
 
 // ── kleine Bausteine ──────────────────────────────────────────────
@@ -125,6 +125,46 @@ function Abschnitt({
 
 // ── Bars ──────────────────────────────────────────────────────────
 
+/**
+ * Filter der Bar-Bibliothek.
+ *
+ * `alle` · Stadt-ID · `meine` (nur selbst angelegte) · `ohne` (keine Stadt).
+ *
+ * Die Leiste zeigt bewusst nur eine Handvoll Chips: Sobald Städte
+ * dazukommen, würde eine Chipzeile pro Stadt unbrauchbar lang. Alles
+ * Weitere liegt hinter dem Plus.
+ */
+type StadtFilter = number | "alle" | "ohne" | "meine";
+
+/** So viele Städte stehen direkt in der Leiste, der Rest wandert hinters Plus. */
+const SICHTBARE_STAEDTE = 4;
+
+function FilterChip({
+  label,
+  anzahl,
+  aktiv,
+  onClick,
+}: {
+  label: string;
+  anzahl: number;
+  aktiv: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition ${
+        aktiv
+          ? "border-bernstein bg-bernstein/15"
+          : "border-[var(--linie)] bg-nacht-2 text-schaum/60 hover:text-schaum"
+      }`}
+    >
+      {label}
+      <span className={`text-xs ${aktiv ? "text-bernstein" : "text-schaum/40"}`}>{anzahl}</span>
+    </button>
+  );
+}
+
 export function BarsAnsicht({
   userId,
   rolle,
@@ -144,6 +184,14 @@ export function BarsAnsicht({
   const [busy, setBusy] = useState(false);
   const [meldung, setMeldung] = useState<string | null>(null);
   const [nurEigene, setNurEigene] = useState(false);
+  /** Stadt-Filter über beide Listen */
+  const [filter, setFilter] = useState<StadtFilter>("alle");
+  const [stadtwahlOffen, setStadtwahlOffen] = useState(false);
+  const [stadtSuche, setStadtSuche] = useState("");
+  /** Volle Städteliste im Anlege-Formular (sonst reicht der erkannte Chip) */
+  const [stadtListeOffen, setStadtListeOffen] = useState(false);
+
+  const gewaehlteStadtImFormular = staedte.find((s) => s.id === stadtId) ?? null;
 
   const laden = async () => setListe(await ladeBars(userId));
 
@@ -177,7 +225,11 @@ export function BarsAnsicht({
     setTreffer(null);
     setStadtId(null);
     setStadtAuto(null);
+    setStadtListeOffen(false);
     setFormOffen(false);
+    // Filter mitziehen, sonst landet die neue Bar hinter einem aktiven
+    // Stadt-Filter und wirkt, als wäre sie nicht gespeichert worden.
+    setFilter(bar.stadt_id ?? "ohne");
     setMeldung(`„${bar.name}" ist gespeichert – privat, nur für dich.`);
     laden();
   }
@@ -205,6 +257,68 @@ export function BarsAnsicht({
   }
 
   const fremde = [...liste.kuratiert, ...liste.community];
+  const alleBars = [...liste.eigene, ...fremde];
+
+  /** Der Filter gilt für beide Listen – „Meine Bars" und die Bibliothek. */
+  const trifftZu = (b: Bar, f: StadtFilter) =>
+    f === "alle"
+      ? true
+      : f === "meine"
+        ? b.ersteller_user_id === userId
+        : f === "ohne"
+          ? !b.stadt_id
+          : b.stadt_id === f;
+
+  const anzahlFuer = (f: StadtFilter) => alleBars.filter((b) => trifftZu(b, f)).length;
+
+  const eigeneGefiltert = liste.eigene.filter((b) => trifftZu(b, filter));
+  const fremdeGefiltert = fremde
+    .filter((b) => trifftZu(b, filter))
+    .filter((b) => (nurEigene ? liste.ausgeblendet.has(b.id) : true));
+
+  /**
+   * Welche Städte stehen direkt in der Leiste?
+   *
+   * Reihenfolge: erst Städte, in denen ich eigene Bars habe – das ist die
+   * Liste, die man im Alltag braucht –, dann die mit den meisten Bars.
+   * Die gerade gewählte Stadt ist immer dabei, sonst würde der aktive
+   * Filter hinter dem Plus verschwinden.
+   */
+  const eigeneProStadt = new Map<number, number>();
+  for (const b of liste.eigene) {
+    if (b.stadt_id) eigeneProStadt.set(b.stadt_id, (eigeneProStadt.get(b.stadt_id) ?? 0) + 1);
+  }
+  const sortiert = [...staedte].sort((a, c) => {
+    const ea = eigeneProStadt.get(a.id) ?? 0;
+    const ec = eigeneProStadt.get(c.id) ?? 0;
+    if (ea !== ec) return ec - ea;
+    const ga = anzahlFuer(a.id);
+    const gc = anzahlFuer(c.id);
+    if (ga !== gc) return gc - ga;
+    return a.name.localeCompare(c.name, "de");
+  });
+
+  const vorne = sortiert.slice(0, SICHTBARE_STAEDTE);
+  const gewaehlteStadt =
+    typeof filter === "number" ? (staedte.find((s) => s.id === filter) ?? null) : null;
+  const sichtbareStaedte =
+    gewaehlteStadt && !vorne.some((s) => s.id === gewaehlteStadt.id)
+      ? [...vorne.slice(0, SICHTBARE_STAEDTE - 1), gewaehlteStadt]
+      : vorne;
+
+  const weitereStaedte = sortiert.filter((s) => !sichtbareStaedte.some((v) => v.id === s.id));
+  const ohneAnzahl = anzahlFuer("ohne");
+  const plusNoetig = weitereStaedte.length > 0 || ohneAnzahl > 0;
+
+  const suchTreffer = weitereStaedte.filter((s) =>
+    stadtSuche.trim() ? normalisiere(s.name).includes(normalisiere(stadtSuche)) : true
+  );
+
+  function filterWaehlen(f: StadtFilter) {
+    setFilter(f);
+    setStadtwahlOffen(false);
+    setStadtSuche("");
+  }
 
   return (
     <div className="space-y-5">
@@ -238,31 +352,51 @@ export function BarsAnsicht({
                   <IconPin size={13} className="shrink-0" />
                   <span className="truncate">{treffer.label}</span>
                 </p>
+                {/*
+                  Die Stadt ist meist schon erkannt – dann reicht ein Chip
+                  plus „ändern". Erst dort wird die volle Liste ausgerollt,
+                  damit das Formular auch bei vielen Städten kurz bleibt.
+                */}
                 <Field label="Stadt">
-                  <div className="flex flex-wrap gap-2">
-                    {staedte.map((s) => (
+                  {gewaehlteStadtImFormular && !stadtListeOffen ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-full border border-bernstein bg-bernstein/15 px-3 py-1.5 text-sm">
+                        {gewaehlteStadtImFormular.name}
+                      </span>
                       <button
-                        key={s.id}
-                        onClick={() => {
-                          setStadtId(stadtId === s.id ? null : s.id);
-                          setStadtAuto(null); // ab jetzt hat die Person entschieden
-                        }}
-                        className={`rounded-full border px-3 py-1.5 text-sm transition ${
-                          stadtId === s.id
-                            ? "border-bernstein bg-bernstein/15"
-                            : "border-[var(--linie)] bg-nacht-2 text-schaum/60"
-                        }`}
+                        onClick={() => setStadtListeOffen(true)}
+                        className="text-xs text-schaum/50 hover:text-bernstein"
                       >
-                        {s.name}
+                        ändern
                       </button>
-                    ))}
-                  </div>
+                    </div>
+                  ) : (
+                    <div className="flex max-h-44 flex-wrap gap-2 overflow-y-auto">
+                      {staedte.map((s) => (
+                        <button
+                          key={s.id}
+                          onClick={() => {
+                            setStadtId(stadtId === s.id ? null : s.id);
+                            setStadtAuto(null); // ab jetzt hat die Person entschieden
+                            setStadtListeOffen(false);
+                          }}
+                          className={`rounded-full border px-3 py-1.5 text-sm transition ${
+                            stadtId === s.id
+                              ? "border-bernstein bg-bernstein/15"
+                              : "border-[var(--linie)] bg-nacht-2 text-schaum/60"
+                          }`}
+                        >
+                          {s.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </Field>
                 <p className="text-xs text-schaum/40">
                   {stadtAuto
                     ? `Automatisch erkannt: ${stadtAuto.stadt.name}${
                         stadtAuto.quelle === "naehe" ? " (nächstgelegene Stadt)" : ""
-                      } – antippen zum Ändern.`
+                      }`
                     : stadtId
                       ? "Stadt selbst gewählt."
                       : "Keine Stadt erkannt – optional selbst zuordnen."}
@@ -280,19 +414,100 @@ export function BarsAnsicht({
         )}
       </Card>
 
+      {/* Filter – gilt für beide Listen darunter */}
+      {staedte.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex flex-wrap gap-2">
+            <FilterChip
+              label="Alle"
+              anzahl={alleBars.length}
+              aktiv={filter === "alle"}
+              onClick={() => filterWaehlen("alle")}
+            />
+            {sichtbareStaedte.map((s) => (
+              <FilterChip
+                key={s.id}
+                label={s.name}
+                anzahl={anzahlFuer(s.id)}
+                aktiv={filter === s.id}
+                onClick={() => filterWaehlen(s.id)}
+              />
+            ))}
+            <FilterChip
+              label="Meine"
+              anzahl={liste.eigene.length}
+              aktiv={filter === "meine"}
+              onClick={() => filterWaehlen("meine")}
+            />
+            {plusNoetig && (
+              <button
+                onClick={() => setStadtwahlOffen((o) => !o)}
+                aria-label="weitere Städte"
+                title="weitere Städte"
+                className={`grid h-9 w-9 shrink-0 place-items-center rounded-full border transition ${
+                  stadtwahlOffen
+                    ? "border-bernstein bg-bernstein/15 text-bernstein"
+                    : "border-[var(--linie)] bg-nacht-2 text-schaum/60 hover:text-schaum"
+                }`}
+              >
+                {stadtwahlOffen ? <IconX size={16} /> : <IconPlus size={16} />}
+              </button>
+            )}
+          </div>
+
+          {/* Alle übrigen Städte – erst auf Wunsch, mit Suche */}
+          {stadtwahlOffen && (
+            <div className="space-y-2 rounded-xl border border-[var(--linie)] bg-nacht-2 p-3">
+              {weitereStaedte.length > 6 && (
+                <Input
+                  value={stadtSuche}
+                  onChange={(e) => setStadtSuche(e.target.value)}
+                  placeholder="Stadt suchen…"
+                  autoFocus
+                />
+              )}
+              <div className="flex max-h-60 flex-wrap gap-2 overflow-y-auto">
+                {suchTreffer.map((s) => (
+                  <FilterChip
+                    key={s.id}
+                    label={s.name}
+                    anzahl={anzahlFuer(s.id)}
+                    aktiv={filter === s.id}
+                    onClick={() => filterWaehlen(s.id)}
+                  />
+                ))}
+                {ohneAnzahl > 0 && !stadtSuche.trim() && (
+                  <FilterChip
+                    label="Ohne Stadt"
+                    anzahl={ohneAnzahl}
+                    aktiv={filter === "ohne"}
+                    onClick={() => filterWaehlen("ohne")}
+                  />
+                )}
+                {suchTreffer.length === 0 && ohneAnzahl === 0 && (
+                  <p className="text-sm text-schaum/50">Keine weitere Stadt gefunden.</p>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Meine Bars */}
       <Card className="space-y-3">
         <Abschnitt
           titel="Meine Bars"
-          anzahl={liste.eigene.length}
+          anzahl={eigeneGefiltert.length}
           hinweis={
             liste.eigene.length === 0
               ? "Noch keine eigene Bar. Alles, was du hier oder in einer Route anlegst, landet dauerhaft in dieser Liste."
-              : undefined
+              : eigeneGefiltert.length === 0
+                ? "Keine eigene Bar in dieser Auswahl."
+                : undefined
           }
         >
           <ul className="space-y-1.5">
-            {liste.eigene.map((b) => (
+            {eigeneGefiltert.map((b) => (
               <BarZeile
                 key={b.id}
                 bar={b}
@@ -308,7 +523,8 @@ export function BarsAnsicht({
         </Abschnitt>
       </Card>
 
-      {/* Alle verfügbaren Bars */}
+      {/* Alle verfügbaren Bars – bei „Meine" wäre die Liste per Definition leer */}
+      {filter !== "meine" && (
       <Card className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="font-display text-xl">Bar-Bibliothek</h2>
@@ -323,24 +539,29 @@ export function BarsAnsicht({
           Ausblenden ist nur für dich – die Bar bleibt für alle anderen erhalten.
         </p>
         <ul className="space-y-1.5">
-          {fremde
-            .filter((b) => (nurEigene ? liste.ausgeblendet.has(b.id) : true))
-            .map((b) => (
-              <BarZeile
-                key={b.id}
-                bar={b}
-                userId={userId}
-                rolle={rolle}
-                ausgeblendet={liste.ausgeblendet.has(b.id)}
-                onAendern={laden}
-                onMeldung={setMeldung}
-              />
-            ))}
-          {fremde.length === 0 && (
-            <li className="text-sm text-schaum/50">Noch keine Bars in der Bibliothek.</li>
+          {fremdeGefiltert.map((b) => (
+            <BarZeile
+              key={b.id}
+              bar={b}
+              userId={userId}
+              rolle={rolle}
+              ausgeblendet={liste.ausgeblendet.has(b.id)}
+              onAendern={laden}
+              onMeldung={setMeldung}
+            />
+          ))}
+          {fremdeGefiltert.length === 0 && (
+            <li className="text-sm text-schaum/50">
+              {fremde.length === 0
+                ? "Noch keine Bars in der Bibliothek."
+                : nurEigene
+                  ? "Hier ist nichts ausgeblendet."
+                  : "Keine Bars in dieser Auswahl."}
+            </li>
           )}
         </ul>
       </Card>
+      )}
     </div>
   );
 }

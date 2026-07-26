@@ -204,7 +204,34 @@ Deshalb schlägt `erkenneStadt()` sie jetzt selbst vor, in zwei Stufen:
 
 Greift keine Stufe, bleibt die Zuordnung leer – eine falsche Stadt wäre
 schlimmer als keine. Der Vorschlag ist immer sichtbar („Automatisch
-erkannt: Bonn") und mit einem Tipp überschreibbar.
+erkannt: Bonn") und über „ändern" überschreibbar.
+
+### 2.3 Der Filter muss mit der Stadtliste wachsen
+
+Eine Chipzeile pro Stadt funktioniert bei vier Städten und bricht bei
+zwanzig. Deshalb ist die Leiste in der Bar-Bibliothek fix lang:
+
+```
+[Alle 128] [Bonn 41] [Köln 33] [Düsseldorf 12] [Hamburg 9] [Meine 7] [+]
+```
+
+- **Vier Stadt-Chips**, sortiert nach „habe ich hier eigene Bars?", dann
+  nach Gesamtzahl. Wer in Bonn unterwegs ist, hat Bonn also vorn stehen,
+  ohne dass jemand eine Reihenfolge pflegt.
+- **Meine** filtert stadtunabhängig auf selbst angelegte Bars. Dabei
+  verschwindet die Bibliothekskarte – sie wäre per Definition leer.
+- **Das Plus** klappt alle übrigen Städte auf, ab sieben mit Suchfeld
+  (umlautunempfindlich über `normalisiere`). Dort liegt auch
+  „Ohne Stadt", das damit die Hauptleiste nicht mehr belegt.
+- Die **gerade gewählte Stadt bleibt immer sichtbar**, notfalls auf dem
+  vierten Platz – sonst würde der aktive Filter hinters Plus rutschen.
+
+Dieselbe Logik greift im Anlege-Formular: Ist die Stadt erkannt, steht
+dort nur noch ein Chip plus „ändern" statt der kompletten Liste.
+
+> **Bekannte Grenze:** `ladeBars` holt weiterhin alle sichtbaren Bars und
+> filtert im Client. Das trägt bis in den vierstelligen Bereich; danach
+> gehören Filter und Zählung in die Query (`stadt_id` + `count`).
 
 ---
 
@@ -239,7 +266,7 @@ Es legt an bzw. ändert:
 | `src/components/Icons.tsx` | `IconRoute`, `IconTeilen`, `IconKopieren`, `IconUebernommen` |
 | `src/app/dashboard/page.tsx` | vier Tabs **Spielen / Routen / Bars / Spiele** (die Bibliothek aus v2.1 ist damit erstmals eingebunden), Schnellstart-Karte „Nochmal spielen", „Deine Spiele" heißt jetzt „Deine Touren" |
 | `src/app/create/page.tsx` | Routen-Modus über `?modus=route` (Name oben, Spieleinstellungen aus, feste Speichern-Leiste), „Gespeicherte Route laden" (Picker: Meine / Community), Schnellstart über `?route=<id>`, automatische Stadt-Erkennung beim Kartentipp, Import-Symbol im Bar-Picker |
-| `src/components/Bibliothek.tsx` | Chip **übernommen** an Bars aus geteilten Routen |
+| `src/components/Bibliothek.tsx` | Chip **übernommen** an Bars aus geteilten Routen; Filterleiste (Alle · 4 Städte · Meine · Plus für alle weiteren) |
 | `src/components/Guard.tsx`, `src/app/auth/page.tsx` | `?weiter=`: nach dem Anmelden zurück auf das ursprüngliche Ziel (nur interne Pfade) |
 
 ### 3.3 Reihenfolge beim Deployen
