@@ -44,6 +44,7 @@ import {
   type BarListe,
   type SpielformListe,
 } from "@/lib/ugc";
+import { erkenneStadt, type Ortstreffer } from "@/lib/orte";
 import type { Bar, BenutzerRolle, Spielform, Stadt } from "@/lib/types";
 
 // ── kleine Bausteine ──────────────────────────────────────────────
@@ -138,6 +139,8 @@ export function BarsAnsicht({
   const [treffer, setTreffer] = useState<GeoTreffer | null>(null);
   const [name, setName] = useState("");
   const [stadtId, setStadtId] = useState<number | null>(null);
+  /** Wurde die Stadt automatisch gesetzt? Nur für den Hinweistext. */
+  const [stadtAuto, setStadtAuto] = useState<Ortstreffer | null>(null);
   const [busy, setBusy] = useState(false);
   const [meldung, setMeldung] = useState<string | null>(null);
   const [nurEigene, setNurEigene] = useState(false);
@@ -172,9 +175,24 @@ export function BarsAnsicht({
     }
     setName("");
     setTreffer(null);
+    setStadtId(null);
+    setStadtAuto(null);
     setFormOffen(false);
     setMeldung(`„${bar.name}" ist gespeichert – privat, nur für dich.`);
     laden();
+  }
+
+  /**
+   * Adresse gewählt: Name vorschlagen UND die Stadt automatisch zuordnen.
+   * Die Erkennung ist ein Vorschlag – ein Tipp auf einen anderen Chip
+   * (oder auf denselben) überschreibt sie jederzeit.
+   */
+  function trefferWaehlen(t: GeoTreffer) {
+    setTreffer(t);
+    setName((n) => n || t.name);
+    const erkannt = erkenneStadt(staedte, { ort: t.ort, lat: t.lat, lng: t.lng });
+    setStadtAuto(erkannt);
+    setStadtId(erkannt?.stadt.id ?? null);
   }
 
   if (!liste) {
@@ -210,13 +228,7 @@ export function BarsAnsicht({
                 <IconX />
               </IconKnopf>
             </div>
-            <AdressSuche
-              placeholder="Adresse oder Bar suchen…"
-              onWaehlen={(t) => {
-                setTreffer(t);
-                setName((n) => n || t.name);
-              }}
-            />
+            <AdressSuche placeholder="Adresse oder Bar suchen…" onWaehlen={trefferWaehlen} />
             {treffer && (
               <>
                 <Field label="Name">
@@ -226,12 +238,15 @@ export function BarsAnsicht({
                   <IconPin size={13} className="shrink-0" />
                   <span className="truncate">{treffer.label}</span>
                 </p>
-                <Field label="Stadt zuordnen (optional)">
+                <Field label="Stadt">
                   <div className="flex flex-wrap gap-2">
                     {staedte.map((s) => (
                       <button
                         key={s.id}
-                        onClick={() => setStadtId(stadtId === s.id ? null : s.id)}
+                        onClick={() => {
+                          setStadtId(stadtId === s.id ? null : s.id);
+                          setStadtAuto(null); // ab jetzt hat die Person entschieden
+                        }}
                         className={`rounded-full border px-3 py-1.5 text-sm transition ${
                           stadtId === s.id
                             ? "border-bernstein bg-bernstein/15"
@@ -243,6 +258,15 @@ export function BarsAnsicht({
                     ))}
                   </div>
                 </Field>
+                <p className="text-xs text-schaum/40">
+                  {stadtAuto
+                    ? `Automatisch erkannt: ${stadtAuto.stadt.name}${
+                        stadtAuto.quelle === "naehe" ? " (nächstgelegene Stadt)" : ""
+                      } – antippen zum Ändern.`
+                    : stadtId
+                      ? "Stadt selbst gewählt."
+                      : "Keine Stadt erkannt – optional selbst zuordnen."}
+                </p>
                 <Button className="w-full" disabled={!name.trim() || busy} onClick={anlegen}>
                   {busy ? "speichere…" : "Privat speichern"}
                 </Button>

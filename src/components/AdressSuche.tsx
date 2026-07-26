@@ -3,7 +3,15 @@
 import { useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui";
 
-export type GeoTreffer = { label: string; name: string; lat: number; lng: number };
+export type GeoTreffer = {
+  label: string;
+  name: string;
+  lat: number;
+  lng: number;
+  /** Ortsname aus dem Geocoder – für die automatische Stadt-Zuordnung */
+  ort?: string | null;
+  plz?: string | null;
+};
 
 /**
  * Adress-/Ortssuche mit Autocomplete. Ruft den serverseitigen Geocoder

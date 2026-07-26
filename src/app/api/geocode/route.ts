@@ -4,7 +4,28 @@ import { NextResponse } from "next/server";
 // Bündelt Attribution + hält Rate-Limits zentral. Liefert vereinfachte Treffer.
 export const runtime = "nodejs";
 
-type Treffer = { label: string; name: string; lat: number; lng: number };
+type Treffer = {
+  label: string;
+  name: string;
+  lat: number;
+  lng: number;
+  /** Ort aus dem Geocoder – Grundlage für die automatische Stadt-Zuordnung */
+  ort: string | null;
+  plz: string | null;
+};
+
+/**
+ * Photon liefert je nach Treffer mal `city`, mal nur `county` oder `state`
+ * (z. B. bei Stadtteilen oder Landgemeinden). Wir nehmen den ersten
+ * brauchbaren Wert – die Feinzuordnung macht danach `erkenneStadt`.
+ */
+function ortAus(p: Record<string, unknown>): string | null {
+  const kandidaten = [p.city, p.town, p.village, p.district, p.county, p.state];
+  for (const k of kandidaten) {
+    if (typeof k === "string" && k.trim()) return k.trim();
+  }
+  return null;
+}
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -29,7 +50,16 @@ export async function GET(req: Request) {
       const name = p.name || strasse || p.city || "Gewählter Ort";
       const label = [p.name, strasse, ort].filter(Boolean).join(", ") || name;
       return NextResponse.json({
-        ergebnisse: [{ label, name, lat: Number(lat), lng: Number(lon) }] as Treffer[],
+        ergebnisse: [
+          {
+            label,
+            name,
+            lat: Number(lat),
+            lng: Number(lon),
+            ort: ortAus(p),
+            plz: typeof p.postcode === "string" ? p.postcode : null,
+          },
+        ] as Treffer[],
       });
     } catch {
       return NextResponse.json({ ergebnisse: [] as Treffer[] });
@@ -67,7 +97,14 @@ export async function GET(req: Request) {
         const ort = [p.postcode, p.city].filter(Boolean).join(" ");
         const name = p.name || strasse || p.city || "Ort";
         const label = [p.name, strasse, ort].filter(Boolean).join(", ") || name;
-        return { label, name, lat: la, lng };
+        return {
+          label,
+          name,
+          lat: la,
+          lng,
+          ort: ortAus(p),
+          plz: typeof p.postcode === "string" ? p.postcode : null,
+        };
       })
       .filter((t: Treffer | null): t is Treffer => t !== null);
 

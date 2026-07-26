@@ -30,17 +30,21 @@ export async function holeRoute(punkte: [number, number][]): Promise<RouteInfo |
   }
 }
 
-/** Reverse-Geocoding: Koordinaten -> { name, label }. */
+/** Reverse-Geocoding: Koordinaten -> { name, label, ort }. */
 export async function reverseGeocode(
   lat: number,
   lng: number
-): Promise<{ name: string; label: string } | null> {
+): Promise<{ name: string; label: string; ort: string | null } | null> {
   try {
     const r = await fetch(`/api/geocode?lat=${lat}&lon=${lng}`);
     const d = await r.json();
     const t = d?.ergebnisse?.[0];
     if (!t) return null;
-    return { name: t.name as string, label: t.label as string };
+    return {
+      name: t.name as string,
+      label: t.label as string,
+      ort: (t.ort as string | null) ?? null,
+    };
   } catch {
     return null;
   }

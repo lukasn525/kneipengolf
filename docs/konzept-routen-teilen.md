@@ -158,9 +158,48 @@ Drei Entscheidungen, die den Ablauf flüssig halten:
   Der Menüpunkt „Routen" verwaltet nur.
 - **Laden verändert die gespeicherte Route nicht.** Im Formular ist die
   Stopliste danach frei bearbeitbar; wer die Änderung behalten will,
-  drückt bewusst „aktualisieren" oder „Als neue Route".
+  drückt bewusst „Änderungen speichern" oder „Als neue Route".
 - **Schnellstart steht im Spielen-Tab**, nicht im Routen-Tab. Wer spielen
   will, soll nicht erst verwalten müssen.
+
+### 2.1 Zwei Modi auf einer Seite statt zweier Seiten
+
+`/create` kennt seit v2.2 einen zweiten Modus. Beide brauchen dieselbe
+Karte, dieselbe Stopliste und denselben Bar-Picker – zwei Seiten wären
+zwei Mal dieselbe Mechanik:
+
+| | `/create` (Spiel) | `/create?modus=route` (Route) |
+| --- | --- | --- |
+| Kopf | Spielname, Einzel/Team | **Routenname** (Pflicht), Beschreibung |
+| Stadt & Stops | gleich | gleich |
+| Par, Glas, Spielformen | sichtbar | ausgeblendet – gehört zum Abend, nicht zur Vorlage |
+| Leiste unten | „Spiel erstellen & Code generieren" | **„Route speichern · n Stops"** + „Speichern & direkt Spiel starten" |
+| Route sichern | Knopf „Diese Route speichern" in der Routen-Karte | ist die Hauptaktion |
+
+Der Name steht im Routen-Modus **oben**, nicht in einem aufklappbaren
+Formular weiter unten: Er ist Pflichtfeld und Teil der Identität der
+Route, nicht ein nachgelagerter Speicherdialog. Die Konfliktprüfung
+läuft dort live mit, der Speichern-Knopf bleibt bis dahin gesperrt.
+
+„Bearbeiten" im Routen-Tab führt auf `/create?route=<id>&modus=route` –
+derselbe Editor, nur mit gefüllten Feldern. Ein separates Umbenennen-
+Formular in der Liste entfällt damit.
+
+### 2.2 Die Stadt erkennt sich selbst
+
+Beim Anlegen einer Bar war „Stadt zuordnen (optional)" ein Feld, das man
+vergisst – und ohne `stadt_id` taucht die Bar im Stadt-Picker nicht auf.
+Deshalb schlägt `erkenneStadt()` sie jetzt selbst vor, in zwei Stufen:
+
+1. **Name** aus dem Geocoder, normalisiert und als Teilstring:
+   „Köln-Ehrenfeld" → Köln, „Duesseldorf" → Düsseldorf.
+2. **Nähe** als Auffangnetz: die nächstgelegene Stadt innerhalb von 25 km.
+   Damit landet „Bad Godesberg" bei Bonn, ohne dass jemand eine Liste von
+   Stadtteilen pflegen muss.
+
+Greift keine Stufe, bleibt die Zuordnung leer – eine falsche Stadt wäre
+schlimmer als keine. Der Vorschlag ist immer sichtbar („Automatisch
+erkannt: Bonn") und mit einem Tipp überschreibbar.
 
 ---
 
@@ -187,11 +226,14 @@ Es legt an bzw. ändert:
 | --- | --- |
 | `src/lib/types.ts` | Typen `Route`, `RoutenStop`, `BarHerkunft`; `Bar` um `herkunft`/`quelle_bar_id` erweitert |
 | `src/lib/routen.ts` (neu) | einzige Zugriffsschicht: laden, speichern, aktualisieren, veröffentlichen, löschen, sperren, `teilenUrl`, `routeVorschau`, `routeUebernehmen`, `freierRoutenName` |
-| `src/components/RoutenBibliothek.tsx` (neu) | `RoutenAnsicht`: eigene Routen (teilen, umbenennen, veröffentlichen, löschen, spielen) + Community-Liste mit Übernahme |
+| `src/lib/orte.ts` (neu) | `erkenneStadt` (Name + Nähe), `normalisiere`, `distanzKm` |
+| `src/app/api/geocode/route.ts` | Treffer liefern zusätzlich `ort` und `plz` (Suche **und** Reverse) |
+| `src/components/AdressSuche.tsx`, `src/lib/nav.ts` | `GeoTreffer`/`reverseGeocode` geben den Ort mit zurück |
+| `src/components/RoutenBibliothek.tsx` (neu) | `RoutenAnsicht`: eigene Routen (teilen, bearbeiten, veröffentlichen, löschen, spielen) + Community-Liste mit Übernahme |
 | `src/app/route/[token]/page.tsx` (neu) | Landeseite des geteilten Links: Vorschau, Login-Weiche, Übernahme, Weiterleitung ins Spiel |
 | `src/components/Icons.tsx` | `IconRoute`, `IconTeilen`, `IconKopieren`, `IconUebernommen` |
 | `src/app/dashboard/page.tsx` | vier Tabs **Spielen / Routen / Bars / Spiele** (die Bibliothek aus v2.1 ist damit erstmals eingebunden), Schnellstart-Karte „Nochmal spielen", „Deine Spiele" heißt jetzt „Deine Touren" |
-| `src/app/create/page.tsx` | „Gespeicherte Route laden" (Picker: Meine / Community), „Als Route speichern" mit Namensprüfung, Schnellstart über `?route=<id>`, Import-Symbol im Bar-Picker |
+| `src/app/create/page.tsx` | Routen-Modus über `?modus=route` (Name oben, Spieleinstellungen aus, feste Speichern-Leiste), „Gespeicherte Route laden" (Picker: Meine / Community), Schnellstart über `?route=<id>`, automatische Stadt-Erkennung beim Kartentipp, Import-Symbol im Bar-Picker |
 | `src/components/Bibliothek.tsx` | Chip **übernommen** an Bars aus geteilten Routen |
 | `src/components/Guard.tsx`, `src/app/auth/page.tsx` | `?weiter=`: nach dem Anmelden zurück auf das ursprüngliche Ziel (nur interne Pfade) |
 
@@ -204,20 +246,25 @@ Es legt an bzw. ändert:
 ### 3.4 Rauchtest auf der Live-URL
 
 1. **Hauptmenü** zeigt vier Tabs: Spielen · Routen · Bars · Spiele.
-2. **Spiel erstellen** → Stadt wählen → unten „Als Route speichern" →
-   Name vergeben → Meldung „liegt jetzt unter Routen".
-3. Denselben Namen ein zweites Mal speichern → Feld schlägt „… (2)" vor,
+2. Tab **Bars** → „Bar hinzufügen" → Adresse suchen → die Stadt ist
+   bereits gesetzt, darunter steht „Automatisch erkannt: …".
+3. Tab **Routen** → „Neue Route bauen" → Name oben, Stadt, Stops – keine
+   Par- oder Spielform-Einstellungen. Unten steht fest
+   „Route speichern · n Stops".
+4. Denselben Namen ein zweites Mal vergeben → Feld schlägt „… (2)" vor,
    Speichern ist bis dahin gesperrt.
-4. Tab **Routen** → Route aufklappen → „Link teilen" → Link kopieren.
-5. Link im **zweiten Konto** öffnen: Vorschau erscheint (auch abgemeldet),
+5. Route aufklappen → „Bearbeiten" → derselbe Editor mit gefüllten
+   Feldern → „Änderungen speichern".
+6. „Link teilen" → Link kopieren.
+7. Link im **zweiten Konto** öffnen: Vorschau erscheint (auch abgemeldet),
    nach dem Anmelden landet man wieder auf der Route.
-6. Dort einen bereits belegten Namen eintippen → Vorschlag erscheint →
+8. Dort einen bereits belegten Namen eintippen → Vorschlag erscheint →
    „Übernehmen" → Route liegt unter „Meine Routen".
-7. Tab **Bars** im zweiten Konto: die privaten Bars des Absenders stehen
+9. Tab **Bars** im zweiten Konto: die privaten Bars des Absenders stehen
    dort als eigene Bars mit Chip **übernommen**.
-8. Denselben Link erneut übernehmen → es entstehen **keine** doppelten Bars.
-9. Tab **Spielen** → Karte „Nochmal spielen" → Tipp auf die Route →
-   Stops sind gesetzt → Spiel erstellen → Loop läuft wie in v2.1.
+10. Denselben Link erneut übernehmen → es entstehen **keine** doppelten Bars.
+11. Tab **Spielen** → Karte „Nochmal spielen" → Tipp auf die Route →
+    Stops sind gesetzt → Spiel erstellen → Loop läuft wie in v2.1.
 
 ---
 

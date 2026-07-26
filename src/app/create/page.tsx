@@ -24,6 +24,7 @@ import {
   IconSchloss,
   IconRoute,
   IconUebernommen,
+  IconPlus,
 } from "@/components/Icons";
 import {
   barAnlegen,
@@ -33,6 +34,7 @@ import {
   spielformLoeschen,
   type BarListe,
 } from "@/lib/ugc";
+import { erkenneStadt } from "@/lib/orte";
 import {
   freierRoutenName,
   ladeRoute,
@@ -65,6 +67,14 @@ function CreateInner() {
   const params = useSearchParams();
   const { user } = useSession();
 
+  /**
+   * Zwei Modi auf einer Seite – bewusst, weil beide dieselbe Stopliste,
+   * dieselbe Karte und denselben Bar-Picker brauchen:
+   *   • Spiel-Modus (Standard): Route zusammenstellen und sofort spielen.
+   *   • Routen-Modus (?modus=route): nur Stadt, Bars und Name – speichern.
+   */
+  const modusRoute = params.get("modus") === "route";
+
   const [staedte, setStaedte] = useState<Stadt[]>([]);
   const [stadtId, setStadtId] = useState<number | null>(null);
   const [stops, setStops] = useState<Stop[]>([]);
@@ -82,7 +92,7 @@ function CreateInner() {
 
   // Stop-Erstellung: Vorschau-Pin (per Kartentipp oder Suche), verschiebbar
   const [pending, setPending] = useState<
-    { lat: number; lng: number; name: string; adresse: string | null } | null
+    { lat: number; lng: number; name: string; adresse: string | null; ort: string | null } | null
   >(null);
   const [pendingBusy, setPendingBusy] = useState(false);
   const [flyTo, setFlyTo] = useState<[number, number] | null>(null);
@@ -123,6 +133,15 @@ function CreateInner() {
   // Auch aktiv, wenn eine gespeicherte Route geladen wurde, bevor die
   // Städteliste da war – sonst blinkt die Route kurz weg.
   const aktiv = Boolean(stadt) || eigenerModus || stops.length > 0;
+
+  /** Automatisch erkannte Stadt für den gerade gesetzten Pin. */
+  const pendingStadt = useMemo(
+    () =>
+      pending
+        ? erkenneStadt(staedte, { ort: pending.ort, lat: pending.lat, lng: pending.lng })
+        : null,
+    [pending, staedte]
+  );
 
   /** Namen der eigenen Routen – Grundlage für die Eindeutigkeitsprüfung. */
   const meineRoutenNamen = useMemo(
@@ -272,23 +291,30 @@ function CreateInner() {
     setStops((prev) => prev.filter((_, k) => k !== i));
   }
   async function aufKarteTippen(lat: number, lng: number) {
-    setPending({ lat, lng, name: "", adresse: null });
+    setPending({ lat, lng, name: "", adresse: null, ort: null });
     setPendingBusy(true);
     const rev = await reverseGeocode(lat, lng);
     setPending((p) =>
-      p ? { ...p, name: p.name || (rev?.name ?? ""), adresse: rev?.label ?? p.adresse } : p
+      p
+        ? {
+            ...p,
+            name: p.name || (rev?.name ?? ""),
+            adresse: rev?.label ?? p.adresse,
+            ort: rev?.ort ?? p.ort,
+          }
+        : p
     );
     setPendingBusy(false);
   }
   function ausSucheWaehlen(t: GeoTreffer) {
-    setPending({ lat: t.lat, lng: t.lng, name: t.name, adresse: t.label });
+    setPending({ lat: t.lat, lng: t.lng, name: t.name, adresse: t.label, ort: t.ort ?? null });
     setFlyTo([t.lat, t.lng]);
   }
   async function pendingBewegt(lat: number, lng: number) {
     setPending((p) => (p ? { ...p, lat, lng } : p));
     setPendingBusy(true);
     const rev = await reverseGeocode(lat, lng);
-    setPending((p) => (p ? { ...p, adresse: rev?.label ?? p.adresse } : p));
+    setPending((p) => (p ? { ...p, adresse: rev?.label ?? p.adresse, ort: rev?.ort ?? p.ort } : p));
     setPendingBusy(false);
   }
   /**
@@ -305,7 +331,8 @@ function CreateInner() {
       lat: pending.lat,
       lng: pending.lng,
       adresse: pending.adresse,
-      stadt_id: stadt?.id ?? null,
+      // Ohne gewählte Stadt (eigene Route) die Stadt aus der Adresse ableiten
+      stadt_id: stadt?.id ?? pendingStadt?.stadt.id ?? null,
     });
     setPendingBusy(false);
     if (!bar) {
@@ -362,16 +389,23 @@ function CreateInner() {
     );
     setGeladeneRoute(r);
     setName((n) => n || r.name);
+    // Namensfeld gleich mitfüllen: bei eigenen Routen der echte Name
+    // (Überschreiben), bei fremden ein freier Vorschlag (Kopie).
+    setRouteName(
+      r.ersteller_user_id === user?.id ? r.name : freierRoutenName(r.name, meineRoutenNamen)
+    );
+    setRouteBesch(r.beschreibung ?? "");
     setBarListe(await ladeBars(user?.id, r.stadt_id ?? undefined));
     setRouteMeldung(`Route „${r.name}" geladen – ${r.stops.length} Stops.`);
   }
 
   /** Öffnet das Speichern-Formular mit einem freien Namensvorschlag. */
   function routeFormOeffnen() {
-    const wunsch = eigeneRoute?.name ?? name.trim() ?? "";
-    const basis = wunsch || stadt?.name || "Meine Route";
-    setRouteName(eigeneRoute ? eigeneRoute.name : freierRoutenName(basis, meineRoutenNamen));
-    setRouteBesch(geladeneRoute?.beschreibung ?? "");
+    if (!routeName.trim()) {
+      const basis = name.trim() || stadt?.name || "Meine Route";
+      setRouteName(freierRoutenName(basis, meineRoutenNamen));
+    }
+    setRouteBesch((b) => b || geladeneRoute?.beschreibung || "");
     setRouteFormOffen(true);
   }
 
@@ -384,44 +418,50 @@ function CreateInner() {
       barId: s.barId ?? null,
     }));
 
-  async function routeNeuSpeichern() {
-    if (!user || routeNameKonflikt || !routeName.trim()) return;
+  const routeSpeicherbar =
+    Boolean(user) && stops.length > 0 && routeName.trim().length > 0 && !routeNameKonflikt;
+
+  /**
+   * Ein Weg für alle Speicher-Varianten: neu anlegen oder die geladene
+   * eigene Route überschreiben, danach hier bleiben, zur Routenliste
+   * springen oder direkt in die Spielerstellung wechseln.
+   */
+  async function routeSichern(
+    alsNeu: boolean,
+    danach: "bleiben" | "routen" | "spiel" = "bleiben"
+  ) {
+    if (!user || !routeSpeicherbar) return;
+    const daten = { name: routeName, beschreibung: routeBesch, stadtId: stadt?.id ?? null };
     setRouteBusy(true);
-    const res = await routeSpeichern(
-      user.id,
-      { name: routeName, beschreibung: routeBesch, stadtId: stadt?.id ?? null },
-      stopsFuerRoute()
-    );
+    const res =
+      !alsNeu && eigeneRoute
+        ? await routeAktualisieren(eigeneRoute.id, daten, stopsFuerRoute())
+        : await routeSpeichern(user.id, daten, stopsFuerRoute());
     setRouteBusy(false);
     if (!res.ok) {
       setRouteMeldung(res.meldung);
       return;
     }
+
+    if (danach === "routen") {
+      router.push("/dashboard?tab=routen");
+      return;
+    }
+    if (danach === "spiel") {
+      // Modus wechseln: dieselbe Route, aber jetzt mit Spieleinstellungen
+      router.replace(`/create?route=${res.route.id}`);
+      return;
+    }
+
     const liste = await ladeRouten(user.id);
     setRoutenListe(liste);
     setGeladeneRoute(liste.eigene.find((r) => r.id === res.route.id) ?? null);
     setRouteFormOffen(false);
-    setRouteMeldung(`„${res.route.name}" liegt jetzt unter „Routen" im Hauptmenü.`);
-  }
-
-  async function routeUeberschreiben() {
-    if (!user || !eigeneRoute || routeNameKonflikt || !routeName.trim()) return;
-    setRouteBusy(true);
-    const res = await routeAktualisieren(
-      eigeneRoute.id,
-      { name: routeName, beschreibung: routeBesch, stadtId: stadt?.id ?? null },
-      stopsFuerRoute()
+    setRouteMeldung(
+      alsNeu || !eigeneRoute
+        ? `„${res.route.name}" liegt jetzt unter „Routen" im Hauptmenü.`
+        : `„${res.route.name}" aktualisiert.`
     );
-    setRouteBusy(false);
-    if (!res.ok) {
-      setRouteMeldung(res.meldung);
-      return;
-    }
-    const liste = await ladeRouten(user.id);
-    setRoutenListe(liste);
-    setGeladeneRoute(liste.eigene.find((r) => r.id === eigeneRoute.id) ?? null);
-    setRouteFormOffen(false);
-    setRouteMeldung(`„${res.route.name}" aktualisiert.`);
   }
 
   function toggleSpielform(id: number) {
@@ -524,34 +564,78 @@ function CreateInner() {
   return (
     <Shell>
       <TopBar />
-      <div className="space-y-5 mt-2 pb-24">
-        <h1 className="font-display text-2xl">Spiel erstellen</h1>
+      <div className={`space-y-5 mt-2 ${modusRoute ? "pb-44" : "pb-24"}`}>
+        <div>
+          <h1 className="font-display text-2xl">
+            {modusRoute ? (eigeneRoute ? "Route bearbeiten" : "Route erstellen") : "Spiel erstellen"}
+          </h1>
+          {modusRoute && (
+            <p className="mt-1 text-sm text-schaum/60">
+              Stadt wählen, Bars zusammenstellen, Namen vergeben. Gespielt wird später – mit einem
+              Tipp aus der Routenliste.
+            </p>
+          )}
+        </div>
 
         <Card className="space-y-3">
-          <Field label="Name des Spiels (optional)">
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="z. B. Geburtstags-Tour" />
-          </Field>
-          <Field label="Modus">
-            <div className="grid grid-cols-2 gap-1 rounded-xl bg-nacht-3 p-1">
-              {(["einzel", "team"] as const).map((m) => (
+          {modusRoute ? (
+            <>
+              <Field label="Name der Route">
+                <Input
+                  value={routeName}
+                  onChange={(e) => setRouteName(e.target.value)}
+                  placeholder="z. B. Südstadt-Runde"
+                />
+              </Field>
+              {routeNameKonflikt && (
                 <button
-                  key={m}
-                  type="button"
-                  onClick={() => setSpielModus(m)}
-                  className={`rounded-lg py-2 text-sm font-semibold transition ${
-                    spielModus === m ? "bg-bernstein text-[#2a1d0a]" : "text-schaum/70"
-                  }`}
+                  onClick={() => setRouteName(freierRoutenName(routeName, namenOhneEigenen))}
+                  className="text-left text-xs text-ziegel underline"
                 >
-                  {m === "einzel" ? "Einzelspieler" : "Team"}
+                  Diesen Namen hast du schon – „{freierRoutenName(routeName, namenOhneEigenen)}"
+                  nehmen?
                 </button>
-              ))}
-            </div>
-          </Field>
-          <p className="text-xs text-schaum/50">
-            {spielModus === "team"
-              ? "Team-Modus: Jedes Gerät spielt als ein Team (Pass-and-Play im Team), die Rangliste vergleicht Teams."
-              : "Einzelspieler: jede Person wertet für sich."}
-          </p>
+              )}
+              <Field label="Beschreibung (optional)">
+                <Input
+                  value={routeBesch}
+                  onChange={(e) => setRouteBesch(e.target.value)}
+                  placeholder="Kurz: für wen oder wofür?"
+                />
+              </Field>
+            </>
+          ) : (
+            <>
+              <Field label="Name des Spiels (optional)">
+                <Input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="z. B. Geburtstags-Tour"
+                />
+              </Field>
+              <Field label="Modus">
+                <div className="grid grid-cols-2 gap-1 rounded-xl bg-nacht-3 p-1">
+                  {(["einzel", "team"] as const).map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setSpielModus(m)}
+                      className={`rounded-lg py-2 text-sm font-semibold transition ${
+                        spielModus === m ? "bg-bernstein text-[#2a1d0a]" : "text-schaum/70"
+                      }`}
+                    >
+                      {m === "einzel" ? "Einzelspieler" : "Team"}
+                    </button>
+                  ))}
+                </div>
+              </Field>
+              <p className="text-xs text-schaum/50">
+                {spielModus === "team"
+                  ? "Team-Modus: Jedes Gerät spielt als ein Team (Pass-and-Play im Team), die Rangliste vergleicht Teams."
+                  : "Einzelspieler: jede Person wertet für sich."}
+              </p>
+            </>
+          )}
           <Field label="Stadt">
             <div className="grid grid-cols-2 gap-2">
               {staedte.map((s) => (
@@ -684,8 +768,12 @@ function CreateInner() {
               + Bar hinzufügen
             </Button>
 
-            {/* Route sichern – dieselbe Stopliste, nur dauerhaft. */}
-            {stops.length > 0 &&
+            {/*
+              Route sichern – im Routen-Modus übernimmt das die feste
+              Leiste unten, hier bleibt die Karte dann bewusst ruhig.
+            */}
+            {!modusRoute &&
+              stops.length > 0 &&
               (routeFormOffen ? (
                 <div className="space-y-2 rounded-xl border border-bernstein/40 bg-nacht-3 p-3">
                   <Field label="Name der Route">
@@ -720,8 +808,8 @@ function CreateInner() {
                     {eigeneRoute && (
                       <Button
                         className="flex-1"
-                        onClick={routeUeberschreiben}
-                        disabled={routeBusy || routeNameKonflikt || !routeName.trim()}
+                        onClick={() => routeSichern(false)}
+                        disabled={routeBusy || !routeSpeicherbar}
                       >
                         {routeBusy ? "…" : `„${eigeneRoute.name}" aktualisieren`}
                       </Button>
@@ -729,8 +817,8 @@ function CreateInner() {
                     <Button
                       variant={eigeneRoute ? "ghost" : "primary"}
                       className="flex-1"
-                      onClick={routeNeuSpeichern}
-                      disabled={routeBusy || routeNameKonflikt || !routeName.trim()}
+                      onClick={() => routeSichern(true)}
+                      disabled={routeBusy || !routeSpeicherbar}
                     >
                       {routeBusy ? "…" : eigeneRoute ? "Als neue Route" : "Route speichern"}
                     </Button>
@@ -740,18 +828,16 @@ function CreateInner() {
                   </div>
                 </div>
               ) : (
-                <button
-                  onClick={routeFormOeffnen}
-                  className="flex w-full items-center justify-center gap-2 text-sm text-schaum/60 hover:text-bernstein"
-                >
-                  <IconRoute size={15} />
-                  {eigeneRoute ? "Route aktualisieren oder neu sichern" : "Als Route speichern"}
-                </button>
+                <Button variant="ghost" className="w-full" onClick={routeFormOeffnen}>
+                  <IconRoute size={16} />
+                  {eigeneRoute ? "Route aktualisieren" : "Diese Route speichern"}
+                </Button>
               ))}
           </Card>
         )}
 
-        {aktiv && (
+        {/* Par, Glas und Spielformen gehören zum Abend, nicht zur Vorlage. */}
+        {aktiv && !modusRoute && (
           <Card className="space-y-3">
             <button
               type="button"
@@ -947,10 +1033,50 @@ function CreateInner() {
 
       {aktiv && stops.length > 0 && !pickerOffen && !routePickerOffen && (
         <div className="fixed inset-x-0 bottom-0 z-[1100] border-t border-[var(--linie)] bg-nacht p-4">
-          <div className="mx-auto max-w-md">
-            <Button className="w-full" onClick={erstellen} disabled={busy}>
-              {busy ? "erstelle…" : "Spiel erstellen & Code generieren"}
-            </Button>
+          <div className="mx-auto max-w-md space-y-2">
+            {modusRoute ? (
+              <>
+                <div className="flex gap-2">
+                  <Button
+                    className="flex-1"
+                    onClick={() => routeSichern(false, "routen")}
+                    disabled={routeBusy || !routeSpeicherbar}
+                  >
+                    {routeBusy
+                      ? "speichere…"
+                      : eigeneRoute
+                        ? "Änderungen speichern"
+                        : `Route speichern · ${stops.length} Stops`}
+                  </Button>
+                  {eigeneRoute && (
+                    <Button
+                      variant="ghost"
+                      onClick={() => routeSichern(true, "routen")}
+                      disabled={routeBusy || !routeSpeicherbar}
+                      title="Als neue Route speichern"
+                    >
+                      <IconPlus size={16} />
+                    </Button>
+                  )}
+                </div>
+                <button
+                  onClick={() => routeSichern(!eigeneRoute, "spiel")}
+                  disabled={routeBusy || !routeSpeicherbar}
+                  className="w-full text-center text-sm text-schaum/60 hover:text-bernstein disabled:opacity-40"
+                >
+                  Speichern & direkt Spiel starten →
+                </button>
+                {!routeName.trim() && (
+                  <p className="text-center text-xs text-schaum/40">
+                    Die Route braucht noch einen Namen.
+                  </p>
+                )}
+              </>
+            ) : (
+              <Button className="w-full" onClick={erstellen} disabled={busy}>
+                {busy ? "erstelle…" : "Spiel erstellen & Code generieren"}
+              </Button>
+            )}
           </div>
         </div>
       )}
@@ -1106,6 +1232,14 @@ function CreateInner() {
                         <IconSchloss size={13} className="shrink-0" />
                         Wird privat in „Meine Bars" gespeichert – nur du und deine Mitspieler sehen sie.
                       </p>
+                      {!stadt && (
+                        <p className="flex items-center gap-1.5 text-xs text-schaum/50">
+                          <IconPin size={13} className="shrink-0" />
+                          {pendingStadt
+                            ? `Stadt automatisch erkannt: ${pendingStadt.stadt.name}`
+                            : "Keine bekannte Stadt in der Nähe – die Bar wird ohne Stadt gespeichert."}
+                        </p>
+                      )}
                       <div className="flex gap-2">
                         <Button
                           className="flex-1"

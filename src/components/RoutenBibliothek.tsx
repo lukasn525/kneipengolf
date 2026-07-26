@@ -33,7 +33,6 @@ import { istModerator } from "@/lib/ugc";
 import {
   freierRoutenName,
   ladeRouten,
-  routeAktualisieren,
   routeLoeschen,
   routeSichtbarkeitSetzen,
   routeSperren,
@@ -152,11 +151,12 @@ export function RoutenAnsicht({
       )}
 
       <Card className="space-y-3">
-        <Button className="w-full" onClick={() => router.push("/create")}>
+        <Button className="w-full" onClick={() => router.push("/create?modus=route")}>
           <IconPlus size={16} /> Neue Route bauen
         </Button>
         <p className="text-xs text-schaum/40">
-          Routen entstehen beim Spiel-Erstellen: Stops zusammenstellen, dann „Als Route speichern".
+          Stadt wählen, Bars zusammenstellen, Namen vergeben – ohne Spieleinstellungen. Gespielt
+          wird später mit einem Tipp.
         </p>
       </Card>
 
@@ -231,16 +231,9 @@ function EigeneRouteZeile({
 }) {
   const router = useRouter();
   const [offen, setOffen] = useState(false);
-  const [umbenennen, setUmbenennen] = useState(false);
-  const [neuerName, setNeuerName] = useState(route.name);
-  const [busy, setBusy] = useState(false);
   const oeffentlich = route.sichtbarkeit === "oeffentlich";
 
   const url = teilenUrl(route.teilen_token);
-  const andereNamen = meineNamen.filter((n) => n !== route.name);
-  const konflikt =
-    neuerName.trim().length > 0 &&
-    andereNamen.some((n) => n.trim().toLowerCase() === neuerName.trim().toLowerCase());
 
   async function teilen() {
     const text = `Kneipen-Golf-Route „${route.name}"`;
@@ -280,20 +273,6 @@ function EigeneRouteZeile({
         : "Das hat nicht geklappt."
     );
     if (ok) onAendern();
-  }
-
-  async function speichern() {
-    if (konflikt || !neuerName.trim()) return;
-    setBusy(true);
-    const res = await routeAktualisieren(route.id, { name: neuerName });
-    setBusy(false);
-    if (!res.ok) {
-      onMeldung(res.meldung);
-      return;
-    }
-    setUmbenennen(false);
-    onMeldung("Umbenannt.");
-    onAendern();
   }
 
   async function loeschen() {
@@ -343,62 +322,31 @@ function EigeneRouteZeile({
         <>
           <StopListe route={route} />
 
-          {umbenennen ? (
-            <div className="mt-3 space-y-2">
-              <Field label="Neuer Name">
-                <Input
-                  value={neuerName}
-                  onChange={(e) => setNeuerName(e.target.value)}
-                  placeholder="Name der Route"
-                />
-              </Field>
-              {konflikt && (
-                <button
-                  onClick={() => setNeuerName(freierRoutenName(neuerName, andereNamen))}
-                  className="text-left text-xs text-ziegel underline"
-                >
-                  Name schon vergeben – „{freierRoutenName(neuerName, andereNamen)}" übernehmen?
-                </button>
-              )}
-              <div className="flex gap-2">
-                <Button
-                  className="flex-1"
-                  onClick={speichern}
-                  disabled={busy || konflikt || !neuerName.trim()}
-                >
-                  {busy ? "…" : "Speichern"}
-                </Button>
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    setUmbenennen(false);
-                    setNeuerName(route.name);
-                  }}
-                >
-                  Abbrechen
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Button
-                className="flex-1"
-                onClick={() => router.push(`/create?route=${route.id}`)}
-                disabled={route.stops.length === 0}
-              >
-                Spielen <IconWeiter size={16} />
-              </Button>
-              <Button variant="ghost" onClick={() => setUmbenennen(true)}>
-                <IconStift size={16} /> Umbenennen
-              </Button>
-              <IconKnopf titel="Link kopieren" onClick={kopieren}>
-                <IconKopieren size={17} />
-              </IconKnopf>
-              <IconKnopf titel="löschen" gefahr onClick={loeschen}>
-                <IconPapierkorb size={17} />
-              </IconKnopf>
-            </div>
-          )}
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button
+              className="flex-1"
+              onClick={() => router.push(`/create?route=${route.id}`)}
+              disabled={route.stops.length === 0}
+            >
+              Spielen <IconWeiter size={16} />
+            </Button>
+            <Button
+              variant="ghost"
+              className="flex-1"
+              onClick={() => router.push(`/create?route=${route.id}&modus=route`)}
+            >
+              <IconStift size={16} /> Bearbeiten
+            </Button>
+            <IconKnopf titel="Link kopieren" onClick={kopieren}>
+              <IconKopieren size={17} />
+            </IconKnopf>
+            <IconKnopf titel="löschen" gefahr onClick={loeschen}>
+              <IconPapierkorb size={17} />
+            </IconKnopf>
+          </div>
+          <p className="mt-2 text-xs text-schaum/40">
+            Über „Bearbeiten" änderst du Name, Beschreibung und Stops.
+          </p>
         </>
       )}
     </li>
