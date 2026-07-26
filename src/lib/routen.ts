@@ -88,6 +88,53 @@ export async function ladeRoute(routeId: string): Promise<RouteMitStops | null> 
   return { ...(data as Route), stops: stops.get(routeId) ?? [] };
 }
 
+export type GespielteRoute = RouteMitStops & { zuletztGespielt: string };
+
+/**
+ * Routen, die wirklich schon auf dem Tisch lagen – für „Nochmal spielen".
+ *
+ * „Gespielt" heisst: es gab eine Tour aus dieser Route, die den Lobby-
+ * Zustand verlassen hat. Eine angelegte, aber nie gestartete Route taucht
+ * hier bewusst nicht auf; dafür ist der Routen-Tab da.
+ */
+export async function ladeGespielteRouten(
+  userId: string | undefined,
+  anzahl = 3
+): Promise<GespielteRoute[]> {
+  if (!userId) return [];
+  const sb = supabase();
+  const { data } = await sb
+    .from("touren")
+    .select("route_id,erstellt_am")
+    .eq("host_user_id", userId)
+    .not("route_id", "is", null)
+    .in("status", ["laufend", "beendet"])
+    .order("erstellt_am", { ascending: false })
+    .limit(60);
+
+  const rows = (data as { route_id: string; erstellt_am: string }[]) ?? [];
+
+  // Pro Route nur das jüngste Spiel; Reihenfolge bleibt „zuletzt zuerst".
+  const zuletzt = new Map<string, string>();
+  for (const r of rows) if (!zuletzt.has(r.route_id)) zuletzt.set(r.route_id, r.erstellt_am);
+  const ids = [...zuletzt.keys()].slice(0, anzahl);
+  if (!ids.length) return [];
+
+  // RLS entscheidet mit: gelöschte oder zurückgezogene Routen fallen raus.
+  const { data: rd } = await sb.from("routen").select("*").in("id", ids);
+  const routen = (rd as Route[]) ?? [];
+  const stops = await ladeStops(routen.map((r) => r.id));
+
+  return ids
+    .map((id) => routen.find((r) => r.id === id))
+    .filter((r): r is Route => Boolean(r))
+    .map((r) => ({
+      ...r,
+      stops: stops.get(r.id) ?? [],
+      zuletztGespielt: zuletzt.get(r.id) as string,
+    }));
+}
+
 /** Nur die Namen der eigenen Routen – Grundlage für die Namensprüfung. */
 export async function eigeneRoutenNamen(userId: string | undefined): Promise<string[]> {
   if (!userId) return [];

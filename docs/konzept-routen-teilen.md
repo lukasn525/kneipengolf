@@ -160,7 +160,12 @@ Drei Entscheidungen, die den Ablauf flüssig halten:
   Stopliste danach frei bearbeitbar; wer die Änderung behalten will,
   drückt bewusst „Änderungen speichern" oder „Als neue Route".
 - **Schnellstart steht im Spielen-Tab**, nicht im Routen-Tab. Wer spielen
-  will, soll nicht erst verwalten müssen.
+  will, soll nicht erst verwalten müssen. Dort stehen die **letzten drei
+  wirklich gespielten** Routen – nicht die zuletzt angelegten. Möglich
+  macht das `touren.route_id`: die Tour merkt sich ihre Herkunft, und
+  gezählt wird erst, wenn sie den Lobby-Zustand verlassen hat. Eine Route,
+  die nur herumliegt, taucht im Spielen-Tab nicht auf; dafür ist der
+  Routen-Tab da.
 
 ### 2.1 Zwei Modi auf einer Seite statt zweier Seiten
 
@@ -214,7 +219,7 @@ Es legt an bzw. ändert:
 
 1. `bars.herkunft` + `bars.quelle_bar_id` (+ partial unique index)
 2. `routen` (+ `routen_name_pro_user`, Indizes, `geaendert_am`-Trigger)
-3. `routen_stops`
+3. `routen_stops` und `touren.route_id` (Herkunft einer Tour)
 4. RLS-Policies für `routen` und `routen_stops`
 5. `neuer_routen_token()`
 6. `route_per_token(text)` – Vorschau, für `anon` freigegeben

@@ -114,6 +114,13 @@ create table if not exists routen_stops (
 
 create index if not exists routen_stops_route_idx on routen_stops (route_id, position);
 
+-- Aus welcher Route ist diese Tour entstanden? Weiche Referenz: Wird die
+-- Route gelöscht, bleibt die Tour vollständig (Stops sind Snapshots), nur
+-- die Herkunft geht verloren. Grundlage für „Nochmal spielen" im Hauptmenü –
+-- dort zählt, was wirklich gespielt wurde, nicht was angelegt wurde.
+alter table touren add column if not exists route_id uuid references routen(id) on delete set null;
+create index if not exists touren_route_idx on touren (host_user_id, route_id, erstellt_am desc);
+
 
 -- ════════════════════════════════════════════════════════════════
 -- 3. Row Level Security

@@ -13,7 +13,7 @@ import { IconPapierkorb, IconPin, IconRoute, IconWeiter } from "@/components/Ico
 import { BarsAnsicht, SpieleAnsicht } from "@/components/Bibliothek";
 import { RoutenAnsicht } from "@/components/RoutenBibliothek";
 import { ladeRolle } from "@/lib/ugc";
-import { ladeRouten, type RouteMitStops } from "@/lib/routen";
+import { ladeGespielteRouten, type GespielteRoute } from "@/lib/routen";
 import type { BenutzerRolle, Stadt, Tour } from "@/lib/types";
 
 /**
@@ -51,7 +51,7 @@ function DashboardInner() {
   const [busy, setBusy] = useState(false);
   const [meine, setMeine] = useState<Tour[]>([]);
   const [meineGeladen, setMeineGeladen] = useState(false);
-  const [meineRouten, setMeineRouten] = useState<RouteMitStops[]>([]);
+  const [gespielteRouten, setGespielteRouten] = useState<GespielteRoute[]>([]);
   const [handicap, setHandicap] = useState<{ wert: number | null; stops: number } | null>(null);
   const [statistik, setStatistik] = useState<{ touren: number; bestwert: number | null } | null>(null);
 
@@ -63,7 +63,7 @@ function DashboardInner() {
       .select("*")
       .order("name")
       .then(({ data }) => setStaedte((data as Stadt[]) ?? []));
-    ladeRouten(user.id).then((l) => setMeineRouten(l.eigene.filter((r) => r.stops.length > 0)));
+    ladeGespielteRouten(user.id, 3).then(setGespielteRouten);
   }, [user]);
 
   useEffect(() => {
@@ -255,8 +255,12 @@ function DashboardInner() {
               </Card>
             )}
 
-            {/* Schnellstart: eine gespeicherte Route ist zwei Tipps vom Spiel entfernt */}
-            {meineRouten.length > 0 && (
+            {/*
+              Schnellstart – bewusst nur Routen, aus denen schon eine Tour
+              gestartet wurde. Frisch angelegte Routen stehen im Routen-Tab,
+              hier soll nichts stehen, was man noch nie gespielt hat.
+            */}
+            {gespielteRouten.length > 0 && (
               <Card className="space-y-2">
                 <div className="flex items-baseline justify-between">
                   <h2 className="font-display text-xl">Nochmal spielen</h2>
@@ -268,7 +272,7 @@ function DashboardInner() {
                   </button>
                 </div>
                 <ul className="divide-y divide-[var(--linie)]">
-                  {meineRouten.slice(0, 4).map((r) => (
+                  {gespielteRouten.map((r) => (
                     <li key={r.id}>
                       <Link
                         href={`/create?route=${r.id}`}
@@ -278,7 +282,8 @@ function DashboardInner() {
                         <span className="min-w-0 flex-1">
                           <span className="block truncate">{r.name}</span>
                           <span className="flex items-center gap-1 text-xs text-schaum/50">
-                            <IconPin size={11} /> {r.stops.length} Stops
+                            <IconPin size={11} /> {r.stops.length} Stops · zuletzt{" "}
+                            {kurzesDatum(r.zuletztGespielt)}
                           </span>
                         </span>
                         <IconWeiter size={16} className="shrink-0 text-schaum/40" />
@@ -355,6 +360,18 @@ function DashboardInner() {
       </div>
     </Shell>
   );
+}
+
+/** „12.07." bzw. „12.07.25" – kurz genug für die Zeile unter dem Namen. */
+function kurzesDatum(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "–";
+  const gleichesJahr = d.getFullYear() === new Date().getFullYear();
+  return d.toLocaleDateString("de-DE", {
+    day: "2-digit",
+    month: "2-digit",
+    ...(gleichesJahr ? {} : { year: "2-digit" }),
+  });
 }
 
 function statusLabel(s: Tour["status"]) {

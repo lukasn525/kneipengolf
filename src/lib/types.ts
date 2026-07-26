@@ -107,6 +107,8 @@ export type Tour = {
   status: TourStatus;
   glas_typ: GlasTyp;
   spiel_modus: SpielModus;
+  /** Route, aus der diese Tour entstanden ist (weich – Snapshot bleibt) */
+  route_id?: string | null;
   erstellt_am: string;
 };
 

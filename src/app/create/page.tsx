@@ -520,6 +520,9 @@ function CreateInner() {
           glas_typ: glas,
           spiel_modus: spielModus,
           status: "lobby",
+          // Herkunft festhalten – „Nochmal spielen" zeigt nur Routen,
+          // aus denen tatsächlich eine gespielte Tour entstanden ist.
+          route_id: geladeneRoute?.id ?? null,
         })
         .select()
         .single();
