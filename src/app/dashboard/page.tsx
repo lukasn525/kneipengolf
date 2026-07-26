@@ -144,7 +144,7 @@ function DashboardInner() {
               {[
                 ["1", "Route erstellen", "Stadt wählen oder eigene Route bauen – 9 Kneipen wie 9 Löcher."],
                 ["2", "Freunde einladen", "Code oder QR teilen, alle treten mit ihrem Namen bei."],
-                ["3", "Golf trinken", "Pro Kneipe eine Challenge, Schlücke zählen – der niedrigste Score gewinnt."],
+                ["3", "Spielen", "Pro Kneipe eine Challenge, Schlücke zählen – der niedrigste Score gewinnt."],
               ].map(([n, titel, text]) => (
                 <li key={n} className="flex gap-3">
                   <span className="mono grid h-7 w-7 shrink-0 place-items-center rounded-full bg-bernstein/15 text-sm text-bernstein">

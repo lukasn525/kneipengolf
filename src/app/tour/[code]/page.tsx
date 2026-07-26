@@ -11,7 +11,8 @@ import { TopBar } from "@/components/TopBar";
 import { Button, Card, Field, Input, Shell } from "@/components/ui";
 import { rangliste, scoreEintrag, tourCode } from "@/lib/game";
 import { holeRoute, googleMapsUrl } from "@/lib/nav";
-import { IconKompass, IconX } from "@/components/Icons";
+import { IconKompass, IconWeiter, IconX } from "@/components/Icons";
+import { geraetId } from "@/lib/ugc";
 import type {
   Ergebnis,
   KneipenChallenge,
@@ -62,6 +63,11 @@ function TourInner() {
   const [bereit, setBereit] = useState(false);
   const [routeCoords, setRouteCoords] = useState<[number, number][]>([]);
   const [rematchBusy, setRematchBusy] = useState(false);
+  // Gameplay-Loop: Übergänge zwischen Spielern und Stops
+  const [panelKomplettBeimOeffnen, setPanelKomplettBeimOeffnen] = useState(false);
+  const [wartetAufAndere, setWartetAufAndere] = useState(false);
+  const [wechselHinweis, setWechselHinweis] = useState<string | null>(null);
+  const [fertigerStop, setFertigerStop] = useState<TourKneipe | null>(null);
   // Offline-Robustheit: zeigen wir gerade einen lokalen Stand? / wartende Wertungen
   const [offlineStand, setOfflineStand] = useState(false);
   const [wartend, setWartend] = useState<Record<string, Record<string, unknown>>>({});
@@ -245,6 +251,26 @@ function TourInner() {
     [kneipen, erledigtSet, aktivId]
   );
 
+  // ── Gameplay: wen verwaltet dieses Gerät? ──────────────
+  // Pass-and-Play: Teilnehmer mit unserer geraet_id. Für ältere Touren ohne
+  // geraet_id fallen wir auf „eigener Account + Namen ohne Konto" zurück.
+  const meinGeraet = useMemo(() => geraetId(), []);
+  const meineTeilnehmer = useMemo(() => {
+    const mitGeraet = teilnehmer.filter((t) => t.geraet_id === meinGeraet);
+    if (mitGeraet.length) return mitGeraet;
+    return teilnehmer.filter((t) => t.user_id === user?.id || t.user_id === null);
+  }, [teilnehmer, meinGeraet, user?.id]);
+
+  function hatGewertet(kneipeId: string, tid: string) {
+    return ergebnisse.some(
+      (e) => e.tour_kneipe_id === kneipeId && e.teilnehmer_id === tid && e.erledigt
+    );
+  }
+  /** Haben ALLE Teilnehmer der Session diesen Stop gewertet? */
+  function alleFertig(kneipeId: string) {
+    return teilnehmer.length > 0 && teilnehmer.every((t) => hatGewertet(kneipeId, t.id));
+  }
+
   function ergebnisFuer(kneipeId: string, tid: string) {
     return ergebnisse.find((e) => e.tour_kneipe_id === kneipeId && e.teilnehmer_id === tid) ?? null;
   }
@@ -263,7 +289,13 @@ function TourInner() {
     if (!tour || !name.trim()) return;
     const { data, error } = await supabase()
       .from("teilnehmer")
-      .insert({ tour_id: tour.id, name: name.trim(), user_id: alsGeraet ? user?.id ?? null : null })
+      .insert({
+        tour_id: tour.id,
+        name: name.trim(),
+        user_id: alsGeraet ? user?.id ?? null : null,
+        // Dieses Gerät verwaltet den Teilnehmer -> Basis für den Auto-Wechsel
+        geraet_id: meinGeraet,
+      })
       .select()
       .single();
     if (error) {
@@ -309,6 +341,79 @@ function TourInner() {
     });
     await ladeErgebnisse(tour.id);
   }
+
+  // ── Gameplay-Loop ──────────────────────────────────────
+
+  /**
+   * Öffnet den Stop und setzt direkt den ersten Spieler dieses Geräts, der
+   * hier noch nichts eingetragen hat. `panelKomplettBeimOeffnen` merkt sich,
+   * ob der Stop schon fertig war – nur dann darf das Fenster offen bleiben
+   * (Nachschauen/Korrigieren statt sofortigem Auto-Close).
+   */
+  function oeffneStop(k: TourKneipe) {
+    setPanelKomplettBeimOeffnen(alleFertig(k.id));
+    setWartetAufAndere(false);
+    setFertigerStop(null);
+    if (tour?.status === "laufend") {
+      const offen = meineTeilnehmer.find((t) => !hatGewertet(k.id, t.id));
+      if (offen) waehleAktiv(offen.id);
+    }
+    setPanel(k);
+  }
+
+  /**
+   * Wertung abschließen und den Loop weiterdrehen:
+   *   1. nächster Spieler dieses Geräts ist dran (Fenster bleibt offen)
+   *   2. sonst: warten, bis andere Geräte fertig sind
+   *   3. sind alle durch → Fenster zu, „Nächstes Game" erscheint
+   */
+  async function wertungAbschliessen(kneipeId: string, patch: Partial<Ergebnis>) {
+    if (!aktivId) return;
+    const bereits = new Set(
+      ergebnisse
+        .filter((e) => e.tour_kneipe_id === kneipeId && e.erledigt)
+        .map((e) => e.teilnehmer_id)
+    );
+    bereits.add(aktivId);
+
+    await speichereErgebnis(kneipeId, { ...patch, erledigt: true });
+
+    const naechster = meineTeilnehmer.find((t) => !bereits.has(t.id));
+    if (naechster) {
+      waehleAktiv(naechster.id);
+      setWechselHinweis(naechster.name);
+      return;
+    }
+    // Dieses Gerät ist durch – warten wir noch auf andere?
+    const alle = teilnehmer.every((t) => bereits.has(t.id));
+    if (alle) {
+      const k = kneipen.find((x) => x.id === kneipeId) ?? null;
+      setPanel(null);
+      setWartetAufAndere(false);
+      setFertigerStop(k);
+    } else {
+      setWartetAufAndere(true);
+    }
+  }
+
+  // Multi-Device: sobald das letzte Gerät gewertet hat, schließt das Fenster
+  // bei allen und der Übergang zum nächsten Stop erscheint.
+  useEffect(() => {
+    if (!panel || panelKomplettBeimOeffnen) return;
+    if (!alleFertig(panel.id)) return;
+    const k = panel;
+    setPanel(null);
+    setWartetAufAndere(false);
+    setFertigerStop(k);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ergebnisse, teilnehmer, panel, panelKomplettBeimOeffnen]);
+
+  // Hinweis „jetzt ist X dran" wieder ausblenden
+  useEffect(() => {
+    if (!wechselHinweis) return;
+    const t = setTimeout(() => setWechselHinweis(null), 2200);
+    return () => clearTimeout(t);
+  }, [wechselHinweis]);
 
   // Wartende Wertungen nachtragen, sobald wieder Netz da ist
   useEffect(() => {
@@ -525,7 +630,7 @@ function TourInner() {
       {tab === "karte" && aktivId && tour.status === "laufend" && (
         <div className="mx-auto w-full max-w-md px-4 pb-2">
           <button
-            onClick={() => naechsterStop && setPanel(naechsterStop)}
+            onClick={() => naechsterStop && oeffneStop(naechsterStop)}
             disabled={!naechsterStop}
             className="w-full rounded-xl border border-bernstein/50 bg-nacht-2 p-3 text-left disabled:opacity-70"
           >
@@ -554,7 +659,7 @@ function TourInner() {
           <Map
             stops={kneipen}
             erledigt={erledigtSet}
-            onPin={setPanel}
+            onPin={oeffneStop}
             center={center}
             zoom={stadt?.zoom ?? 14}
             glas={tour.glas_typ ?? "bier"}
@@ -585,7 +690,7 @@ function TourInner() {
             ergebnisse={ergebnisse}
             aktivId={aktivId}
             challengeFuer={challengeFuer}
-            onOeffnen={setPanel}
+            onOeffnen={oeffneStop}
           />
         </div>
       ) : (
@@ -634,6 +739,20 @@ function TourInner() {
         </div>
       )}
 
+      {/* Nahtloser Übergang: erscheint, sobald alle diesen Stop gewertet haben */}
+      {fertigerStop && tour.status === "laufend" && (
+        <NaechstesGame
+          fertig={fertigerStop}
+          naechster={kneipen.find((k) => !alleFertig(k.id)) ?? null}
+          onWeiter={(k) => oeffneStop(k)}
+          onAuswertung={() => {
+            setFertigerStop(null);
+            setTab("rangliste");
+          }}
+          onSchliessen={() => setFertigerStop(null)}
+        />
+      )}
+
       {panel && (
         <ChallengePanel
           kneipe={panel}
@@ -643,10 +762,74 @@ function TourInner() {
           aktiv={Boolean(aktivId) && tour.status === "laufend"}
           verweigerungStrafe={tour.verweigerung_strafe}
           par={tour.par_schwelle}
+          spielerName={teilnehmer.find((t) => t.id === aktivId)?.name ?? ""}
+          spielerNummer={meineTeilnehmer.filter((t) => hatGewertet(panel.id, t.id)).length + 1}
+          spielerGesamt={meineTeilnehmer.length}
+          wartetAufAndere={wartetAufAndere}
+          wechselHinweis={wechselHinweis}
           onChange={(patch) => speichereErgebnis(panel.id, patch)}
-          onClose={() => setPanel(null)}
+          onAbschliessen={(patch) => wertungAbschliessen(panel.id, patch)}
+          onClose={() => {
+            setPanel(null);
+            setWartetAufAndere(false);
+          }}
         />
       )}
+    </div>
+  );
+}
+
+/**
+ * Übergangskarte nach einem abgeschlossenen Bar-Game: keine Suche auf der
+ * Karte, kein Zurücktippen – ein Tipp führt die Gruppe zum nächsten Stop.
+ */
+function NaechstesGame({
+  fertig,
+  naechster,
+  onWeiter,
+  onAuswertung,
+  onSchliessen,
+}: {
+  fertig: TourKneipe;
+  naechster: TourKneipe | null;
+  onWeiter: (k: TourKneipe) => void;
+  onAuswertung: () => void;
+  onSchliessen: () => void;
+}) {
+  return (
+    <div className="fixed inset-x-0 bottom-0 z-[1050] px-4 pb-4">
+      <div className="kg-slide-up mx-auto max-w-md rounded-2xl border border-bernstein/50 bg-nacht-2 p-4 shadow-2xl space-y-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-xs uppercase tracking-wide text-moos">Alle durch</p>
+            <p className="truncate font-display text-lg">{fertig.name}</p>
+          </div>
+          <button
+            onClick={onSchliessen}
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-schaum/50 hover:bg-nacht-3"
+            aria-label="schließen"
+          >
+            <IconX size={18} />
+          </button>
+        </div>
+        {naechster ? (
+          <>
+            <p className="text-sm text-schaum/60">
+              Weiter geht's mit <span className="text-schaum">{naechster.name}</span>.
+            </p>
+            <Button className="w-full" onClick={() => onWeiter(naechster)}>
+              Nächstes Game <IconWeiter size={16} />
+            </Button>
+          </>
+        ) : (
+          <>
+            <p className="text-sm text-schaum/60">Das war der letzte Stop – Zeit für die Wertung.</p>
+            <Button className="w-full" onClick={onAuswertung}>
+              Zur Rangliste <IconWeiter size={16} />
+            </Button>
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -988,7 +1171,13 @@ function ChallengePanel({
   aktiv,
   verweigerungStrafe,
   par,
+  spielerName,
+  spielerNummer,
+  spielerGesamt,
+  wartetAufAndere,
+  wechselHinweis,
   onChange,
+  onAbschliessen,
   onClose,
 }: {
   kneipe: TourKneipe;
@@ -998,7 +1187,13 @@ function ChallengePanel({
   aktiv: boolean;
   verweigerungStrafe: number;
   par: number;
+  spielerName: string;
+  spielerNummer: number;
+  spielerGesamt: number;
+  wartetAufAndere: boolean;
+  wechselHinweis: string | null;
   onChange: (patch: Partial<Ergebnis>) => void;
+  onAbschliessen: (patch: Partial<Ergebnis>) => void;
   onClose: () => void;
 }) {
   const schlucke = ergebnis?.schlucke ?? 0;
@@ -1046,8 +1241,40 @@ function ChallengePanel({
           <p className="text-sm text-schaum/50 text-center">
             Wähle oben einen Spieler und starte die Tour, um zu werten.
           </p>
+        ) : wartetAufAndere ? (
+          <div className="space-y-3 rounded-2xl border border-[var(--linie)] bg-nacht-3 p-4 text-center">
+            <p className="font-display text-lg">Alle auf diesem Gerät sind durch ✓</p>
+            <p className="text-sm text-schaum/60">
+              Warten auf die anderen Geräte – sobald alle gewertet haben, geht es automatisch weiter.
+            </p>
+            <div className="mx-auto h-1.5 w-24 overflow-hidden rounded-full bg-nacht-2">
+              <div className="h-full w-1/3 animate-pulse bg-bernstein" />
+            </div>
+            <button onClick={onClose} className="text-sm text-schaum/50 hover:text-bernstein">
+              Fenster schließen
+            </button>
+          </div>
         ) : (
           <>
+            {/* Wer ist dran – der Wechsel passiert automatisch nach dem Eintrag */}
+            <div className="flex items-center justify-between rounded-2xl border border-bernstein/40 bg-bernstein/10 px-4 py-2.5">
+              <span className="min-w-0">
+                <span className="block text-xs text-schaum/50">Jetzt dran</span>
+                <span className="block truncate font-display text-lg">{spielerName}</span>
+              </span>
+              {spielerGesamt > 1 && (
+                <span className="mono shrink-0 text-sm text-schaum/60">
+                  {Math.min(spielerNummer, spielerGesamt)}/{spielerGesamt}
+                </span>
+              )}
+            </div>
+
+            {wechselHinweis && (
+              <p className="kg-pop text-center text-sm text-moos">
+                Gewertet – weiter mit {wechselHinweis}
+              </p>
+            )}
+
             <div className="flex items-center justify-between rounded-2xl bg-nacht-3 border border-[var(--linie)] p-4">
               <span className="text-sm text-schaum/70">Schlücke</span>
               <div className="flex items-center gap-4">
@@ -1077,10 +1304,16 @@ function ChallengePanel({
 
             <Button
               className="w-full"
-              onClick={() => onChange({ erledigt: !erledigt })}
+              onClick={() =>
+                erledigt ? onChange({ erledigt: false }) : onAbschliessen({ strafschlucke: 0 })
+              }
               variant={erledigt ? "ghost" : "primary"}
             >
-              {erledigt ? "Erledigt ✓ (tippen zum Zurücknehmen)" : "Als erledigt markieren"}
+              {erledigt
+                ? "Erledigt ✓ (tippen zum Zurücknehmen)"
+                : spielerGesamt > 1
+                  ? "Eintragen & weitergeben"
+                  : "Als erledigt markieren"}
             </Button>
 
             <button
@@ -1090,7 +1323,7 @@ function ChallengePanel({
                     `Challenge als „nicht machbar" werten? Das gibt +${verweigerungStrafe} Strafschlücke.`
                   )
                 ) {
-                  onChange({ erledigt: true, schlucke: 0, strafschlucke: verweigerungStrafe });
+                  onAbschliessen({ schlucke: 0, strafschlucke: verweigerungStrafe });
                 }
               }}
               className={`w-full text-sm py-2 rounded-xl border border-[var(--linie)] ${

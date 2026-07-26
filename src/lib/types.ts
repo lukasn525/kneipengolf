@@ -17,11 +17,40 @@ export type KneipenVorlage = {
   sortierung: number;
 };
 
+export type Sichtbarkeit = "privat" | "oeffentlich";
+
+/** Rolle im Rechte-System. `null` = normale:r Spieler:in. */
+export type BenutzerRolle = "admin" | "moderator" | null;
+
+/**
+ * Bar (v2.1) – eine Tabelle für alles: kuratierte Bars haben
+ * `ersteller_user_id = null`, nutzergenerierte die jeweilige User-ID.
+ */
+export type Bar = {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  adresse: string | null;
+  stadt_id: number | null;
+  kategorie: string | null;
+  notiz: string | null;
+  ersteller_user_id: string | null;
+  sichtbarkeit: Sichtbarkeit;
+  gesperrt: boolean;
+  sortierung: number | null;
+  erstellt_am: string;
+  geaendert_am: string;
+};
+
 export type Spielform = {
   id: number;
   titel: string;
   beschreibung: string;
   schwierigkeit: number;
+  ersteller_user_id?: string | null;
+  sichtbarkeit?: Sichtbarkeit;
+  gesperrt?: boolean;
 };
 
 export type TourStatus = "lobby" | "laufend" | "beendet";
@@ -54,6 +83,8 @@ export type TourKneipe = {
   lng: number;
   adresse: string | null;
   position: number;
+  /** Referenz auf die Bar-Bibliothek (Snapshot bleibt maßgeblich) */
+  bar_id?: string | null;
 };
 
 export type Teilnehmer = {
@@ -61,6 +92,8 @@ export type Teilnehmer = {
   tour_id: string;
   name: string;
   user_id: string | null;
+  /** Gerät, das diesen Teilnehmer verwaltet (Pass-and-Play) */
+  geraet_id?: string | null;
   erstellt_am: string;
 };
 

@@ -14,25 +14,24 @@ import { GLAESER } from "@/lib/glas";
 import { AdressSuche, type GeoTreffer } from "@/components/AdressSuche";
 import { holeRoute, reverseGeocode } from "@/lib/nav";
 import { getStandardModus } from "@/lib/einstellungen";
-import { IconHoch, IconRunter, IconX, IconStift, IconPin } from "@/components/Icons";
-import type {
-  GlasTyp,
-  KneipenVorlage,
-  MeineKneipe,
-  MeineSpielform,
-  SpielModus,
-  Spielform,
-  Stadt,
-} from "@/lib/types";
+import { IconHoch, IconRunter, IconX, IconStift, IconPin, IconGlobus, IconSchloss } from "@/components/Icons";
+import {
+  barAnlegen,
+  ladeBars,
+  ladeSpielformen,
+  spielformAnlegen,
+  spielformLoeschen,
+  type BarListe,
+} from "@/lib/ugc";
+import type { Bar, GlasTyp, SpielModus, Stadt } from "@/lib/types";
 
 type Stop = {
   name: string;
   lat: number;
   lng: number;
   adresse: string | null;
-  vorlageId?: number;
-  /** Verweis auf eine am Konto gespeicherte Kneipe */
-  meineId?: string;
+  /** Referenz in die Bar-Bibliothek; der Stop selbst bleibt ein Snapshot */
+  barId?: string;
 };
 
 const Map = dynamic(() => import("@/components/Map"), {
@@ -66,19 +65,17 @@ function CreateInner() {
     { lat: number; lng: number; name: string; adresse: string | null } | null
   >(null);
   const [pendingBusy, setPendingBusy] = useState(false);
-  const [pendingMerken, setPendingMerken] = useState(false);
   const [flyTo, setFlyTo] = useState<[number, number] | null>(null);
   const [routeCoords, setRouteCoords] = useState<[number, number][]>([]);
   const routeReqId = useRef(0); // stellt sicher, dass nur die neueste Route greift
-  const eigeneIdRef = useRef(0); // eindeutige (negative) IDs für selbst gesetzte Kneipen
 
-  // Kneipen-Auswahl
-  const [vorlagen, setVorlagen] = useState<KneipenVorlage[]>([]);
+  // Bar-Bibliothek (kuratiert / Community / eigene) + persönliche Ausblendungen
+  const [barListe, setBarListe] = useState<BarListe | null>(null);
   const [pickerOffen, setPickerOffen] = useState(false);
   const [pickerTab, setPickerTab] = useState<"liste" | "selbst">("liste");
   const [erweitertOffen, setErweitertOffen] = useState(false);
 
-  // Spielformen: an-/abwählbar + eigene (optional dauerhaft am Konto)
+  // Spielformen: an-/abwählbar; eigene werden dauerhaft am Konto gespeichert
   const [spielformAuswahl, setSpielformAuswahl] = useState<
     {
       id: number;
@@ -86,22 +83,22 @@ function CreateInner() {
       beschreibung: string;
       aktiv: boolean;
       eigen: boolean;
-      kontoId?: string;
     }[]
   >([]);
   const [sfTitel, setSfTitel] = useState("");
   const [sfBesch, setSfBesch] = useState("");
   const [sfFormOffen, setSfFormOffen] = useState(false);
-  const [sfMerken, setSfMerken] = useState(false);
-  const eigeneSpielformIdRef = useRef(0);
-
-  // Konto-Features (v2.0): dauerhaft gespeicherte Kneipen
-  const [meineKneipen, setMeineKneipen] = useState<MeineKneipe[]>([]);
 
   const stadt = useMemo(() => staedte.find((s) => s.id === stadtId) ?? null, [staedte, stadtId]);
   const aktiv = Boolean(stadt) || eigenerModus;
-  const verfuegbareVorlagen = vorlagen.filter((v) => !stops.some((s) => s.vorlageId === v.id));
-  const verfuegbareMeine = meineKneipen.filter((m) => !stops.some((s) => s.meineId === m.id));
+
+  // Was steht im Picker zur Auswahl? Ausgeblendete und bereits gesetzte Bars fliegen raus.
+  const frei = (b: Bar) => !stops.some((s) => s.barId === b.id) && !barListe?.ausgeblendet.has(b.id);
+  const verfuegbareKuratiert = (barListe?.kuratiert ?? []).filter(frei);
+  const verfuegbareCommunity = (barListe?.community ?? []).filter(frei);
+  const verfuegbareEigene = (barListe?.eigene ?? []).filter(frei);
+  const verfuegbareGesamt =
+    verfuegbareKuratiert.length + verfuegbareCommunity.length + verfuegbareEigene.length;
   const mapCenter = useMemo<[number, number]>(() => {
     if (stops.length) {
       const la = stops.reduce((a, s) => a + s.lat, 0) / stops.length;
@@ -113,54 +110,37 @@ function CreateInner() {
   }, [stops, stadt]);
 
   useEffect(() => {
-    const sb = supabase();
-    sb.from("staedte").select("*").order("name").then(({ data }) => setStaedte((data as Stadt[]) ?? []));
-    sb.from("spielformen").select("*").then(({ data }) => {
-      const sf = (data as Spielform[]) ?? [];
-      setSpielformAuswahl(
-        sf.map((s) => ({
-          id: s.id,
-          titel: s.titel,
-          beschreibung: s.beschreibung,
-          aktiv: true,
-          eigen: false,
-        }))
-      );
-    });
+    supabase()
+      .from("staedte")
+      .select("*")
+      .order("name")
+      .then(({ data }) => setStaedte((data as Stadt[]) ?? []));
     setSpielModus(getStandardModus()); // Voreinstellung aus den Einstellungen
   }, []);
 
-  // Konto-Features laden: eigene Kneipen + eigene Spielformen (dauerhaft)
+  // Spielformen laden: global + Community + eigene. Im Hauptmenü ausgeblendete
+  // Spiele starten hier abgewählt – die Entscheidung dort gilt also weiter.
   useEffect(() => {
     if (!user) return;
-    const sb = supabase();
-    sb.from("meine_kneipen")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("name")
-      .then(({ data }) => setMeineKneipen((data as MeineKneipe[]) ?? []));
-    sb.from("meine_spielformen")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("erstellt_am")
-      .then(({ data }) => {
-        const konto = (data as MeineSpielform[]) ?? [];
-        if (!konto.length) return;
-        setSpielformAuswahl((prev) => [
-          ...prev,
-          ...konto
-            .filter((k) => !prev.some((p) => p.kontoId === k.id))
-            .map((k) => ({
-              id: --eigeneSpielformIdRef.current,
-              titel: k.titel,
-              beschreibung: k.beschreibung ?? "",
-              aktiv: true,
-              eigen: true,
-              kontoId: k.id,
-            })),
-        ]);
-      });
+    ladeSpielformen(user.id).then((l) => {
+      const alle = [...l.global, ...l.community, ...l.eigene];
+      setSpielformAuswahl(
+        alle.map((s) => ({
+          id: s.id,
+          titel: s.titel,
+          beschreibung: s.beschreibung,
+          aktiv: !l.ausgeblendet.has(s.id),
+          eigen: s.ersteller_user_id === user.id,
+        }))
+      );
+    });
   }, [user]);
+
+  // Eigene Bars sind auch ohne gewählte Stadt sofort verfügbar
+  useEffect(() => {
+    if (!user || stadtId) return;
+    ladeBars(user.id).then(setBarListe);
+  }, [user, stadtId]);
 
   // Route neu berechnen, sobald sich die Stops ändern.
   // Die gezeichnete Linie muss immer zur aktuellen Reihenfolge passen:
@@ -178,33 +158,34 @@ function CreateInner() {
     return () => clearTimeout(t);
   }, [stops]);
 
+  const stopAus = (b: Bar): Stop => ({
+    barId: b.id,
+    name: b.name,
+    lat: b.lat,
+    lng: b.lng,
+    adresse: b.adresse,
+  });
+
   async function stadtWaehlen(id: number) {
     setEigenerModus(false);
     setStadtId(id);
-    const { data } = await supabase()
-      .from("kneipen_vorlage")
-      .select("*")
-      .eq("stadt_id", id)
-      .order("sortierung");
-    const vs = (data as KneipenVorlage[]) ?? [];
-    setVorlagen(vs);
-    // Standardmäßig 9 Kneipen laden (wie 9 Golf-Löcher)
+    const liste = await ladeBars(user?.id, id);
+    setBarListe(liste);
+    // Standardroute: kuratierte Bars der Stadt, 9 Stops wie 9 Golf-Löcher.
+    // Persönlich ausgeblendete Bars kommen gar nicht in den Vorschlag.
     setStops(
-      vs.slice(0, 9).map((v) => ({
-        vorlageId: v.id,
-        name: v.name,
-        lat: v.lat,
-        lng: v.lng,
-        adresse: v.adresse,
-      }))
+      liste.kuratiert
+        .filter((b) => !liste.ausgeblendet.has(b.id))
+        .slice(0, 9)
+        .map(stopAus)
     );
   }
 
-  function eigeneStadtWaehlen() {
+  async function eigeneStadtWaehlen() {
     setEigenerModus(true);
     setStadtId(null);
     setStops([]);
-    setVorlagen([]);
+    setBarListe(await ladeBars(user?.id));
   }
 
   function move(i: number, dir: -1 | 1) {
@@ -239,84 +220,46 @@ function CreateInner() {
     setPending((p) => (p ? { ...p, adresse: rev?.label ?? p.adresse } : p));
     setPendingBusy(false);
   }
+  /**
+   * Bestätigt den Vorschau-Pin. Die Bar wird dabei IMMER dauerhaft in der
+   * Bibliothek gespeichert – und zwar privat. Das ist die „Routen-Ausnahme":
+   * hier entstandene Bars werden nie automatisch veröffentlicht, das geht
+   * nur bewusst im Hauptmenü unter „Bars".
+   */
   async function pendingBestaetigen() {
-    if (!pending || !pending.name.trim()) return;
-    const name = pending.name.trim();
-
-    // Optional dauerhaft am Konto speichern -> künftig unter "Meine Kneipen".
-    if (pendingMerken && user) {
-      const { data, error } = await supabase()
-        .from("meine_kneipen")
-        .insert({
-          user_id: user.id,
-          name,
-          lat: pending.lat,
-          lng: pending.lng,
-          adresse: pending.adresse,
-        })
-        .select()
-        .single();
-      if (!error && data) {
-        const mk = data as MeineKneipe;
-        setMeineKneipen((prev) => [...prev, mk]);
-        setStops((prev) => [
-          ...prev,
-          { meineId: mk.id, name: mk.name, lat: mk.lat, lng: mk.lng, adresse: mk.adresse },
-        ]);
-        setPending(null);
-        setPendingMerken(false);
-        return;
-      }
-      // Speichern fehlgeschlagen (z. B. Tabelle fehlt noch) -> lokal weitermachen.
-    }
-
-    // Selbst gesetzte Kneipe bekommt eine eigene (negative) ID und landet auch
-    // im Auswahl-Pool -> danach unter "Aus Liste" wieder auswählbar.
-    const id = --eigeneIdRef.current;
-    const eigene: KneipenVorlage = {
-      id,
-      stadt_id: stadt?.id ?? 0,
-      name,
+    if (!pending || !pending.name.trim() || !user) return;
+    setPendingBusy(true);
+    const bar = await barAnlegen(user.id, {
+      name: pending.name,
       lat: pending.lat,
       lng: pending.lng,
       adresse: pending.adresse,
-      sortierung: 0,
-    };
-    setVorlagen((prev) => [...prev, eigene]);
-    setStops((prev) => [
-      ...prev,
-      { vorlageId: id, name: eigene.name, lat: eigene.lat, lng: eigene.lng, adresse: eigene.adresse },
-    ]);
+      stadt_id: stadt?.id ?? null,
+    });
+    setPendingBusy(false);
+    if (!bar) {
+      setFehler("Bar konnte nicht gespeichert werden – nochmal versuchen?");
+      return;
+    }
+    setBarListe((prev) =>
+      prev
+        ? { ...prev, eigene: [...prev.eigene, bar] }
+        : { kuratiert: [], community: [], eigene: [bar], ausgeblendet: new Set<string>() }
+    );
+    setStops((prev) => [...prev, stopAus(bar)]);
     setPending(null);
-    setPendingMerken(false);
   }
   function pendingVerwerfen() {
     setPending(null);
-    setPendingMerken(false);
   }
 
-  function meineKneipeHinzufuegen(m: MeineKneipe) {
-    setStops((prev) => [
-      ...prev,
-      { meineId: m.id, name: m.name, lat: m.lat, lng: m.lng, adresse: m.adresse },
-    ]);
-  }
-  async function meineKneipeLoeschen(m: MeineKneipe) {
-    if (!window.confirm(`„${m.name}" dauerhaft aus deinen Kneipen entfernen?`)) return;
-    await supabase().from("meine_kneipen").delete().eq("id", m.id);
-    setMeineKneipen((prev) => prev.filter((x) => x.id !== m.id));
+  function barHinzufuegen(b: Bar) {
+    setStops((prev) => [...prev, stopAus(b)]);
   }
 
-  function vorlageHinzufuegen(v: KneipenVorlage) {
-    setStops((prev) => [
-      ...prev,
-      { vorlageId: v.id, name: v.name, lat: v.lat, lng: v.lng, adresse: v.adresse },
-    ]);
-  }
   function openPicker() {
     setPending(null);
-    const listeHatEintraege = verfuegbareVorlagen.length > 0 || verfuegbareMeine.length > 0;
-    setPickerTab(eigenerModus && verfuegbareMeine.length === 0 ? "selbst" : listeHatEintraege ? "liste" : "selbst");
+    setPickerTab(verfuegbareGesamt > 0 ? "liste" : "selbst");
     setPickerOffen(true);
   }
 
@@ -327,29 +270,26 @@ function CreateInner() {
     if (!sfTitel.trim()) return;
     const titel = sfTitel.trim();
     const beschreibung = sfBesch.trim();
-    let kontoId: string | undefined;
-    // Optional dauerhaft am Konto speichern (nicht pro Tour neu tippen).
-    if (sfMerken && user) {
-      const { data, error } = await supabase()
-        .from("meine_spielformen")
-        .insert({ user_id: user.id, titel, beschreibung })
-        .select()
-        .single();
-      if (!error && data) kontoId = (data as MeineSpielform).id;
+    if (!user) return;
+    // Eigene Spielformen landen dauerhaft am Konto (privat) – nicht pro Tour neu tippen.
+    const sf = await spielformAnlegen(user.id, titel, beschreibung);
+    if (!sf) {
+      setFehler("Spielform konnte nicht gespeichert werden.");
+      return;
     }
-    const id = --eigeneSpielformIdRef.current;
-    setSpielformAuswahl((prev) => [...prev, { id, titel, beschreibung, aktiv: true, eigen: true, kontoId }]);
+    setSpielformAuswahl((prev) => [
+      ...prev,
+      { id: sf.id, titel: sf.titel, beschreibung: sf.beschreibung, aktiv: true, eigen: true },
+    ]);
     setSfTitel("");
     setSfBesch("");
-    setSfMerken(false);
     setSfFormOffen(false);
   }
   async function eigeneSpielformEntfernen(id: number) {
     const eintrag = spielformAuswahl.find((s) => s.id === id);
-    if (eintrag?.kontoId) {
-      if (!window.confirm(`„${eintrag.titel}" dauerhaft aus deinen Spielformen entfernen?`)) return;
-      await supabase().from("meine_spielformen").delete().eq("id", eintrag.kontoId);
-    }
+    if (!eintrag) return;
+    if (!window.confirm(`„${eintrag.titel}" dauerhaft aus deinen Spielen löschen?`)) return;
+    await spielformLoeschen(id);
     setSpielformAuswahl((prev) => prev.filter((s) => s.id !== id));
   }
 
@@ -384,8 +324,12 @@ function CreateInner() {
         .single();
       if (e1 || !tour) throw e1 ?? new Error("Tour konnte nicht erstellt werden.");
 
+      // Stops sind Snapshots (Name/Koordinaten) + Referenz auf die Bar.
+      // Dadurch bleiben Touren intakt, selbst wenn die Bar später gelöscht wird,
+      // und Mitspieler dürfen private Bars der Session lesen.
       const rows = stops.map((s, i) => ({
         tour_id: tour.id,
+        bar_id: s.barId ?? null,
         name: s.name,
         lat: s.lat,
         lng: s.lng,
@@ -393,16 +337,16 @@ function CreateInner() {
         position: i,
       }));
       const { data: kneipen, error: e2 } = await sb.from("tour_kneipen").insert(rows).select();
-      if (e2 || !kneipen) throw e2 ?? new Error("Kneipen konnten nicht gespeichert werden.");
+      if (e2 || !kneipen) throw e2 ?? new Error("Bars konnten nicht gespeichert werden.");
 
-      // Pro Kneipe einmalig eine aktive Spielform ziehen und als Snapshot speichern
+      // Pro Bar einmalig eine aktive Spielform ziehen und als Snapshot speichern
       // (Titel + Beschreibung), damit auch eigene Spielformen funktionieren.
       const ch = kneipen.map((k: any) => {
         const s = aktiveSpielformen[Math.floor(Math.random() * aktiveSpielformen.length)];
         return {
           tour_id: tour.id,
           tour_kneipe_id: k.id,
-          spielform_id: s.eigen ? null : s.id,
+          spielform_id: s.id,
           titel: s.titel,
           beschreibung: s.beschreibung,
         };
@@ -489,7 +433,7 @@ function CreateInner() {
               <h2 className="font-display text-xl">Route ({stops.length} Stops)</h2>
             </div>
             <p className="text-sm text-schaum/60">
-              Standardmäßig sind 9 Kneipen geladen. Reihenfolge anpassen, entfernen – oder über „Kneipe
+              Standardmäßig sind 9 Bars geladen. Reihenfolge anpassen, entfernen – oder über „Bar
               hinzufügen" ergänzen.
             </p>
 
@@ -548,7 +492,7 @@ function CreateInner() {
             )}
 
             <Button variant="ghost" className="w-full" onClick={openPicker}>
-              + Kneipe hinzufügen
+              + Bar hinzufügen
             </Button>
           </Card>
         )}
@@ -709,15 +653,10 @@ function CreateInner() {
                         onChange={(e) => setSfBesch(e.target.value)}
                         placeholder="Kurze Regel / Beschreibung"
                       />
-                      <label className="flex items-center gap-2 text-sm text-schaum/70">
-                        <input
-                          type="checkbox"
-                          checked={sfMerken}
-                          onChange={(e) => setSfMerken(e.target.checked)}
-                          className="h-4 w-4 accent-bernstein"
-                        />
-                        Für künftige Touren merken
-                      </label>
+                      <p className="flex items-center gap-1.5 text-xs text-schaum/50">
+                        <IconSchloss size={13} className="shrink-0" />
+                        Wird privat in „Meine Spiele" gespeichert.
+                      </p>
                       <div className="flex gap-2">
                         <Button
                           className="flex-1"
@@ -766,7 +705,7 @@ function CreateInner() {
         <div className="fixed inset-0 z-[1000] flex flex-col bg-nacht/95 backdrop-blur">
           <div className="mx-auto flex h-full w-full max-w-md flex-col px-4">
             <div className="flex items-center justify-between py-3">
-              <h2 className="font-display text-xl">Kneipe hinzufügen</h2>
+              <h2 className="font-display text-xl">Bar hinzufügen</h2>
               <button
                 onClick={() => setPickerOffen(false)}
                 className="grid h-10 w-10 place-items-center rounded-lg text-schaum/60 hover:bg-nacht-3 hover:text-schaum"
@@ -779,7 +718,7 @@ function CreateInner() {
             <div className="mb-3 grid grid-cols-2 gap-1 rounded-xl bg-nacht-3 p-1">
               <button
                 onClick={() => setPickerTab("liste")}
-                disabled={vorlagen.length === 0 && meineKneipen.length === 0}
+                disabled={verfuegbareGesamt === 0}
                 className={`rounded-lg py-2 text-sm font-semibold transition disabled:opacity-40 ${
                   pickerTab === "liste" ? "bg-bernstein text-[#2a1d0a]" : "text-schaum/70"
                 }`}
@@ -798,82 +737,38 @@ function CreateInner() {
 
             <div className="min-h-0 flex-1 overflow-y-auto pb-4">
               {pickerTab === "liste" ? (
-                verfuegbareVorlagen.length === 0 && verfuegbareMeine.length === 0 ? (
+                verfuegbareGesamt === 0 ? (
                   <p className="mt-6 text-center text-sm text-schaum/50">
-                    Alle vorgeschlagenen Kneipen sind schon in der Route. Wechsle zu „Selbst
-                    hinzufügen".
+                    Alle verfügbaren Bars sind schon in der Route. Wechsle zu „Selbst hinzufügen".
                   </p>
                 ) : (
                   <div className="space-y-4">
-                    {verfuegbareMeine.length > 0 && (
-                      <div className="space-y-2">
-                        <p className="text-xs uppercase tracking-wide text-bernstein">Meine Kneipen</p>
-                        <ul className="space-y-2">
-                          {verfuegbareMeine.map((m) => (
-                            <li
-                              key={m.id}
-                              className="flex items-center gap-2 rounded-xl border border-bernstein/30 bg-nacht-3 px-3 py-2"
-                            >
-                              <span className="min-w-0 flex-1">
-                                <span className="block truncate">{m.name}</span>
-                                {m.adresse && (
-                                  <span className="block truncate text-xs text-schaum/50">{m.adresse}</span>
-                                )}
-                              </span>
-                              <button
-                                onClick={() => meineKneipeLoeschen(m)}
-                                className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-ziegel hover:bg-nacht-2"
-                                aria-label="dauerhaft entfernen"
-                                title="Dauerhaft entfernen"
-                              >
-                                <IconX size={16} />
-                              </button>
-                              <button
-                                onClick={() => meineKneipeHinzufuegen(m)}
-                                className="shrink-0 rounded-lg bg-bernstein px-3 py-2 text-sm font-semibold text-[#2a1d0a]"
-                              >
-                                + Hinzufügen
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                    {verfuegbareVorlagen.length > 0 && (
-                      <div className="space-y-2">
-                        {verfuegbareMeine.length > 0 && (
-                          <p className="text-xs uppercase tracking-wide text-schaum/40">Vorschläge</p>
-                        )}
-                        <ul className="space-y-2">
-                          {verfuegbareVorlagen.map((v) => (
-                            <li
-                              key={v.id}
-                              className="flex items-center gap-2 rounded-xl border border-[var(--linie)] bg-nacht-3 px-3 py-2"
-                            >
-                              <span className="min-w-0 flex-1">
-                                <span className="block truncate">{v.name}</span>
-                                {v.adresse && (
-                                  <span className="block truncate text-xs text-schaum/50">{v.adresse}</span>
-                                )}
-                              </span>
-                              <button
-                                onClick={() => vorlageHinzufuegen(v)}
-                                className="shrink-0 rounded-lg bg-bernstein px-3 py-2 text-sm font-semibold text-[#2a1d0a]"
-                              >
-                                + Hinzufügen
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
+                    <BarGruppe
+                      titel="Meine Bars"
+                      bars={verfuegbareEigene}
+                      onWaehlen={barHinzufuegen}
+                      hervorgehoben
+                    />
+                    <BarGruppe
+                      titel="Vorschläge"
+                      bars={verfuegbareKuratiert}
+                      onWaehlen={barHinzufuegen}
+                    />
+                    <BarGruppe
+                      titel="Von der Community"
+                      bars={verfuegbareCommunity}
+                      onWaehlen={barHinzufuegen}
+                    />
+                    <p className="pt-2 text-xs text-schaum/40">
+                      Bars aus- oder einblenden kannst du im Hauptmenü unter „Bars".
+                    </p>
                   </div>
                 )
               ) : (
                 <div className="space-y-3">
                   <AdressSuche
                     naehe={stadt ? [stadt.lat, stadt.lng] : null}
-                    placeholder="Adresse oder Kneipe suchen…"
+                    placeholder="Adresse oder Bar suchen…"
                     onWaehlen={ausSucheWaehlen}
                   />
                   <div className="relative h-64 overflow-hidden rounded-xl border border-[var(--linie)]">
@@ -908,28 +803,23 @@ function CreateInner() {
                       <Input
                         value={pending.name}
                         onChange={(e) => setPending((p) => (p ? { ...p, name: e.target.value } : p))}
-                        placeholder="Name der Kneipe"
+                        placeholder="Name der Bar"
                       />
                       <p className="flex items-center gap-1.5 truncate text-xs text-schaum/50">
                         <IconPin size={13} className="shrink-0" />
                         <span className="truncate">{pending.adresse ?? "Position auf der Karte gewählt"}</span>
                       </p>
-                      <label className="flex items-center gap-2 text-sm text-schaum/70">
-                        <input
-                          type="checkbox"
-                          checked={pendingMerken}
-                          onChange={(e) => setPendingMerken(e.target.checked)}
-                          className="h-4 w-4 accent-bernstein"
-                        />
-                        Für künftige Touren merken
-                      </label>
+                      <p className="flex items-center gap-1.5 text-xs text-schaum/50">
+                        <IconSchloss size={13} className="shrink-0" />
+                        Wird privat in „Meine Bars" gespeichert – nur du und deine Mitspieler sehen sie.
+                      </p>
                       <div className="flex gap-2">
                         <Button
                           className="flex-1"
                           onClick={pendingBestaetigen}
-                          disabled={!pending.name.trim()}
+                          disabled={!pending.name.trim() || pendingBusy}
                         >
-                          + Als Stop hinzufügen
+                          {pendingBusy ? "speichere…" : "+ Als Stop hinzufügen"}
                         </Button>
                         <Button variant="ghost" onClick={pendingVerwerfen}>
                           Verwerfen
@@ -955,6 +845,63 @@ function CreateInner() {
         </div>
       )}
     </Shell>
+  );
+}
+
+/** Eine Gruppe im Bar-Picker (Meine / Vorschläge / Community). */
+function BarGruppe({
+  titel,
+  bars,
+  onWaehlen,
+  hervorgehoben = false,
+}: {
+  titel: string;
+  bars: Bar[];
+  onWaehlen: (b: Bar) => void;
+  hervorgehoben?: boolean;
+}) {
+  if (bars.length === 0) return null;
+  return (
+    <div className="space-y-2">
+      <p
+        className={`text-xs uppercase tracking-wide ${
+          hervorgehoben ? "text-bernstein" : "text-schaum/40"
+        }`}
+      >
+        {titel}
+      </p>
+      <ul className="space-y-2">
+        {bars.map((b) => (
+          <li
+            key={b.id}
+            className={`flex items-center gap-2 rounded-xl border bg-nacht-3 px-3 py-2 ${
+              hervorgehoben ? "border-bernstein/30" : "border-[var(--linie)]"
+            }`}
+          >
+            <span className="min-w-0 flex-1">
+              <span className="flex items-center gap-1.5">
+                <span className="truncate">{b.name}</span>
+                {b.ersteller_user_id && b.sichtbarkeit === "oeffentlich" && (
+                  <IconGlobus size={12} className="shrink-0 text-moos" />
+                )}
+                {b.ersteller_user_id && b.sichtbarkeit === "privat" && (
+                  <IconSchloss size={12} className="shrink-0 text-schaum/40" />
+                )}
+              </span>
+              {b.adresse && (
+                <span className="block truncate text-xs text-schaum/50">{b.adresse}</span>
+              )}
+            </span>
+            <button
+              onClick={() => onWaehlen(b)}
+              className="shrink-0 rounded-lg bg-bernstein px-3 py-2 text-sm font-semibold text-[#2a1d0a]"
+            >
+              + Hinzufügen
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
