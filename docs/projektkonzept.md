@@ -1,18 +1,38 @@
 # Kneipen-Golf – Konzept
 
-> **Update v3 (Umbau auf Next.js):** Die App wurde von einem Vanilla-JS-Prototyp auf
-> **Next.js 14 + Supabase** umgestellt. Geänderte Grundsatzentscheidungen gegenüber v2:
-> - **Echte Konten:** Jede:r meldet sich mit **E-Mail + Passwort** an (Supabase Auth),
->   statt nur Name + Tour-Code. Mitspieler können zusätzlich per Pass-and-Play auf einem
->   Gerät verwaltet werden.
-> - **Stadt-Auswahl:** **Feste Städteliste mit kuratierten Kneipen** (Start: Bonn, Köln).
->   Pro Tour wird die Route in `tour_kneipen` kopiert, dort sortier-/ergänzbar.
-> - **Tech:** Next.js (App Router) + TypeScript + Tailwind, Hosting auf **Vercel**.
-> - **Datenmodell v3:** siehe `supabase/schema.sql` (maßgeblich). Tabellen: `staedte`,
->   `kneipen_vorlage`, `spielformen`, `touren`, `tour_kneipen`, `teilnehmer`,
->   `kneipen_challenge`, `ergebnisse`.
+Dieses Dokument beschreibt **das Spiel**: Idee, Grundsatzentscheidungen,
+Spielablauf. Wie das technisch umgesetzt ist, steht in den
+Architekturdokumenten – siehe [`README.md`](./README.md).
+
+> **Wo das Konzept inzwischen weitergegangen ist**
 >
-> Der Abschnitt unten (v2) bleibt als Historie erhalten.
+> Die Abschnitte v2 und v3 unten sind die ursprünglichen Konzeptrunden und
+> bleiben als Historie stehen. Drei Dinge haben sich seither geändert:
+>
+> - **Bars, Spielformen und Routen gehören Konten,** nicht mehr nur der
+>   kuratierten Liste. `kneipen_vorlage` und `meine_kneipen` sind in `bars`
+>   aufgegangen → [`architektur-bars-und-spiele.md`](./architektur-bars-und-spiele.md)
+> - **Routen sind eigenständige Vorlagen** und lassen sich per Link teilen
+>   → [`architektur-routen.md`](./architektur-routen.md)
+> - **Bars sammeln Beliebtheit** aus Empfehlungen, Spielen und Routen
+>   → [`architektur-beliebtheit.md`](./architektur-beliebtheit.md)
+>
+> Verbindlich für das Datenmodell sind immer die Skripte in `supabase/`,
+> in der Reihenfolge aus [`../supabase/README.md`](../supabase/README.md).
+
+---
+
+## Umbau auf Next.js (v3)
+
+Die App wurde von einem Vanilla-JS-Prototyp auf **Next.js 14 + Supabase**
+umgestellt. Geänderte Grundsatzentscheidungen gegenüber v2:
+
+- **Echte Konten:** Jede:r meldet sich mit **E-Mail + Passwort** an (Supabase Auth),
+  statt nur Name + Tour-Code. Mitspieler können zusätzlich per Pass-and-Play auf
+  einem Gerät verwaltet werden.
+- **Stadt-Auswahl:** Städteliste mit kuratierten Kneipen (Start: Bonn, Köln).
+  Pro Tour wird die Route in `tour_kneipen` kopiert, dort sortier- und ergänzbar.
+- **Tech:** Next.js (App Router) + TypeScript + Tailwind, Hosting auf **Vercel**.
 
 ---
 

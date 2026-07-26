@@ -25,6 +25,7 @@ import {
   IconRoute,
   IconUebernommen,
   IconPlus,
+  IconFlamme,
 } from "@/components/Icons";
 import {
   barAnlegen,
@@ -35,6 +36,14 @@ import {
   type BarListe,
 } from "@/lib/ugc";
 import { erkenneStadt } from "@/lib/orte";
+import {
+  beliebtheitText,
+  ladeBeliebtheit,
+  leereBeliebtheit,
+  nachBeliebtheit,
+  stufe,
+  type BeliebtheitMap,
+} from "@/lib/beliebtheit";
 import {
   freierRoutenName,
   ladeRoute,
@@ -101,6 +110,7 @@ function CreateInner() {
 
   // Bar-Bibliothek (kuratiert / Community / eigene) + persönliche Ausblendungen
   const [barListe, setBarListe] = useState<BarListe | null>(null);
+  const [beliebt, setBeliebt] = useState<BeliebtheitMap>(leereBeliebtheit);
   const [pickerOffen, setPickerOffen] = useState(false);
   const [pickerTab, setPickerTab] = useState<"liste" | "selbst">("liste");
   const [erweitertOffen, setErweitertOffen] = useState(false);
@@ -157,9 +167,10 @@ function CreateInner() {
     namenOhneEigenen.some((n) => n.trim().toLowerCase() === routeName.trim().toLowerCase());
 
   // Was steht im Picker zur Auswahl? Ausgeblendete und bereits gesetzte Bars fliegen raus.
+  // Sortiert nach Beliebtheit: Vorschläge, die andere schon gut fanden, stehen oben.
   const frei = (b: Bar) => !stops.some((s) => s.barId === b.id) && !barListe?.ausgeblendet.has(b.id);
-  const verfuegbareKuratiert = (barListe?.kuratiert ?? []).filter(frei);
-  const verfuegbareCommunity = (barListe?.community ?? []).filter(frei);
+  const verfuegbareKuratiert = nachBeliebtheit((barListe?.kuratiert ?? []).filter(frei), beliebt);
+  const verfuegbareCommunity = nachBeliebtheit((barListe?.community ?? []).filter(frei), beliebt);
   const verfuegbareEigene = (barListe?.eigene ?? []).filter(frei);
   const verfuegbareGesamt =
     verfuegbareKuratiert.length + verfuegbareCommunity.length + verfuegbareEigene.length;
@@ -211,6 +222,14 @@ function CreateInner() {
     if (!user) return;
     ladeRouten(user.id).then(setRoutenListe);
   }, [user]);
+
+  // Beliebtheit nachladen, sobald die Bars da sind – sie sortiert nur den
+  // Picker und darf den Seitenaufbau nicht aufhalten.
+  useEffect(() => {
+    if (!barListe) return;
+    const ids = [...barListe.kuratiert, ...barListe.community, ...barListe.eigene].map((b) => b.id);
+    ladeBeliebtheit(ids).then(setBeliebt);
+  }, [barListe]);
 
   // Schnellstart aus dem Hauptmenü: /create?route=<id>
   useEffect(() => {
@@ -1168,17 +1187,20 @@ function CreateInner() {
                     <BarGruppe
                       titel="Meine Bars"
                       bars={verfuegbareEigene}
+                      beliebt={beliebt}
                       onWaehlen={barHinzufuegen}
                       hervorgehoben
                     />
                     <BarGruppe
                       titel="Vorschläge"
                       bars={verfuegbareKuratiert}
+                      beliebt={beliebt}
                       onWaehlen={barHinzufuegen}
                     />
                     <BarGruppe
                       titel="Von der Community"
                       bars={verfuegbareCommunity}
+                      beliebt={beliebt}
                       onWaehlen={barHinzufuegen}
                     />
                     <p className="pt-2 text-xs text-schaum/40">
@@ -1282,11 +1304,13 @@ function CreateInner() {
 function BarGruppe({
   titel,
   bars,
+  beliebt,
   onWaehlen,
   hervorgehoben = false,
 }: {
   titel: string;
   bars: Bar[];
+  beliebt: BeliebtheitMap;
   onWaehlen: (b: Bar) => void;
   hervorgehoben?: boolean;
 }) {
@@ -1324,10 +1348,15 @@ function BarGruppe({
                     // aus einer geteilten Route in die eigene Liste kopiert
                   />
                 )}
+                {stufe(beliebt.get(b.id)).rang >= 2 && (
+                  <span className="inline-flex shrink-0 items-center gap-0.5 text-[11px] text-bernstein">
+                    <IconFlamme size={11} /> {stufe(beliebt.get(b.id)).label}
+                  </span>
+                )}
               </span>
-              {b.adresse && (
-                <span className="block truncate text-xs text-schaum/50">{b.adresse}</span>
-              )}
+              <span className="block truncate text-xs text-schaum/50">
+                {beliebtheitText(beliebt.get(b.id)) ?? b.adresse}
+              </span>
             </span>
             <button
               onClick={() => onWaehlen(b)}

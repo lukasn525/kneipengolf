@@ -1,17 +1,18 @@
-# Konzept: User-Generated Content & flüssiger Gameplay-Loop (v2.1)
+# Architektur: Bars, Spiele und der Gameplay-Loop (v2.1)
 
-_Stand: Juli 2026 · umgesetzt in Branch `dev-1.1`_
+_Stand: Juli 2026 · Grundlage für alles Weitere_
 
 Dieses Dokument beschreibt die Architektur hinter drei Anforderungen:
 getrennte Übersichten für **Bars** und **Spiele** im Hauptmenü, eine
 langfristige Speicher- und Rechtelösung für selbst angelegte Bars, und ein
 unterbrechungsfreier Spielablauf.
 
-> **Fortsetzung:** Die dritte UGC-Ebene – ganze **Routen** speichern,
-> veröffentlichen und per Link teilen – steht in
-> [`konzept-routen-teilen.md`](./konzept-routen-teilen.md) (v2.2). Sie
-> übernimmt das hier beschriebene Sichtbarkeits-, Rechte- und
-> Snapshot-Modell unverändert und ergänzt es um einen vierten Menüpunkt.
+> **Fortsetzungen:** Das hier beschriebene Sichtbarkeits-, Rechte- und
+> Snapshot-Modell wird unverändert weiterverwendet in
+> [`architektur-routen.md`](./architektur-routen.md) (v2.2, ganze Routen
+> speichern und teilen) und
+> [`architektur-beliebtheit.md`](./architektur-beliebtheit.md) (v2.3,
+> Beliebtheitsindex einer Bar).
 
 ---
 
@@ -180,7 +181,7 @@ Drei Entscheidungen, die den Ablauf wirklich flüssig machen:
 
 ### 3.1 Datenbank (einmalig in Supabase)
 
-`supabase/ugc_bars_spiele.sql` im SQL-Editor ausführen. Das Skript ist
+`supabase/07_ugc_bars_spiele.sql` im SQL-Editor ausführen. Das Skript ist
 idempotent und additiv – bestehende Tabellen bleiben als Backup liegen.
 
 Es legt an bzw. ändert:

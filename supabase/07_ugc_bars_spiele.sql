@@ -1,7 +1,7 @@
 -- ════════════════════════════════════════════════════════════════
 -- Kneipen-Golf – UGC-Architektur: Bars & Spielformen (v2.1)
 --
--- Ausführen NACH schema.sql und konto_features.sql:
+-- Ausführen NACH 01_schema.sql und 06_konto_features.sql:
 --   Supabase Dashboard → SQL Editor → New query → einfügen → RUN.
 --
 -- Das Skript ist idempotent (if not exists / drop policy if exists)
@@ -183,7 +183,7 @@ where not exists (
   where b.name = v.name and b.stadt_id is not distinct from v.stadt_id
 );
 
--- 5b. Persönliche Bars aus konto_features.sql → privat
+-- 5b. Persönliche Bars aus 06_konto_features.sql → privat
 insert into bars (name, lat, lng, adresse, ersteller_user_id, sichtbarkeit)
 select m.name, m.lat, m.lng, m.adresse, m.user_id, 'privat'
 from meine_kneipen m

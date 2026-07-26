@@ -15,12 +15,12 @@ _Enthält Commit `a6cb9d6` auf Branch `dev-1.1`._
 
 ## Schritt 1 – Supabase (einmalig, vor oder nach dem Deploy)
 
-Nur **eine** neue SQL-Datei ist nötig: `supabase/konto_features.sql`.
+Nur **eine** neue SQL-Datei ist nötig: `supabase/06_konto_features.sql`.
 Sie legt zwei Tabellen für die Konto-Features an (`meine_kneipen`, `meine_spielformen`)
 mit strikt privater RLS – jede:r sieht nur die eigenen Einträge.
 
 **So geht's:** Supabase Dashboard → dein Projekt → **SQL Editor** → **New query** →
-Inhalt von `supabase/konto_features.sql` einfügen → **RUN**.
+Inhalt von `supabase/06_konto_features.sql` einfügen → **RUN**.
 
 Das Skript ist idempotent (`create table if not exists`, `drop policy if exists`),
 kann also ohne Schaden mehrfach laufen.
@@ -33,7 +33,7 @@ kann also ohne Schaden mehrfach laufen.
   in `supabase_realtime` publiziert – die Offline-Warteschlange und die Live-Rangliste
   nutzen genau diese Tabellen, keine neuen.
 - **RLS bestehender Tabellen:** unverändert (offene `authenticated`-Policies aus
-  `multiplayer_fix_rls.sql` bleiben gültig).
+  `03_multiplayer_fix_rls.sql` bleiben gültig).
 - **Bestehende Spalten:** Scorecard und Offline-Modus rechnen nur mit vorhandenen
   Feldern (`schlucke`, `strafschlucke`, `erledigt`).
 

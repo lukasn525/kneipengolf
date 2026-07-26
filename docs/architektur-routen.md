@@ -1,6 +1,7 @@
-# Konzept: gespeicherte Routen, öffentlich & geteilt (v2.2)
+# Architektur: gespeicherte Routen, öffentlich und geteilt (v2.2)
 
-_Stand: Juli 2026 · baut direkt auf `konzept-ugc-und-gameplay.md` auf_
+_Stand: Juli 2026 · baut direkt auf
+[`architektur-bars-und-spiele.md`](./architektur-bars-und-spiele.md) auf_
 
 Bars und Spiele sind seit v2.1 dauerhaft am Konto. Was fehlte, war das
 Naheliegendste: **die Zusammenstellung selbst**. Wer eine gute Runde
@@ -239,8 +240,8 @@ dort nur noch ein Chip plus „ändern" statt der kompletten Liste.
 
 ### 3.1 Datenbank (einmalig in Supabase)
 
-`supabase/routen_teilen.sql` im SQL-Editor ausführen – **nach**
-`ugc_bars_spiele.sql`. Das Skript ist idempotent und additiv.
+`supabase/08_routen_teilen.sql` im SQL-Editor ausführen – **nach**
+`07_ugc_bars_spiele.sql`. Das Skript ist idempotent und additiv.
 
 Es legt an bzw. ändert:
 
@@ -271,8 +272,8 @@ Es legt an bzw. ändert:
 
 ### 3.3 Reihenfolge beim Deployen
 
-1. `supabase/ugc_bars_spiele.sql` ausführen (falls noch nicht geschehen).
-2. `supabase/routen_teilen.sql` ausführen.
+1. `supabase/07_ugc_bars_spiele.sql` ausführen (falls noch nicht geschehen).
+2. `supabase/08_routen_teilen.sql` ausführen.
 3. Deploy. Ohne Schritt 2 bleibt der Routen-Tab leer, der Rest läuft weiter.
 
 ### 3.4 Rauchtest auf der Live-URL

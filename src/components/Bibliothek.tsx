@@ -20,6 +20,7 @@ import {
   IconGlobus,
   IconPapierkorb,
   IconPin,
+  IconFlamme,
   IconPlus,
   IconSchloss,
   IconUebernommen,
@@ -45,6 +46,15 @@ import {
   type SpielformListe,
 } from "@/lib/ugc";
 import { erkenneStadt, normalisiere, type Ortstreffer } from "@/lib/orte";
+import {
+  beliebtheitText,
+  ladeBeliebtheit,
+  leereBeliebtheit,
+  nachBeliebtheit,
+  stufe,
+  type Beliebtheit,
+  type BeliebtheitMap,
+} from "@/lib/beliebtheit";
 import type { Bar, BenutzerRolle, Spielform, Stadt } from "@/lib/types";
 
 // ── kleine Bausteine ──────────────────────────────────────────────
@@ -139,6 +149,27 @@ type StadtFilter = number | "alle" | "ohne" | "meine";
 /** So viele Städte stehen direkt in der Leiste, der Rest wandert hinters Plus. */
 const SICHTBARE_STAEDTE = 4;
 
+/**
+ * Beliebtheits-Marke. Bewusst eine Stufe statt einer Punktzahl: „37" sagt
+ * niemandem etwas, „beliebt" schon. Neue Bars bekommen gar nichts – ein
+ * Abzeichen „0 Punkte" wäre eine Bestrafung fürs Neusein.
+ */
+function BeliebtheitsChip({ wert }: { wert: Beliebtheit | undefined }) {
+  const s = stufe(wert);
+  if (s.rang === 0) return null;
+  const stil = ["", "bg-nacht-2 text-schaum/60", "bg-bernstein/15 text-bernstein", "bg-bernstein/25 text-bernstein"][
+    s.rang
+  ];
+  return (
+    <span
+      className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] ${stil}`}
+      title={beliebtheitText(wert) ?? undefined}
+    >
+      <IconFlamme size={11} /> {s.label}
+    </span>
+  );
+}
+
 function FilterChip({
   label,
   anzahl,
@@ -190,10 +221,18 @@ export function BarsAnsicht({
   const [stadtSuche, setStadtSuche] = useState("");
   /** Volle Städteliste im Anlege-Formular (sonst reicht der erkannte Chip) */
   const [stadtListeOffen, setStadtListeOffen] = useState(false);
+  const [werte, setWerte] = useState<BeliebtheitMap>(leereBeliebtheit);
+  const [sortierung, setSortierung] = useState<"beliebt" | "name">("beliebt");
 
   const gewaehlteStadtImFormular = staedte.find((s) => s.id === stadtId) ?? null;
 
-  const laden = async () => setListe(await ladeBars(userId));
+  const laden = async () => {
+    const l = await ladeBars(userId);
+    setListe(l);
+    // Kennzahlen in einem zweiten Zug – die Liste soll nicht darauf warten.
+    const ids = [...l.eigene, ...l.kuratiert, ...l.community].map((b) => b.id);
+    setWerte(await ladeBeliebtheit(ids));
+  };
 
   useEffect(() => {
     if (userId) laden();
@@ -271,10 +310,17 @@ export function BarsAnsicht({
 
   const anzahlFuer = (f: StadtFilter) => alleBars.filter((b) => trifftZu(b, f)).length;
 
-  const eigeneGefiltert = liste.eigene.filter((b) => trifftZu(b, filter));
-  const fremdeGefiltert = fremde
-    .filter((b) => trifftZu(b, filter))
-    .filter((b) => (nurEigene ? liste.ausgeblendet.has(b.id) : true));
+  const sortiere = (l: Bar[]) =>
+    sortierung === "beliebt"
+      ? nachBeliebtheit(l, werte)
+      : [...l].sort((a, b) => a.name.localeCompare(b.name, "de"));
+
+  const eigeneGefiltert = sortiere(liste.eigene.filter((b) => trifftZu(b, filter)));
+  const fremdeGefiltert = sortiere(
+    fremde
+      .filter((b) => trifftZu(b, filter))
+      .filter((b) => (nurEigene ? liste.ausgeblendet.has(b.id) : true))
+  );
 
   /**
    * Welche Städte stehen direkt in der Leiste?
@@ -455,6 +501,19 @@ export function BarsAnsicht({
             )}
           </div>
 
+          <div className="flex items-center gap-3 text-xs text-schaum/40">
+            <span>Sortierung</span>
+            {(["beliebt", "name"] as const).map((s) => (
+              <button
+                key={s}
+                onClick={() => setSortierung(s)}
+                className={sortierung === s ? "text-bernstein" : "hover:text-schaum"}
+              >
+                {s === "beliebt" ? "beliebteste zuerst" : "A–Z"}
+              </button>
+            ))}
+          </div>
+
           {/* Alle übrigen Städte – erst auf Wunsch, mit Suche */}
           {stadtwahlOffen && (
             <div className="space-y-2 rounded-xl border border-[var(--linie)] bg-nacht-2 p-3">
@@ -515,6 +574,7 @@ export function BarsAnsicht({
                 userId={userId}
                 rolle={rolle}
                 ausgeblendet={liste.ausgeblendet.has(b.id)}
+                beliebtheit={werte.get(b.id)}
                 onAendern={laden}
                 onMeldung={setMeldung}
               />
@@ -546,6 +606,7 @@ export function BarsAnsicht({
               userId={userId}
               rolle={rolle}
               ausgeblendet={liste.ausgeblendet.has(b.id)}
+              beliebtheit={werte.get(b.id)}
               onAendern={laden}
               onMeldung={setMeldung}
             />
@@ -572,6 +633,7 @@ function BarZeile({
   userId,
   rolle,
   ausgeblendet,
+  beliebtheit,
   onAendern,
   onMeldung,
 }: {
@@ -580,6 +642,7 @@ function BarZeile({
   userId: string | undefined;
   rolle: BenutzerRolle;
   ausgeblendet: boolean;
+  beliebtheit?: Beliebtheit;
   onAendern: () => void;
   onMeldung: (s: string) => void;
 }) {
@@ -642,6 +705,7 @@ function BarZeile({
       <span className="min-w-0 flex-1">
         <span className="flex flex-wrap items-center gap-2">
           <span className="truncate">{bar.name}</span>
+          <BeliebtheitsChip wert={beliebtheit} />
           {eigen && <SichtbarkeitsChip oeffentlich={oeffentlich} />}
           {eigen && bar.herkunft === "uebernommen" && <UebernommenChip />}
           {bar.gesperrt && (
@@ -650,7 +714,13 @@ function BarZeile({
             </span>
           )}
         </span>
-        {bar.adresse && <span className="block truncate text-xs text-schaum/50">{bar.adresse}</span>}
+        {beliebtheitText(beliebtheit) ? (
+          <span className="block truncate text-xs text-schaum/50">
+            {beliebtheitText(beliebtheit)}
+          </span>
+        ) : (
+          bar.adresse && <span className="block truncate text-xs text-schaum/50">{bar.adresse}</span>
+        )}
       </span>
 
       <IconKnopf

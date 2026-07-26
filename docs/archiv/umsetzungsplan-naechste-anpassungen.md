@@ -9,7 +9,7 @@ Anpassungen. Rechtliche Themen (Impressum, Datenschutz etc.) sind bewusst ausgen
 
 - **Zugangssperre** (`casio2005`) ist live und funktioniert korrekt (jede Route wird abgefangen).
 - **Städte in der DB:** nur **Bonn (6 Kneipen)** und **Köln (7 Kneipen)** – überwiegend Brauhäuser.
-- **RLS:** Die verschärfte, mitgliedschaftsbasierte Row-Level-Security (`rls_verschaerfen.sql`)
+- **RLS:** Die verschärfte, mitgliedschaftsbasierte Row-Level-Security (`02_rls_verschaerfen.sql`)
   ist aktiv (`tk_lesen`, `tk_host`, `tn_lesen`, `tn_beitreten`, `tn_verwalten`, `er_mitglied`,
   Funktion `darf_tour`). Das ist der Hauptgrund, warum das Zusammenspielen aktuell hakt (siehe 1).
 - **Nicht testbar von hier:** echter Mehrgeräte-Multiplayer (bräuchte einen zweiten Spiel-Account).

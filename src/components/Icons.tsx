@@ -190,6 +190,16 @@ export function IconPin(p: IconProps) {
   );
 }
 
+/** Flamme – Beliebtheit einer Bar */
+export function IconFlamme(p: IconProps) {
+  return (
+    <Basis {...p}>
+      <path d="M12 2c1.5 3.5-1 5-2.5 6.5C8 10 7 11.5 7 13.5a5 5 0 0 0 10 0c0-2.5-1.5-4-2.5-5.5" />
+      <path d="M12 21a2.5 2.5 0 0 0 2.5-2.5c0-1.5-1.3-2.3-2.5-4-1.2 1.7-2.5 2.5-2.5 4A2.5 2.5 0 0 0 12 21z" />
+    </Basis>
+  );
+}
+
 /** Geschlängelter Weg mit Stationen – Route */
 export function IconRoute(p: IconProps) {
   return (

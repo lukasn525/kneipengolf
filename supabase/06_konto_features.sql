@@ -1,6 +1,6 @@
 -- ════════════════════════════════════════════════════════════════
 -- Kneipen-Golf – Konto-Features (v2.0)
--- Ausführen NACH schema.sql: Supabase Dashboard → SQL Editor → RUN.
+-- Ausführen NACH 01_schema.sql: Supabase Dashboard → SQL Editor → RUN.
 --
 -- Neu:
 --   • meine_kneipen     – selbst angelegte Bars dauerhaft am Konto,

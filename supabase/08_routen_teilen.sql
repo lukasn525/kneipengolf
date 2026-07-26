@@ -1,7 +1,7 @@
 -- ════════════════════════════════════════════════════════════════
 -- Kneipen-Golf – Routen: speichern, veröffentlichen, teilen (v2.2)
 --
--- Ausführen NACH ugc_bars_spiele.sql:
+-- Ausführen NACH 07_ugc_bars_spiele.sql:
 --   Supabase Dashboard → SQL Editor → New query → einfügen → RUN.
 --
 -- Das Skript ist idempotent (if not exists / drop policy if exists)

@@ -11,8 +11,9 @@ import { TopBar } from "@/components/TopBar";
 import { Button, Card, Field, Input, Shell } from "@/components/ui";
 import { rangliste, scoreEintrag, tourCode } from "@/lib/game";
 import { holeRoute, googleMapsUrl } from "@/lib/nav";
-import { IconKompass, IconWeiter, IconX } from "@/components/Icons";
+import { IconFlamme, IconKompass, IconWeiter, IconX } from "@/components/Icons";
 import { geraetId } from "@/lib/ugc";
+import { empfehlungSetzen, ladeEigeneEmpfehlungen } from "@/lib/beliebtheit";
 import type {
   Ergebnis,
   KneipenChallenge,
@@ -696,6 +697,11 @@ function TourInner() {
       ) : (
         <div className="flex-1 overflow-auto mx-auto w-full max-w-md px-4 pb-6">
           <Ranglisten tour={tour} teilnehmer={teilnehmer} ergebnisse={ergebnisse} aktivId={aktivId} />
+
+          {tour.status === "beendet" && user && teilnehmer.some((t) => t.user_id === user.id) && (
+            <KneipenBewertung tourId={tour.id} kneipen={kneipen} userId={user.id} />
+          )}
+
           {tour.status === "laufend" && istHost && (
             <Button
               variant="danger"
@@ -1107,6 +1113,97 @@ function Scorecard({
         <span className="mono text-xl text-bernstein">{gesamt}</span>
       </div>
       <p className="text-xs text-schaum/40">Stop antippen, um die Challenge zu öffnen und zu zählen.</p>
+    </Card>
+  );
+}
+
+// ── Bewertung nach dem Spiel ─────────────────────────────
+
+/**
+ * „Welche Kneipen waren top?" – erscheint erst nach dem Beenden der Tour,
+ * direkt unter der Endauswertung.
+ *
+ * Bewusst niedrigschwellig: ein Tipp pro Kneipe, kein Pflichtfeld, keine
+ * Sterne, kein Weiter-Knopf. Wer nichts antippt, verliert nichts. Genau
+ * deshalb steht es hier und nicht als Zwischenschritt im Ablauf – am Ende
+ * eines Abends will niemand ein Formular ausfüllen.
+ *
+ * Stops ohne `bar_id` (reine Snapshots) fehlen: Ohne Bar in der Bibliothek
+ * gäbe es nichts, worauf sich die Empfehlung beziehen könnte.
+ */
+function KneipenBewertung({
+  tourId,
+  kneipen,
+  userId,
+}: {
+  tourId: string;
+  kneipen: TourKneipe[];
+  userId: string;
+}) {
+  const [gewaehlt, setGewaehlt] = useState<Set<string>>(new Set());
+  const [geladen, setGeladen] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const bewertbar = kneipen.filter((k) => k.bar_id);
+
+  useEffect(() => {
+    ladeEigeneEmpfehlungen(userId, tourId).then((s) => {
+      setGewaehlt(s);
+      setGeladen(true);
+    });
+  }, [userId, tourId]);
+
+  if (!geladen || bewertbar.length === 0) return null;
+
+  async function umschalten(barId: string) {
+    const an = !gewaehlt.has(barId);
+    setBusy(barId);
+    const ok = await empfehlungSetzen(userId, tourId, barId, an);
+    setBusy(null);
+    if (!ok) return;
+    setGewaehlt((prev) => {
+      const next = new Set(prev);
+      if (an) next.add(barId);
+      else next.delete(barId);
+      return next;
+    });
+  }
+
+  return (
+    <Card className="mt-4 space-y-3">
+      <div>
+        <h2 className="font-display text-xl">Welche Kneipen waren top?</h2>
+        <p className="text-xs text-schaum/50">
+          Ein Tipp genügt. Deine Empfehlung hilft anderen beim Zusammenstellen – wer was empfohlen
+          hat, sieht niemand.
+        </p>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {bewertbar.map((k) => {
+          const an = gewaehlt.has(k.bar_id as string);
+          return (
+            <button
+              key={k.id}
+              onClick={() => umschalten(k.bar_id as string)}
+              disabled={busy === k.bar_id}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition disabled:opacity-50 ${
+                an
+                  ? "border-bernstein bg-bernstein/15 text-bernstein"
+                  : "border-[var(--linie)] bg-nacht-3 text-schaum/70 hover:text-schaum"
+              }`}
+            >
+              <IconFlamme size={13} />
+              {k.name}
+            </button>
+          );
+        })}
+      </div>
+      {gewaehlt.size > 0 && (
+        <p className="text-xs text-schaum/40">
+          {gewaehlt.size} {gewaehlt.size === 1 ? "Empfehlung" : "Empfehlungen"} gespeichert –
+          nochmal antippen nimmt sie zurück.
+        </p>
+      )}
     </Card>
   );
 }
