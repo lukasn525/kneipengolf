@@ -110,7 +110,7 @@ function EinstellungenInner() {
                 <button
                   key={m}
                   onClick={() => modusWaehlen(m)}
-                  className={`rounded-lg py-2 text-sm font-semibold transition ${
+                  className={`min-h-[44px] rounded-lg py-2 text-sm font-semibold transition ${
                     modus === m ? "bg-bernstein text-tinte" : "text-schaum/70"
                   }`}
                 >

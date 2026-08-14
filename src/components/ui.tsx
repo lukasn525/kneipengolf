@@ -8,7 +8,7 @@ export function Button({
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "ghost" | "danger" }) {
   const base =
-    "inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed";
+    "inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl px-4 py-3 font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed";
   const styles = {
     primary: "bg-bernstein text-tinte hover:brightness-105 active:brightness-95",
     ghost: "bg-nacht-3 text-schaum hover:bg-[#234a34] border border-[var(--linie)]",
@@ -20,7 +20,7 @@ export function Button({
 export function Input({ className = "", ...props }: InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
-      className={`w-full rounded-xl bg-nacht-2 border border-[var(--linie)] px-4 py-3 text-schaum placeholder:text-schaum/55 focus:outline-none focus:border-bernstein ${className}`}
+      className={`w-full min-h-[48px] rounded-xl bg-nacht-2 border border-[var(--linie)] px-4 py-3 text-schaum placeholder:text-schaum/55 focus:outline-none focus:border-bernstein ${className}`}
       {...props}
     />
   );

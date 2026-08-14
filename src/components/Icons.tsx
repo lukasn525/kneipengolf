@@ -247,3 +247,49 @@ export function IconUebernommen(p: IconProps) {
     </Basis>
   );
 }
+
+/* ── Navigationssymbole (Lucide-Formen, gleiche Strichstärke) ──────── */
+
+/** Aufgeklappte Landkarte – „Spielen". */
+export function IconKarte(p: IconProps) {
+  return (
+    <Basis {...p}>
+      <path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z" />
+      <path d="M15 5.764v15" />
+      <path d="M9 3.236v15" />
+    </Basis>
+  );
+}
+
+/** Bücherstapel – „Sammlung" (Bars und Spiele). */
+export function IconSammlung(p: IconProps) {
+  return (
+    <Basis {...p}>
+      <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20" />
+    </Basis>
+  );
+}
+
+/** Person – „Profil". */
+export function IconProfil(p: IconProps) {
+  return (
+    <Basis {...p}>
+      <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </Basis>
+  );
+}
+
+/** Pokal – Verlauf und Auswertung. */
+export function IconPokal(p: IconProps) {
+  return (
+    <Basis {...p}>
+      <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+      <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+      <path d="M4 22h16" />
+      <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
+      <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
+      <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
+    </Basis>
+  );
+}

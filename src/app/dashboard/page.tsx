@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { useSession } from "@/components/SessionProvider";
 import { Guard } from "@/components/Guard";
 import { TopBar } from "@/components/TopBar";
+import { BottomNav, BottomNavAbstand } from "@/components/BottomNav";
 import { Button, Card, Field, Input, Shell } from "@/components/ui";
 import { handicapWert } from "@/lib/game";
 import { IconPapierkorb, IconPin, IconRoute, IconWeiter } from "@/components/Icons";
@@ -26,11 +27,18 @@ import type { BenutzerRolle, Stadt, Tour } from "@/lib/types";
 const TABS = [
   { key: "spielen", label: "Spielen" },
   { key: "routen", label: "Routen" },
+  { key: "sammlung", label: "Sammlung" },
+] as const;
+
+type TabKey = (typeof TABS)[number]["key"];
+
+/** Innerhalb der Sammlung: Bars und Spielformen. */
+const SAMMLUNG = [
   { key: "bars", label: "Bars" },
   { key: "spiele", label: "Spiele" },
 ] as const;
 
-type TabKey = (typeof TABS)[number]["key"];
+type SammlungKey = (typeof SAMMLUNG)[number]["key"];
 
 function istTab(v: string | null): v is TabKey {
   return TABS.some((t) => t.key === v);
@@ -43,6 +51,7 @@ function DashboardInner() {
 
   const startTab = params.get("tab");
   const [tab, setTab] = useState<TabKey>(istTab(startTab) ? startTab : "spielen");
+  const [sammlung, setSammlung] = useState<SammlungKey>("bars");
   const [rolle, setRolle] = useState<BenutzerRolle>(null);
   const [staedte, setStaedte] = useState<Stadt[]>([]);
 
@@ -52,6 +61,7 @@ function DashboardInner() {
   const [meine, setMeine] = useState<Tour[]>([]);
   const [meineGeladen, setMeineGeladen] = useState(false);
   const [gespielteRouten, setGespielteRouten] = useState<GespielteRoute[]>([]);
+  const [routenGeladen, setRoutenGeladen] = useState(false);
   const [handicap, setHandicap] = useState<{ wert: number | null; stops: number } | null>(null);
   const [statistik, setStatistik] = useState<{ touren: number; bestwert: number | null } | null>(null);
 
@@ -63,7 +73,10 @@ function DashboardInner() {
       .select("*")
       .order("name")
       .then(({ data }) => setStaedte((data as Stadt[]) ?? []));
-    ladeGespielteRouten(user.id, 3).then(setGespielteRouten);
+    ladeGespielteRouten(user.id, 3).then((r) => {
+      setGespielteRouten(r);
+      setRoutenGeladen(true);
+    });
   }, [user]);
 
   useEffect(() => {
@@ -186,19 +199,13 @@ function DashboardInner() {
     <Shell>
       <TopBar />
 
-      <nav className="mt-2 grid grid-cols-4 gap-1 rounded-xl bg-nacht-3 p-1">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => tabWechseln(t.key)}
-            className={`rounded-lg py-2 text-sm font-semibold transition ${
-              tab === t.key ? "bg-bernstein text-tinte" : "text-schaum/70 hover:text-schaum"
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </nav>
+      {/*
+        Die Hauptnavigation sitzt unten (BottomNav) – in Daumenreichweite.
+        Hier steht nur noch, wo man gerade ist.
+      */}
+      <h1 className="mt-1 font-display text-2xl">
+        {TABS.find((t) => t.key === tab)?.label}
+      </h1>
 
       <div className="space-y-5 mt-4">
         {tab === "spielen" && (
@@ -225,6 +232,8 @@ function DashboardInner() {
                 </ol>
               </Card>
             )}
+
+            {!handicap && <div className="kg-skeleton h-[104px] w-full" />}
 
             {handicap && handicap.wert !== null && (
               <Card className="space-y-3">
@@ -260,7 +269,9 @@ function DashboardInner() {
               gestartet wurde. Frisch angelegte Routen stehen im Routen-Tab,
               hier soll nichts stehen, was man noch nie gespielt hat.
             */}
-            {gespielteRouten.length > 0 && (
+            {!routenGeladen && <div className="kg-skeleton h-[132px] w-full" />}
+
+            {routenGeladen && gespielteRouten.length > 0 && (
               <Card className="space-y-2">
                 <div className="flex items-baseline justify-between">
                   <h2 className="font-display text-xl">Nochmal spielen</h2>
@@ -322,7 +333,9 @@ function DashboardInner() {
               </form>
             </Card>
 
-            {meine.length > 0 && (
+            {!meineGeladen && <div className="kg-skeleton h-[120px] w-full" />}
+
+            {meineGeladen && meine.length > 0 && (
               <Card className="space-y-2">
                 <h2 className="font-display text-xl">Deine Touren</h2>
                 <ul className="divide-y divide-[var(--linie)]">
@@ -340,7 +353,7 @@ function DashboardInner() {
                       </Link>
                       <button
                         onClick={() => loeschen(t)}
-                        className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-ziegel hover:bg-nacht-3"
+                        className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-ziegel hover:bg-nacht-3"
                         aria-label="Tour löschen"
                         title="Tour löschen"
                       >
@@ -355,9 +368,33 @@ function DashboardInner() {
         )}
 
         {tab === "routen" && <RoutenAnsicht userId={user?.id} rolle={rolle} />}
-        {tab === "bars" && <BarsAnsicht userId={user?.id} rolle={rolle} staedte={staedte} />}
-        {tab === "spiele" && <SpieleAnsicht userId={user?.id} rolle={rolle} />}
+
+        {tab === "sammlung" && (
+          <>
+            <nav className="grid grid-cols-2 gap-1 rounded-xl bg-nacht-3 p-1">
+              {SAMMLUNG.map((s) => (
+                <button
+                  key={s.key}
+                  onClick={() => setSammlung(s.key)}
+                  className={`min-h-[44px] rounded-lg py-2 text-sm font-semibold transition ${
+                    sammlung === s.key ? "bg-bernstein text-tinte" : "text-schaum/70 hover:text-schaum"
+                  }`}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </nav>
+            {sammlung === "bars" ? (
+              <BarsAnsicht userId={user?.id} rolle={rolle} staedte={staedte} />
+            ) : (
+              <SpieleAnsicht userId={user?.id} rolle={rolle} />
+            )}
+          </>
+        )}
       </div>
+
+      <BottomNavAbstand />
+      <BottomNav />
     </Shell>
   );
 }

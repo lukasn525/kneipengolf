@@ -252,6 +252,19 @@ function TourInner() {
     [kneipen, erledigtSet, aktivId]
   );
 
+  /**
+   * Eigener Stand für die Kopfzeile. Bisher steckte diese Information nur
+   * im Ranglisten-Tab – man musste also aktiv wegklicken, um zu sehen,
+   * wie man steht. Das ist der Grund, warum man überhaupt spielt.
+   */
+  const meinStand = useMemo(() => {
+    if (!tour || !aktivId) return null;
+    const zeilen = rangliste(teilnehmer, ergebnisse, tour);
+    const i = zeilen.findIndex((z) => z.teilnehmer.id === aktivId);
+    if (i < 0) return null;
+    return { platz: i + 1, gesamt: zeilen[i].gesamt, von: zeilen.length };
+  }, [teilnehmer, ergebnisse, tour, aktivId]);
+
   // ── Gameplay: wen verwaltet dieses Gerät? ──────────────
   // Pass-and-Play: Teilnehmer mit unserer geraet_id. Für ältere Touren ohne
   // geraet_id fallen wir auf „eigener Account + Namen ohne Konto" zurück.
@@ -625,6 +638,28 @@ function TourInner() {
               : `${Object.keys(wartend).length} Wertung${Object.keys(wartend).length > 1 ? "en werden" : " wird"} nachgetragen, sobald es wieder Netz gibt.`}
           </div>
         )}
+        {meinStand && (
+          <div className="flex items-end justify-between border-b border-[var(--linie)] pb-3">
+            <div>
+              <p className="text-[10px] uppercase tracking-[.12em] text-schaum/55">
+                {tour.spiel_modus === "team" ? "Euer Score" : "Dein Score"}
+              </p>
+              <p className="mono text-2xl leading-tight">{meinStand.gesamt}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-[10px] uppercase tracking-[.12em] text-schaum/55">Stop</p>
+              <p className="mono text-2xl leading-tight">
+                {erledigtSet.size}
+                <span className="text-base text-schaum/55">/{kneipen.length}</span>
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-[10px] uppercase tracking-[.12em] text-schaum/55">Platz</p>
+              <p className="mono text-2xl leading-tight text-bernstein">{meinStand.platz}.</p>
+            </div>
+          </div>
+        )}
+
         <div className="space-y-1">
           <span className="text-sm text-schaum/60">
             {tour.spiel_modus === "team" ? "Ihr spielt als" : "Du spielst als"}
@@ -650,7 +685,7 @@ function TourInner() {
             <button
               key={m}
               onClick={() => setTab(m)}
-              className={`rounded-lg py-2 text-sm font-semibold transition ${
+              className={`min-h-[44px] rounded-lg py-2 text-sm font-semibold transition ${
                 tab === m ? "bg-bernstein text-tinte" : "text-schaum/70"
               }`}
             >
@@ -665,12 +700,13 @@ function TourInner() {
         Teilnehmer auf diesem Gerät – ohne dieses Feld käme er gar nicht
         mehr rein, weil die Beitritts-Oberfläche sonst nur in der Lobby steht.
       */}
-      {tour.status === "laufend" && !binDabei && (
+      {tour.status === "laufend" && (
         <div className="mx-auto w-full max-w-md px-4 pb-2">
           <NachzueglerBeitritt
             team={tour.spiel_modus === "team"}
+            binDabei={binDabei}
             standardName={(user?.user_metadata?.display_name as string) || ""}
-            onBeitreten={(name) => teilnehmerHinzufuegen(name, true)}
+            onBeitreten={(name, alsGeraet) => teilnehmerHinzufuegen(name, alsGeraet)}
           />
         </div>
       )}
@@ -866,7 +902,7 @@ function NaechstesGame({
           </div>
           <button
             onClick={onSchliessen}
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-schaum/60 hover:bg-nacht-3"
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-schaum/60 hover:bg-nacht-3"
             aria-label="schließen"
           >
             <IconX size={18} />
@@ -1284,20 +1320,29 @@ function KneipenBewertung({
 // ── Beitritt bei laufender Tour ───────────────────────
 function NachzueglerBeitritt({
   team,
+  binDabei,
   standardName,
   onBeitreten,
 }: {
   team: boolean;
+  /** Spielt dieses Gerät schon mit? Dann geht es nur um weitere Personen darauf. */
+  binDabei: boolean;
   standardName?: string;
-  onBeitreten: (name: string) => void;
+  onBeitreten: (name: string, alsGeraet: boolean) => void;
 }) {
   const [offen, setOffen] = useState(false);
-  const [name, setName] = useState(team ? "" : standardName ?? "");
+  const [name, setName] = useState(team || binDabei ? "" : standardName ?? "");
 
   if (!offen) {
     return (
       <Button variant="ghost" className="w-full" onClick={() => setOffen(true)}>
-        {team ? "Team tritt noch bei" : "Ich spiele mit"}
+        {binDabei
+          ? team
+            ? "Weiteres Team auf diesem Gerät"
+            : "Weitere Person auf diesem Gerät"
+          : team
+            ? "Team tritt noch bei"
+            : "Ich spiele mit"}
       </Button>
     );
   }
@@ -1305,17 +1350,25 @@ function NachzueglerBeitritt({
   return (
     <Card className="space-y-3">
       <div>
-        <h2 className="font-display text-lg">{team ? "Team eintragen" : "Mitspielen"}</h2>
+        <h2 className="font-display text-lg">
+          {binDabei
+            ? team
+              ? "Weiteres Team eintragen"
+              : "Weitere Person eintragen"
+            : team
+              ? "Team eintragen"
+              : "Mitspielen"}
+        </h2>
         <p className="text-xs text-schaum/60">
           Die Tour läuft schon. Für die verpassten Stops bekommst du jeweils die Punkte des
           Letzten – so entsteht kein Vorteil durchs Zuspätkommen.
         </p>
       </div>
-      <Field label={team ? "Team-Name" : "Dein Name"}>
+      <Field label={team ? "Team-Name" : binDabei ? "Name" : "Dein Name"}>
         <Input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder={team ? "Team-Name" : "Dein Name"}
+          placeholder={team ? "Team-Name" : binDabei ? "Name" : "Dein Name"}
           autoFocus
         />
       </Field>
@@ -1324,12 +1377,13 @@ function NachzueglerBeitritt({
           className="flex-1"
           disabled={!name.trim()}
           onClick={() => {
-            onBeitreten(name);
+            // Nur wer selbst noch nicht dabei ist, wird mit dem Konto verknüpft.
+            onBeitreten(name, !binDabei);
             setName("");
             setOffen(false);
           }}
         >
-          Beitreten
+          {binDabei ? "Hinzufügen" : "Beitreten"}
         </Button>
         <Button variant="ghost" onClick={() => setOffen(false)}>
           Abbrechen
@@ -1394,7 +1448,7 @@ function Ranglisten({
               {istHost && onEntfernen && tour.status !== "beendet" && (
                 <button
                   onClick={() => onEntfernen(z.teilnehmer)}
-                  className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-ziegel hover:bg-nacht-2"
+                  className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-ziegel hover:bg-nacht-2"
                   aria-label={`${z.teilnehmer.name} entfernen`}
                   title={`${z.teilnehmer.name} entfernen`}
                 >
@@ -1479,7 +1533,7 @@ function ChallengePanel({
               <IconKompass size={15} /> Hierhin navigieren
             </a>
           </div>
-          <button onClick={onClose} className="grid h-9 w-9 place-items-center rounded-lg text-schaum/60 hover:bg-nacht-3" aria-label="schließen">
+          <button onClick={onClose} className="grid h-11 w-11 place-items-center rounded-lg text-schaum/60 hover:bg-nacht-3" aria-label="schließen">
             <IconX size={20} />
           </button>
         </div>
@@ -1538,14 +1592,14 @@ function ChallengePanel({
               <span className="text-sm text-schaum/70">Schlücke</span>
               <div className="flex items-center gap-4">
                 <button
-                  className="h-10 w-10 rounded-full bg-nacht-2 border border-[var(--linie)] text-xl"
+                  className="h-14 w-14 rounded-full bg-nacht-2 border border-[var(--linie)] text-xl"
                   onClick={() => onChange({ schlucke: Math.max(0, schlucke - 1), strafschlucke: 0 })}
                 >
                   –
                 </button>
                 <span className="mono text-2xl w-8 text-center">{schlucke}</span>
                 <button
-                  className="h-10 w-10 rounded-full bg-bernstein text-tinte text-xl"
+                  className="h-14 w-14 rounded-full bg-bernstein text-tinte text-xl"
                   onClick={() => onChange({ schlucke: schlucke + 1, strafschlucke: 0 })}
                 >
                   +

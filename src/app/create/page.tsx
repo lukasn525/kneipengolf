@@ -642,7 +642,7 @@ function CreateInner() {
                       key={m}
                       type="button"
                       onClick={() => setSpielModus(m)}
-                      className={`rounded-lg py-2 text-sm font-semibold transition ${
+                      className={`min-h-[44px] rounded-lg py-2 text-sm font-semibold transition ${
                         spielModus === m ? "bg-bernstein text-tinte" : "text-schaum/70"
                       }`}
                     >
@@ -772,13 +772,13 @@ function CreateInner() {
                       <span className="block truncate">{s.name}</span>
                       {s.adresse && <span className="block text-xs text-schaum/60 truncate">{s.adresse}</span>}
                     </button>
-                    <button onClick={() => move(i, -1)} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-schaum/70 hover:bg-nacht-2" aria-label="hoch">
+                    <button onClick={() => move(i, -1)} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-schaum/70 hover:bg-nacht-2" aria-label="hoch">
                       <IconHoch />
                     </button>
-                    <button onClick={() => move(i, 1)} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-schaum/70 hover:bg-nacht-2" aria-label="runter">
+                    <button onClick={() => move(i, 1)} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-schaum/70 hover:bg-nacht-2" aria-label="runter">
                       <IconRunter />
                     </button>
-                    <button onClick={() => entfernen(i)} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-ziegel hover:bg-nacht-2" aria-label="entfernen">
+                    <button onClick={() => entfernen(i)} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-ziegel hover:bg-nacht-2" aria-label="entfernen">
                       <IconX />
                     </button>
                   </li>
@@ -1161,7 +1161,7 @@ function CreateInner() {
               <button
                 onClick={() => setPickerTab("liste")}
                 disabled={verfuegbareGesamt === 0}
-                className={`rounded-lg py-2 text-sm font-semibold transition disabled:opacity-40 ${
+                className={`min-h-[44px] rounded-lg py-2 text-sm font-semibold transition disabled:opacity-40 ${
                   pickerTab === "liste" ? "bg-bernstein text-tinte" : "text-schaum/70"
                 }`}
               >
@@ -1169,7 +1169,7 @@ function CreateInner() {
               </button>
               <button
                 onClick={() => setPickerTab("selbst")}
-                className={`rounded-lg py-2 text-sm font-semibold transition ${
+                className={`min-h-[44px] rounded-lg py-2 text-sm font-semibold transition ${
                   pickerTab === "selbst" ? "bg-bernstein text-tinte" : "text-schaum/70"
                 }`}
               >

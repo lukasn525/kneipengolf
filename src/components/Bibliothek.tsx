@@ -101,7 +101,7 @@ function IconKnopf({
       onClick={onClick}
       title={titel}
       aria-label={titel}
-      className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg transition hover:bg-nacht-2 ${
+      className={`grid h-11 w-11 shrink-0 place-items-center rounded-lg transition hover:bg-nacht-2 ${
         gefahr ? "text-ziegel" : "text-schaum/60 hover:text-schaum"
       }`}
     >
@@ -490,7 +490,7 @@ export function BarsAnsicht({
                 onClick={() => setStadtwahlOffen((o) => !o)}
                 aria-label="weitere Städte"
                 title="weitere Städte"
-                className={`grid h-9 w-9 shrink-0 place-items-center rounded-full border transition ${
+                className={`grid h-11 w-11 shrink-0 place-items-center rounded-full border transition ${
                   stadtwahlOffen
                     ? "border-bernstein bg-bernstein/15 text-bernstein"
                     : "border-[var(--linie)] bg-nacht-2 text-schaum/60 hover:text-schaum"

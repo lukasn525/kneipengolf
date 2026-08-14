@@ -81,7 +81,7 @@ function AuthInner() {
               <button
                 key={m}
                 onClick={() => setModus(m)}
-                className={`rounded-lg py-2 text-sm font-semibold transition ${
+                className={`min-h-[44px] rounded-lg py-2 text-sm font-semibold transition ${
                   modus === m ? "bg-bernstein text-tinte" : "text-schaum/70"
                 }`}
               >
@@ -125,7 +125,7 @@ function AuthInner() {
           </form>
         </Card>
 
-        <Link href="/" className="text-center text-sm text-schaum/60 hover:text-schaum">
+        <Link href="/" className="block min-h-[44px] py-3 text-center text-sm text-schaum/60 hover:text-schaum">
           ← zurück
         </Link>
       </div>
