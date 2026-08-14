@@ -63,7 +63,7 @@ function SichtbarkeitsChip({ oeffentlich }: { oeffentlich: boolean }) {
   return (
     <span
       className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] ${
-        oeffentlich ? "bg-moos/20 text-moos" : "bg-nacht-2 text-schaum/50"
+        oeffentlich ? "bg-moos/20 text-moos" : "bg-nacht-2 text-schaum/60"
       }`}
     >
       {oeffentlich ? <IconGlobus size={11} /> : <IconSchloss size={11} />}
@@ -79,7 +79,7 @@ function SichtbarkeitsChip({ oeffentlich }: { oeffentlich: boolean }) {
  */
 function UebernommenChip() {
   return (
-    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-nacht-2 px-2 py-0.5 text-[11px] text-schaum/50">
+    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-nacht-2 px-2 py-0.5 text-[11px] text-schaum/60">
       <IconUebernommen size={11} /> übernommen
     </span>
   );
@@ -125,9 +125,9 @@ function Abschnitt({
     <div className="space-y-2">
       <div className="flex items-baseline justify-between">
         <h3 className="text-xs uppercase tracking-wide text-bernstein">{titel}</h3>
-        {anzahl !== undefined && <span className="text-xs text-schaum/40">{anzahl}</span>}
+        {anzahl !== undefined && <span className="text-xs text-schaum/55">{anzahl}</span>}
       </div>
-      {hinweis && <p className="text-xs text-schaum/40">{hinweis}</p>}
+      {hinweis && <p className="text-xs text-schaum/55">{hinweis}</p>}
       {children}
     </div>
   );
@@ -191,7 +191,7 @@ function FilterChip({
       }`}
     >
       {label}
-      <span className={`text-xs ${aktiv ? "text-bernstein" : "text-schaum/40"}`}>{anzahl}</span>
+      <span className={`text-xs ${aktiv ? "text-bernstein" : "text-schaum/55"}`}>{anzahl}</span>
     </button>
   );
 }
@@ -394,7 +394,7 @@ export function BarsAnsicht({
                 <Field label="Name">
                   <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name der Bar" />
                 </Field>
-                <p className="flex items-center gap-1.5 text-xs text-schaum/50">
+                <p className="flex items-center gap-1.5 text-xs text-schaum/60">
                   <IconPin size={13} className="shrink-0" />
                   <span className="truncate">{treffer.label}</span>
                 </p>
@@ -411,7 +411,7 @@ export function BarsAnsicht({
                       </span>
                       <button
                         onClick={() => setStadtListeOffen(true)}
-                        className="text-xs text-schaum/50 hover:text-bernstein"
+                        className="text-xs text-schaum/60 hover:text-bernstein"
                       >
                         ändern
                       </button>
@@ -438,7 +438,7 @@ export function BarsAnsicht({
                     </div>
                   )}
                 </Field>
-                <p className="text-xs text-schaum/40">
+                <p className="text-xs text-schaum/55">
                   {stadtAuto
                     ? `Automatisch erkannt: ${stadtAuto.stadt.name}${
                         stadtAuto.quelle === "naehe" ? " (nächstgelegene Stadt)" : ""
@@ -450,7 +450,7 @@ export function BarsAnsicht({
                 <Button className="w-full" disabled={!name.trim() || busy} onClick={anlegen}>
                   {busy ? "speichere…" : "Privat speichern"}
                 </Button>
-                <p className="text-xs text-schaum/40">
+                <p className="text-xs text-schaum/55">
                   Neue Bars sind immer erst privat. Veröffentlichen kannst du sie danach hier in
                   der Liste.
                 </p>
@@ -501,7 +501,7 @@ export function BarsAnsicht({
             )}
           </div>
 
-          <div className="flex items-center gap-3 text-xs text-schaum/40">
+          <div className="flex items-center gap-3 text-xs text-schaum/55">
             <span>Sortierung</span>
             {(["beliebt", "name"] as const).map((s) => (
               <button
@@ -544,7 +544,7 @@ export function BarsAnsicht({
                   />
                 )}
                 {suchTreffer.length === 0 && ohneAnzahl === 0 && (
-                  <p className="text-sm text-schaum/50">Keine weitere Stadt gefunden.</p>
+                  <p className="text-sm text-schaum/60">Keine weitere Stadt gefunden.</p>
                 )}
               </div>
             </div>
@@ -590,12 +590,12 @@ export function BarsAnsicht({
           <h2 className="font-display text-xl">Bar-Bibliothek</h2>
           <button
             onClick={() => setNurEigene((v) => !v)}
-            className="text-xs text-schaum/50 hover:text-bernstein"
+            className="text-xs text-schaum/60 hover:text-bernstein"
           >
             {nurEigene ? "alle zeigen" : "ausgeblendete zeigen"}
           </button>
         </div>
-        <p className="text-xs text-schaum/40">
+        <p className="text-xs text-schaum/55">
           Ausblenden ist nur für dich – die Bar bleibt für alle anderen erhalten.
         </p>
         <ul className="space-y-1.5">
@@ -612,7 +612,7 @@ export function BarsAnsicht({
             />
           ))}
           {fremdeGefiltert.length === 0 && (
-            <li className="text-sm text-schaum/50">
+            <li className="text-sm text-schaum/60">
               {fremde.length === 0
                 ? "Noch keine Bars in der Bibliothek."
                 : nurEigene
@@ -715,11 +715,11 @@ function BarZeile({
           )}
         </span>
         {beliebtheitText(beliebtheit) ? (
-          <span className="block truncate text-xs text-schaum/50">
+          <span className="block truncate text-xs text-schaum/60">
             {beliebtheitText(beliebtheit)}
           </span>
         ) : (
-          bar.adresse && <span className="block truncate text-xs text-schaum/50">{bar.adresse}</span>
+          bar.adresse && <span className="block truncate text-xs text-schaum/60">{bar.adresse}</span>
         )}
       </span>
 
@@ -896,9 +896,9 @@ export function SpieleAnsicht({
       <Card className="space-y-3">
         <div className="flex items-baseline justify-between">
           <h2 className="font-display text-xl">Spiel-Bibliothek</h2>
-          <span className="text-xs text-schaum/40">{aktiveAnzahl} im Spiel</span>
+          <span className="text-xs text-schaum/55">{aktiveAnzahl} im Spiel</span>
         </div>
-        <p className="text-xs text-schaum/40">
+        <p className="text-xs text-schaum/55">
           Ausgeblendete Spiele werden in neuen Touren nicht mehr gezogen.
         </p>
         <ul className="space-y-1.5">
@@ -953,7 +953,7 @@ function SpielformZeile({
           {eigen && <SichtbarkeitsChip oeffentlich={oeffentlich} />}
         </span>
         {sf.beschreibung && (
-          <span className="block text-xs text-schaum/50">{sf.beschreibung}</span>
+          <span className="block text-xs text-schaum/60">{sf.beschreibung}</span>
         )}
       </span>
 

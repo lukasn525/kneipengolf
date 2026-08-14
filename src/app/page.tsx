@@ -42,7 +42,7 @@ export default function Home() {
           </Link>
         </Card>
 
-        <p className="text-center text-xs text-schaum/50">
+        <p className="text-center text-xs text-schaum/60">
           Spielbar auch komplett alkoholfrei – „Getränk“ ist neutral. Bitte trinkt verantwortungsvoll
           und kennt eure Grenzen. 🚱→🚰
         </p>

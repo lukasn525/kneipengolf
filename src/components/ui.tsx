@@ -20,7 +20,7 @@ export function Button({
 export function Input({ className = "", ...props }: InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
-      className={`w-full rounded-xl bg-nacht-2 border border-[var(--linie)] px-4 py-3 text-schaum placeholder:text-schaum/40 focus:outline-none focus:border-bernstein ${className}`}
+      className={`w-full rounded-xl bg-nacht-2 border border-[var(--linie)] px-4 py-3 text-schaum placeholder:text-schaum/55 focus:outline-none focus:border-bernstein ${className}`}
       {...props}
     />
   );

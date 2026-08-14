@@ -74,7 +74,7 @@ function EinstellungenInner() {
               placeholder="Dein Anzeigename"
             />
           </Field>
-          <p className="text-xs text-schaum/50">
+          <p className="text-xs text-schaum/60">
             Wird im Einzelspieler-Modus automatisch als dein Name vorgeschlagen.
           </p>
           <Button onClick={nickSpeichern} disabled={busy || !nick.trim()} className="w-full">
@@ -99,7 +99,7 @@ function EinstellungenInner() {
               </button>
             ))}
           </div>
-          <p className="text-xs text-schaum/50">Gilt für alle Karten in der App.</p>
+          <p className="text-xs text-schaum/60">Gilt für alle Karten in der App.</p>
         </Card>
 
         <Card className="space-y-3">

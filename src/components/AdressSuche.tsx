@@ -80,7 +80,7 @@ export function AdressSuche({
         autoComplete="off"
       />
       {laedt && (
-        <span className="absolute right-3 top-3 text-xs text-schaum/40" aria-hidden>
+        <span className="absolute right-3 top-3 text-xs text-schaum/55" aria-hidden>
           …
         </span>
       )}
@@ -99,7 +99,7 @@ export function AdressSuche({
                 className="block w-full px-3 py-2 text-left hover:bg-nacht-3"
               >
                 <span className="block truncate text-sm">{t.name}</span>
-                <span className="block truncate text-xs text-schaum/50">{t.label}</span>
+                <span className="block truncate text-xs text-schaum/60">{t.label}</span>
               </button>
             </li>
           ))}

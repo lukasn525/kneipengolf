@@ -26,7 +26,7 @@ import type {
 
 const Map = dynamic(() => import("@/components/Map"), {
   ssr: false,
-  loading: () => <div className="h-full w-full grid place-items-center text-schaum/40">Karte lädt…</div>,
+  loading: () => <div className="h-full w-full grid place-items-center text-schaum/55">Karte lädt…</div>,
 });
 
 const aktivKey = (code: string) => `kg-aktiv-${code}`;
@@ -684,7 +684,7 @@ function TourInner() {
           >
             {naechsterStop ? (
               <>
-                <span className="text-xs text-schaum/50">
+                <span className="text-xs text-schaum/60">
                   Nächster Stop · {erledigtSet.size}/{kneipen.length} erledigt
                 </span>
                 <span className="block font-display text-lg">{naechsterStop.name}</span>
@@ -866,7 +866,7 @@ function NaechstesGame({
           </div>
           <button
             onClick={onSchliessen}
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-schaum/50 hover:bg-nacht-3"
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-schaum/60 hover:bg-nacht-3"
             aria-label="schließen"
           >
             <IconX size={18} />
@@ -1007,10 +1007,10 @@ function Lobby({
               height={176}
             />
           )}
-          <p className="text-xs text-schaum/40">Scannen zum Beitreten – oder Einladung teilen.</p>
+          <p className="text-xs text-schaum/55">Scannen zum Beitreten – oder Einladung teilen.</p>
 
           <div className="flex gap-2">
-            <Button className="flex-1" onClick={teilen}>
+            <Button variant="ghost" className="flex-1" onClick={teilen}>
               Teilen
             </Button>
             <Button variant="ghost" className="flex-1" onClick={kopieren}>
@@ -1024,7 +1024,7 @@ function Lobby({
             {team ? "Teams" : "Mitspieler"} ({teilnehmer.length})
           </h2>
           {teilnehmer.length === 0 ? (
-            <p className="text-sm text-schaum/50">Noch niemand dabei.</p>
+            <p className="text-sm text-schaum/60">Noch niemand dabei.</p>
           ) : (
             <ul className="space-y-1">
               {teilnehmer.map((t) => (
@@ -1035,7 +1035,7 @@ function Lobby({
                   }`}
                 >
                   <span>{t.name}</span>
-                  <button onClick={() => onWaehleAktiv(t.id)} className="text-xs text-schaum/50 hover:text-bernstein">
+                  <button onClick={() => onWaehleAktiv(t.id)} className="text-xs text-schaum/60 hover:text-bernstein">
                     {t.id === aktivId ? "das bin ich" : "als diese:r spielen"}
                   </button>
                 </li>
@@ -1089,7 +1089,7 @@ function Lobby({
             Tour starten
           </Button>
         ) : (
-          <p className="text-center text-sm text-schaum/50">Warten, bis die Gastgeberin die Tour startet…</p>
+          <p className="text-center text-sm text-schaum/60">Warten, bis die Gastgeberin die Tour startet…</p>
         )}
       </div>
     </Shell>
@@ -1115,7 +1115,7 @@ function Scorecard({
   if (!aktivId) {
     return (
       <Card>
-        <p className="text-sm text-schaum/50">Wähle oben einen Spieler, um die Scorecard zu sehen.</p>
+        <p className="text-sm text-schaum/60">Wähle oben einen Spieler, um die Scorecard zu sehen.</p>
       </Card>
     );
   }
@@ -1133,7 +1133,7 @@ function Scorecard({
     <Card className="space-y-3">
       <div className="flex items-baseline justify-between">
         <h2 className="font-display text-xl">Scorecard</h2>
-        <span className="text-xs text-schaum/50">
+        <span className="text-xs text-schaum/60">
           {erledigt}/{kneipen.length} Stops
         </span>
       </div>
@@ -1160,20 +1160,20 @@ function Scorecard({
                   <span className="flex-1 min-w-0">
                     <span className="block truncate">{kneipe.name}</span>
                     {challenge && (
-                      <span className="block truncate text-xs text-schaum/40">{challenge.titel}</span>
+                      <span className="block truncate text-xs text-schaum/55">{challenge.titel}</span>
                     )}
                   </span>
                   {done ? (
                     <span className="text-right">
                       <span className="mono block text-lg leading-tight">{score?.gesamt ?? 0}</span>
-                      <span className="block text-[10px] text-schaum/40">
+                      <span className="block text-[10px] text-schaum/55">
                         {verweigert
                           ? "nicht machbar"
                           : `${ergebnis?.schlucke ?? 0} Schlücke${(score?.straf ?? 0) > 0 ? ` +${score?.straf} Straf` : ""}`}
                       </span>
                     </span>
                   ) : (
-                    <span className="text-xs text-schaum/40">offen</span>
+                    <span className="text-xs text-schaum/55">offen</span>
                   )}
                 </span>
               </button>
@@ -1185,7 +1185,7 @@ function Scorecard({
         <span className="text-sm text-schaum/70">Gesamt</span>
         <span className="mono text-xl text-bernstein">{gesamt}</span>
       </div>
-      <p className="text-xs text-schaum/40">Stop antippen, um die Challenge zu öffnen und zu zählen.</p>
+      <p className="text-xs text-schaum/55">Stop antippen, um die Challenge zu öffnen und zu zählen.</p>
     </Card>
   );
 }
@@ -1246,7 +1246,7 @@ function KneipenBewertung({
     <Card className="mt-4 space-y-3">
       <div>
         <h2 className="font-display text-xl">Welche Kneipen waren top?</h2>
-        <p className="text-xs text-schaum/50">
+        <p className="text-xs text-schaum/60">
           Ein Tipp genügt. Deine Empfehlung hilft anderen beim Zusammenstellen – wer was empfohlen
           hat, sieht niemand.
         </p>
@@ -1272,7 +1272,7 @@ function KneipenBewertung({
         })}
       </div>
       {gewaehlt.size > 0 && (
-        <p className="text-xs text-schaum/40">
+        <p className="text-xs text-schaum/55">
           {gewaehlt.size} {gewaehlt.size === 1 ? "Empfehlung" : "Empfehlungen"} gespeichert –
           nochmal antippen nimmt sie zurück.
         </p>
@@ -1306,7 +1306,7 @@ function NachzueglerBeitritt({
     <Card className="space-y-3">
       <div>
         <h2 className="font-display text-lg">{team ? "Team eintragen" : "Mitspielen"}</h2>
-        <p className="text-xs text-schaum/50">
+        <p className="text-xs text-schaum/60">
           Die Tour läuft schon. Für die verpassten Stops bekommst du jeweils die Punkte des
           Letzten – so entsteht kein Vorteil durchs Zuspätkommen.
         </p>
@@ -1362,14 +1362,14 @@ function Ranglisten({
     <Card className="space-y-3">
       {beendet && zeilen[0] && zeilen[0].erledigt > 0 && (
         <div className="kg-pop rounded-2xl border border-bernstein/40 bg-bernstein/10 p-4 text-center">
-          <p className="text-xs uppercase tracking-wide text-schaum/50">Sieger</p>
+          <p className="text-xs uppercase tracking-wide text-schaum/60">Sieger</p>
           <p className="font-display text-2xl">👑 {zeilen[0].teilnehmer.name}</p>
           <p className="mono text-bernstein">{zeilen[0].gesamt} Punkte</p>
         </div>
       )}
       <h2 className="font-display text-xl">{beendet ? "🏆 Endauswertung" : "Rangliste (live)"}</h2>
       {zeilen.length === 0 ? (
-        <p className="text-sm text-schaum/50">Noch keine Wertungen.</p>
+        <p className="text-sm text-schaum/60">Noch keine Wertungen.</p>
       ) : (
         <ol className="space-y-1">
           {zeilen.map((z, i) => (
@@ -1384,10 +1384,10 @@ function Ranglisten({
                 {i === 0 && z.erledigt > 0 ? "👑 " : ""}
                 {z.teilnehmer.name}
               </span>
-              <span className="text-xs text-schaum/50">
+              <span className="text-xs text-schaum/60">
                 {z.erledigt} Stops
                 {z.nachgeruecktStops > 0 && (
-                  <span className="text-schaum/40"> +{z.nachgeruecktStops} n.</span>
+                  <span className="text-schaum/55"> +{z.nachgeruecktStops} n.</span>
                 )}
               </span>
               <span className="mono text-lg w-10 text-right">{z.gesamt}</span>
@@ -1405,14 +1405,14 @@ function Ranglisten({
           ))}
         </ol>
       )}
-      <p className="text-xs text-schaum/40">Niedrigster Gesamtwert gewinnt (Golf). Inkl. Strafpunkte über Par.</p>
+      <p className="text-xs text-schaum/55">Niedrigster Gesamtwert gewinnt (Golf). Inkl. Strafpunkte über Par.</p>
       {gibtNachgerueckte && (
-        <p className="text-xs text-schaum/40">
+        <p className="text-xs text-schaum/55">
           „+n." = nachgerückte Stops: Wer später dazukam, bekommt dort die Punkte des Letzten.
         </p>
       )}
       {istHost && tour.status !== "beendet" && (
-        <p className="text-xs text-schaum/40">
+        <p className="text-xs text-schaum/55">
           Als Gastgeber:in kannst du über das ✕ jemanden entfernen, der nicht mehr mitspielt –
           sonst wartet der nächste Stop ewig auf diese Person.
         </p>
@@ -1467,9 +1467,9 @@ function ChallengePanel({
       >
         <div className="flex items-start justify-between">
           <div>
-            <p className="text-xs text-schaum/50">Stop {nummer}</p>
+            <p className="text-xs text-schaum/60">Stop {nummer}</p>
             <h2 className="font-display text-xl">{kneipe.name}</h2>
-            {kneipe.adresse && <p className="text-sm text-schaum/50">{kneipe.adresse}</p>}
+            {kneipe.adresse && <p className="text-sm text-schaum/60">{kneipe.adresse}</p>}
             <a
               href={`https://www.google.com/maps/dir/?api=1&destination=${kneipe.lat},${kneipe.lng}&travelmode=walking`}
               target="_blank"
@@ -1479,7 +1479,7 @@ function ChallengePanel({
               <IconKompass size={15} /> Hierhin navigieren
             </a>
           </div>
-          <button onClick={onClose} className="grid h-9 w-9 place-items-center rounded-lg text-schaum/50 hover:bg-nacht-3" aria-label="schließen">
+          <button onClick={onClose} className="grid h-9 w-9 place-items-center rounded-lg text-schaum/60 hover:bg-nacht-3" aria-label="schließen">
             <IconX size={20} />
           </button>
         </div>
@@ -1492,12 +1492,12 @@ function ChallengePanel({
               <p className="text-sm text-schaum/80">{challenge.beschreibung}</p>
             </>
           ) : (
-            <p className="text-sm text-schaum/50">Keine Spielform hinterlegt.</p>
+            <p className="text-sm text-schaum/60">Keine Spielform hinterlegt.</p>
           )}
         </div>
 
         {!aktiv ? (
-          <p className="text-sm text-schaum/50 text-center">
+          <p className="text-sm text-schaum/60 text-center">
             Wähle oben einen Spieler und starte die Tour, um zu werten.
           </p>
         ) : wartetAufAndere ? (
@@ -1509,7 +1509,7 @@ function ChallengePanel({
             <div className="mx-auto h-1.5 w-24 overflow-hidden rounded-full bg-nacht-2">
               <div className="h-full w-1/3 animate-pulse bg-bernstein" />
             </div>
-            <button onClick={onClose} className="text-sm text-schaum/50 hover:text-bernstein">
+            <button onClick={onClose} className="text-sm text-schaum/60 hover:text-bernstein">
               Fenster schließen
             </button>
           </div>
@@ -1518,7 +1518,7 @@ function ChallengePanel({
             {/* Wer ist dran – der Wechsel passiert automatisch nach dem Eintrag */}
             <div className="flex items-center justify-between rounded-2xl border border-bernstein/40 bg-bernstein/10 px-4 py-2.5">
               <span className="min-w-0">
-                <span className="block text-xs text-schaum/50">Jetzt dran</span>
+                <span className="block text-xs text-schaum/60">Jetzt dran</span>
                 <span className="block truncate font-display text-lg">{spielerName}</span>
               </span>
               {spielerGesamt > 1 && (
@@ -1553,7 +1553,7 @@ function ChallengePanel({
               </div>
             </div>
 
-            <p className="text-center text-xs text-schaum/50">
+            <p className="text-center text-xs text-schaum/60">
               {schlucke === par
                 ? "genau Par"
                 : schlucke > par

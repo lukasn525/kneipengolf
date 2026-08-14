@@ -38,7 +38,7 @@ export function Guard({ children }: { children: React.ReactNode }) {
   if (loading || !session) {
     return (
       <Shell>
-        <div className="flex-1 grid place-items-center text-schaum/50">lädt…</div>
+        <div className="flex-1 grid place-items-center text-schaum/60">lädt…</div>
       </Shell>
     );
   }

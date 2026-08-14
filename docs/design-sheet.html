@@ -1,0 +1,337 @@
+<!doctype html><html lang="de"><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,600&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --gruen:#0C1F16; --gruen-2:#12291D; --gruen-3:#1B3A29;
+  --messing:#C9A24A; --creme:#EEF6E6; --moos:#5B9C6A; --ziegel:#DB7A5C;
+  --tinte:#0C1F16; --linie:rgba(238,246,230,0.13);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#EDE9E1;font-family:Inter,system-ui,sans-serif;color:#2b2b28;padding:34px 30px 40px}
+.wrap{max-width:1560px;margin:0 auto}
+h1.t{font-family:Newsreader,serif;font-size:31px;font-weight:600}
+p.lead{font-size:14px;color:#6b6b63;margin-top:6px;max-width:900px;line-height:1.6}
+h2.sec{font-family:Newsreader,serif;font-size:22px;font-weight:600;margin:44px 0 4px;
+       border-top:1px solid rgba(0,0,0,.14);padding-top:16px}
+p.secsub{font-size:13px;color:#7a7a72;margin-bottom:18px;max-width:900px;line-height:1.55}
+.row{display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start}
+.tile{background:var(--gruen);border-radius:14px;padding:20px;color:var(--creme);border:1px solid rgba(0,0,0,.1)}
+.cap{font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#8f8f86;margin-bottom:9px}
+.ic{display:inline-block;vertical-align:middle;flex:none}
+
+/* Tokens */
+.sw{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+.sw .chip{width:88px;height:56px;border-radius:9px;border:1px solid rgba(0,0,0,.12)}
+.sw .nm{font-size:11.5px;font-weight:600}
+.sw .hx{font-family:"Space Mono",monospace;font-size:10.5px;color:#85857c}
+
+/* Phone */
+.phone{width:390px;height:800px;background:var(--gruen);border-radius:30px;color:var(--creme);
+       display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 44px -14px rgba(0,0,0,.4);position:relative}
+.ph-h{display:flex;justify-content:space-between;padding:13px 20px 0;font-size:11px;color:rgba(238,246,230,.4)}
+.ph-b{flex:1;overflow:hidden;padding:6px 20px 0;display:flex;flex-direction:column}
+.mono{font-family:"Space Mono",monospace}
+.serif{font-family:Newsreader,serif;font-weight:600;letter-spacing:-.01em}
+
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:10px 0 14px}
+.brand{display:flex;align-items:center;gap:8px}
+.brand .serif{font-size:19px}
+.brand .ic{color:var(--messing)}
+.muted{color:rgba(238,246,230,.6)}
+.dim{color:rgba(238,246,230,.55)}
+
+.card{border:1px solid var(--linie);background:var(--gruen-2);border-radius:14px;padding:16px;margin-bottom:12px}
+.eyebrow{font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--messing)}
+.h-card{font-family:Newsreader,serif;font-weight:600;font-size:18px;margin-bottom:4px}
+.sub{font-size:12.5px;color:rgba(238,246,230,.6);line-height:1.5}
+
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:48px;
+     border-radius:11px;padding:12px 16px;font-size:14.5px;font-weight:600;border:1px solid transparent;font-family:inherit}
+.b-pri{background:var(--messing);color:var(--tinte)}
+.b-gho{background:transparent;color:var(--creme);border-color:var(--linie)}
+.b-dan{background:transparent;color:var(--ziegel);border-color:rgba(219,122,92,.4)}
+.b-dis{background:rgba(201,162,74,.25);color:rgba(12,31,22,.55)}
+.b-sm{min-height:44px;font-size:13.5px;padding:10px 14px}
+.iconbtn{width:44px;height:44px;border-radius:11px;border:1px solid var(--linie);display:grid;place-items:center;
+         color:rgba(238,246,230,.7);flex:none;background:transparent}
+.iconbtn.dan{color:var(--ziegel);border-color:rgba(219,122,92,.35)}
+
+/* Bottom nav */
+.bnav{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--linie);
+      background:rgba(10,27,19,.96);padding:8px 8px 16px}
+.bnav a{display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px 0;min-height:56px;
+        font-size:10.5px;color:rgba(238,246,230,.5);text-decoration:none}
+.bnav a.an{color:var(--messing)}
+
+/* Stepper */
+.step{display:flex;align-items:center;gap:9px;padding:14px 0 16px}
+.step .s{display:flex;align-items:center;gap:7px;font-size:11.5px;color:rgba(238,246,230,.45)}
+.step .n{width:22px;height:22px;border-radius:50%;border:1px solid var(--linie);display:grid;place-items:center;
+         font-family:"Space Mono",monospace;font-size:11px;flex:none}
+.step .s.an{color:var(--creme)} .step .s.an .n{background:var(--messing);color:var(--tinte);border-color:var(--messing)}
+.step .s.ok .n{border-color:var(--moos);color:var(--moos)}
+.step .bar{flex:1;height:1px;background:var(--linie)}
+
+/* Liste */
+.li{display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--linie)}
+.li:last-child{border-bottom:0}
+.li .txt{flex:1;min-width:0}
+.li .nm{font-size:14.5px} .li .mt{font-size:11.5px;color:rgba(238,246,230,.55);display:flex;align-items:center;gap:5px;margin-top:3px}
+
+/* Rangliste */
+.rk{display:grid;grid-template-columns:20px 1fr 40px 42px;gap:10px;font-size:10px;letter-spacing:.1em;
+    text-transform:uppercase;color:rgba(238,246,230,.4);padding-bottom:8px;border-bottom:1px solid var(--linie)}
+.rz{display:grid;grid-template-columns:20px 1fr 40px 42px;gap:10px;align-items:center;padding:13px 0;
+    border-bottom:1px solid var(--linie);font-size:14.5px}
+.rz .p{font-family:"Space Mono",monospace;color:rgba(238,246,230,.45)}
+.rz.f .p{color:var(--messing)} .rz.f .n{font-weight:600}
+.rz .st{font-size:11px;color:rgba(238,246,230,.5);text-align:right}
+.rz .g{font-family:"Space Mono",monospace;font-size:16px;text-align:right}
+.rz.ich{box-shadow:inset 2px 0 0 var(--messing);padding-left:10px;margin-left:-10px}
+
+/* Score-Kopf */
+.scorekopf{display:flex;align-items:flex-end;justify-content:space-between;padding:2px 0 12px;border-bottom:1px solid var(--linie);margin-bottom:12px}
+.scorekopf .l{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:rgba(238,246,230,.45)}
+.scorekopf .v{font-family:"Space Mono",monospace;font-size:26px;line-height:1.1}
+.scorekopf .pl{font-family:"Space Mono",monospace;font-size:26px;color:var(--messing);line-height:1.1}
+
+.karte{flex:1;border-radius:12px;border:1px solid var(--linie);background:
+  repeating-linear-gradient(0deg,transparent 0 38px,rgba(238,246,230,.05) 38px 39px),
+  repeating-linear-gradient(90deg,transparent 0 38px,rgba(238,246,230,.05) 38px 39px),#0B1D14;
+  position:relative;min-height:180px;margin-bottom:12px}
+.pin{position:absolute;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;
+     font-family:"Space Mono",monospace;font-size:11px;border:1.5px solid}
+.pin.off{background:var(--gruen-2);border-color:var(--messing);color:var(--messing)}
+.pin.ok{background:rgba(91,156,106,.2);border-color:var(--moos);color:var(--moos)}
+.pin.jetzt{background:var(--messing);border-color:var(--messing);color:var(--tinte);width:32px;height:32px;font-size:13px}
+
+.zaehler{display:flex;align-items:center;justify-content:center;gap:22px;padding:8px 0 4px}
+.zaehler .rund{width:56px;height:56px;border-radius:50%;border:1px solid var(--linie);display:grid;place-items:center;color:var(--creme)}
+.zaehler .wert{font-family:"Space Mono",monospace;font-size:40px;min-width:56px;text-align:center}
+.badge{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;padding:4px 9px;border-radius:999px;
+       border:1px solid var(--linie);color:rgba(238,246,230,.65)}
+.badge.gold{border-color:rgba(201,162,74,.45);color:var(--messing)}
+.badge.gruen{border-color:rgba(91,156,106,.45);color:var(--moos)}
+.note{font-size:11px;color:#8a8a80;margin-top:10px;max-width:390px;line-height:1.5}
+.stack>*+*{margin-top:10px}
+</style></head><body><div class="wrap">
+<h1 class="t">Kneipen-Golf — Design-Sheet v1</h1>
+<p class="lead">Bausteine und überarbeitete Screens in der Clubhouse-Palette. Icons: Lucide (einheitlich 1,6 px Kontur).
+Alle Trefferflächen mindestens 44 px, Hauptaktionen 48 px. Navigation unten, eigener Profil-Bereich, „Neues Spiel“ in drei Schritten.</p>
+
+<h2 class="sec">Farben</h2>
+<p class="secsub">Unverändert gegenüber dem umgesetzten Theme — nur Ziegel wurde für den Kontrast aufgehellt.</p>
+<div class="row"><div class="sw"><div class="chip" style="background:#0C1F16"></div><div class="nm">Grün</div><div class="hx">#0C1F16</div><div class="hx">Seite</div></div><div class="sw"><div class="chip" style="background:#12291D"></div><div class="nm">Grün 2</div><div class="hx">#12291D</div><div class="hx">Karte</div></div><div class="sw"><div class="chip" style="background:#1B3A29"></div><div class="nm">Grün 3</div><div class="hx">#1B3A29</div><div class="hx">Inset</div></div><div class="sw"><div class="chip" style="background:#C9A24A"></div><div class="nm">Messing</div><div class="hx">#C9A24A</div><div class="hx">Akzent</div></div><div class="sw"><div class="chip" style="background:#5B9C6A"></div><div class="nm">Moos</div><div class="hx">#5B9C6A</div><div class="hx">erledigt</div></div><div class="sw"><div class="chip" style="background:#DB7A5C"></div><div class="nm">Ziegel</div><div class="hx">#DB7A5C</div><div class="hx">Fehler 5.1:1</div></div><div class="sw"><div class="chip" style="background:#EEF6E6"></div><div class="nm">Creme</div><div class="hx">#EEF6E6</div><div class="hx">Schrift</div></div></div>
+
+<h2 class="sec">Bausteine</h2>
+<p class="secsub">Ersetzt die handgezeichneten Icons und die uneinheitlichen Button-Größen. Zerstörende Aktionen bekommen eine eigene Variante statt eines winzigen roten Symbols.</p>
+<div class="row"><div class="tile" style="width:300px">
+<div class="cap" style="color:rgba(238,246,230,.45)">Buttons · min. 48 px hoch</div>
+<div class="stack">
+<button class="btn b-pri">Primär — eine pro Screen</button>
+<button class="btn b-gho">Sekundär (Ghost)</button>
+<button class="btn b-dan"><svg class="ic " width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 11v6" /> <path d="M14 11v6" /> <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /> <path d="M3 6h18" /> <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg> Zerstörend</button>
+<button class="btn b-dis">Deaktiviert</button>
+<button class="btn b-gho b-sm">Klein · 44 px</button>
+</div></div>
+<div class="tile" style="width:300px">
+<div class="cap" style="color:rgba(238,246,230,.45)">Icon-Buttons · 44 × 44</div>
+<div style="display:flex;gap:10px;flex-wrap:wrap">
+<div class="iconbtn"><svg class="ic " width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915" /> <circle cx="12" cy="12" r="3" /></svg></div><div class="iconbtn"><svg class="ic " width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3" /> <circle cx="6" cy="12" r="3" /> <circle cx="18" cy="19" r="3" /> <line x1="8.59" x2="15.42" y1="13.51" y2="17.49" /> <line x1="15.41" x2="8.59" y1="6.51" y2="10.49" /></svg></div>
+<div class="iconbtn"><svg class="ic " width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" /> <path d="m15 5 4 4" /></svg></div><div class="iconbtn"><svg class="ic " width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /> <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></svg></div>
+<div class="iconbtn dan"><svg class="ic " width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 11v6" /> <path d="M14 11v6" /> <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /> <path d="M3 6h18" /> <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg></div><div class="iconbtn dan"><svg class="ic " width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18" /> <path d="m6 6 12 12" /></svg></div></div>
+<div class="cap" style="color:rgba(238,246,230,.45);margin-top:20px">Marker</div>
+<div style="display:flex;gap:9px;flex-wrap:wrap">
+<span class="badge gold">Gastgeber</span><span class="badge gruen">öffentlich</span>
+<span class="badge">privat</span><span class="badge gold mono">BONN-7F3K</span></div>
+<div class="cap" style="color:rgba(238,246,230,.45);margin-top:20px">Karten-Pins</div>
+<div style="display:flex;gap:14px;align-items:center;padding-top:4px">
+<span class="pin ok" style="position:static"><svg class="ic " width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5" /></svg></span>
+<span class="pin jetzt" style="position:static">3</span>
+<span class="pin off" style="position:static">4</span></div>
+</div>
+<div class="tile" style="width:330px">
+<div class="cap" style="color:rgba(238,246,230,.45)">Zähler · 56 px Trefferfläche</div>
+<div class="zaehler"><div class="rund"><svg class="ic " width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14" /></svg></div><div class="wert">2</div><div class="rund"><svg class="ic " width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14" /> <path d="M12 5v14" /></svg></div></div>
+<div class="cap" style="color:rgba(238,246,230,.45);margin-top:16px">Typografie</div>
+<div class="serif" style="font-size:27px">Newsreader 27 · Titel</div>
+<div class="serif" style="font-size:18px;margin-top:5px">Newsreader 18 · Karte</div>
+<div style="font-size:14.5px;margin-top:7px">Inter 14.5 · Fließtext</div>
+<div class="sub" style="margin-top:5px">Inter 12.5 · Nebentext (creme 60 %)</div>
+<div class="eyebrow" style="margin-top:8px">Inter 10 Versal · Eyebrow</div>
+<div class="mono" style="font-size:21px;margin-top:7px;color:var(--messing)">−2.4 · 11 · BONN-7F3K</div>
+<div class="sub" style="margin-top:3px">Space Mono nur für Zahlen und Codes</div>
+</div></div>
+
+<h2 class="sec">Navigation und Profil</h2>
+<p class="secsub">Vier Punkte unten in Daumenreichweite statt vier Tabs oben. „Rangliste“ wird eigenständig sichtbar, „Profil“ bekommt endlich einen Ort — samt Verlauf, für den die Daten längst in der Datenbank liegen.</p>
+<div class="row">
+<div>
+  <div class="cap">Spielen — Startansicht</div>
+  <div class="phone"><div class="ph-h"><span class="mono">21:47</span><span>•••</span></div>
+  <div class="ph-b"><div class="topbar"><div class="brand"><svg class="ic " width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22V4a1 1 0 0 1 .4-.8A6 6 0 0 1 8 2c3 0 5 2 7.333 2q2 0 3.067-.8A1 1 0 0 1 20 4v10a1 1 0 0 1-.4.8A6 6 0 0 1 16 16c-3 0-5-2-8-2a6 6 0 0 0-4 1.528" /></svg><span class="serif">Kneipen-Golf</span></div><div class="iconbtn"><svg class="ic " width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915" /> <circle cx="12" cy="12" r="3" /></svg></div></div>
+<div class="card">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end">
+    <div><div class="eyebrow">Dein Handicap</div><div class="sub" style="margin-top:5px">7 gewertete Stops</div></div>
+    <div class="mono" style="font-size:32px;color:var(--messing);line-height:1">−2.4</div>
+  </div>
+</div>
+<div class="card">
+  <div class="h-card">Neues Spiel</div>
+  <p class="sub">Stadt wählen, Route festlegen, Mitspieler einladen.</p>
+  <div style="margin-top:12px"><button class="btn b-pri"><svg class="ic " width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14" /> <path d="M12 5v14" /></svg> Spiel erstellen</button></div>
+</div>
+<div class="card" style="padding-bottom:6px">
+  <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px">
+    <div class="h-card" style="margin:0">Nochmal spielen</div><span class="badge">springt zu Schritt 3</span>
+  </div>
+  <div class="li"><svg class="ic " width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="3" /> <path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15" /> <circle cx="18" cy="5" r="3" /></svg><div class="txt"><div class="nm">Bonn Test</div>
+    <div class="mt"><svg class="ic " width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0" /> <circle cx="12" cy="10" r="3" /></svg> 8 Stops · zuletzt 12.07.</div></div><svg class="ic " width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6" /></svg></div>
+  <div class="li"><svg class="ic " width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="3" /> <path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15" /> <circle cx="18" cy="5" r="3" /></svg><div class="txt"><div class="nm">Bocket</div>
+    <div class="mt"><svg class="ic " width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0" /> <circle cx="12" cy="10" r="3" /></svg> 6 Stops · zuletzt 28.06.</div></div><svg class="ic " width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6" /></svg></div>
+</div>
+<div class="card">
+  <div class="h-card">Mit Code beitreten</div>
+  <div style="border-bottom:1px solid var(--linie);padding:10px 0 8px;margin:8px 0 12px" class="mono dim">BONN-7F3K</div>
+  <button class="btn b-gho">Beitreten</button>
+</div></div><div class="bnav"><a class="an"><svg class="ic " width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z" /> <path d="M15 5.764v15" /> <path d="M9 3.236v15" /></svg><span>Spielen</span></a><a class=""><svg class="ic " width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="3" /> <path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15" /> <circle cx="18" cy="5" r="3" /></svg><span>Routen</span></a><a class=""><svg class="ic " width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14.66V17a1 1 0 0 1-1 1 2 2 0 0 0-2 2v2" /> <path d="M14 14.66V17a1 1 0 0 0 1 1 2 2 0 0 1 2 2v2" /> <path d="M17.916 10H19.5A2.5 2.5 0 0 0 22 7.5V5a1 1 0 0 0-1-1h-3" /> <path d="M4 22h16" /> <path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z" /> <path d="M6.084 10H4.5A2.5 2.5 0 0 1 2 7.5V5a1 1 0 0 1 1-1h3" /></svg><span>Rangliste</span></a><a class=""><svg class="ic " width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /> <circle cx="12" cy="7" r="4" /></svg><span>Profil</span></a></div></div>
+  <p class="note">Handicap kompakt oben, Handlung in der Mitte, „Nochmal spielen“ springt direkt in Schritt 3.</p></div>
+<div>
+  <div class="cap">Profil — neu</div>
+  <div class="phone"><div class="ph-h"><span class="mono">21:47</span><span>•••</span></div>
+  <div class="ph-b"><div class="topbar"><div class="brand"><svg class="ic " width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22V4a1 1 0 0 1 .4-.8A6 6 0 0 1 8 2c3 0 5 2 7.333 2q2 0 3.067-.8A1 1 0 0 1 20 4v10a1 1 0 0 1-.4.8A6 6 0 0 1 16 16c-3 0-5-2-8-2a6 6 0 0 0-4 1.528" /></svg><span class="serif">Kneipen-Golf</span></div><div class="iconbtn"><svg class="ic " width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915" /> <circle cx="12" cy="12" r="3" /></svg></div></div>
+<div style="text-align:center;padding:6px 0 16px">
+  <div style="width:66px;height:66px;border-radius:50%;border:1px solid var(--linie);display:grid;place-items:center;margin:0 auto 10px;color:var(--messing)"><svg class="ic " width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /> <circle cx="12" cy="7" r="4" /></svg></div>
+  <div class="serif" style="font-size:23px">Lukas</div>
+  <div class="dim" style="font-size:12px;margin-top:3px">Golf Society · Bonn</div>
+</div>
+<div class="card" style="text-align:center">
+  <div class="eyebrow">Handicap</div>
+  <div class="mono" style="font-size:44px;color:var(--messing);line-height:1.1;margin:6px 0">−2.4</div>
+  <p class="sub">7 gewertete Stops · niedriger ist besser</p>
+</div>
+<div style="display:flex;gap:12px;margin-bottom:12px">
+  <div class="card" style="flex:1;margin:0;text-align:center"><div class="eyebrow">Runden</div><div class="mono" style="font-size:23px;margin-top:5px">2</div></div>
+  <div class="card" style="flex:1;margin:0;text-align:center"><div class="eyebrow">Bestwert</div><div class="mono" style="font-size:23px;margin-top:5px">28</div></div>
+</div>
+<div class="card" style="padding-bottom:6px">
+  <div class="h-card">Verlauf</div>
+  <div class="li"><svg class="ic " width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14.66V17a1 1 0 0 1-1 1 2 2 0 0 0-2 2v2" /> <path d="M14 14.66V17a1 1 0 0 0 1 1 2 2 0 0 1 2 2v2" /> <path d="M17.916 10H19.5A2.5 2.5 0 0 0 22 7.5V5a1 1 0 0 0-1-1h-3" /> <path d="M4 22h16" /> <path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z" /> <path d="M6.084 10H4.5A2.5 2.5 0 0 1 2 7.5V5a1 1 0 0 1 1-1h3" /></svg><div class="txt"><div class="nm">Bonn Test</div><div class="mt">12.07. · 8 Stops · Platz 1</div></div><span class="mono dim">28</span></div>
+  <div class="li"><svg class="ic " width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14.66V17a1 1 0 0 1-1 1 2 2 0 0 0-2 2v2" /> <path d="M14 14.66V17a1 1 0 0 0 1 1 2 2 0 0 1 2 2v2" /> <path d="M17.916 10H19.5A2.5 2.5 0 0 0 22 7.5V5a1 1 0 0 0-1-1h-3" /> <path d="M4 22h16" /> <path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z" /> <path d="M6.084 10H4.5A2.5 2.5 0 0 1 2 7.5V5a1 1 0 0 1 1-1h3" /></svg><div class="txt"><div class="nm">Bocket</div><div class="mt">28.06. · 6 Stops · Platz 2</div></div><span class="mono dim">31</span></div>
+</div></div><div class="bnav"><a class=""><svg class="ic " width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z" /> <path d="M15 5.764v15" /> <path d="M9 3.236v15" /></svg><span>Spielen</span></a><a class=""><svg class="ic " width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="3" /> <path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15" /> <circle cx="18" cy="5" r="3" /></svg><span>Routen</span></a><a class=""><svg class="ic " width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14.66V17a1 1 0 0 1-1 1 2 2 0 0 0-2 2v2" /> <path d="M14 14.66V17a1 1 0 0 0 1 1 2 2 0 0 1 2 2v2" /> <path d="M17.916 10H19.5A2.5 2.5 0 0 0 22 7.5V5a1 1 0 0 0-1-1h-3" /> <path d="M4 22h16" /> <path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z" /> <path d="M6.084 10H4.5A2.5 2.5 0 0 1 2 7.5V5a1 1 0 0 1 1-1h3" /></svg><span>Rangliste</span></a><a class="an"><svg class="ic " width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /> <circle cx="12" cy="7" r="4" /></svg><span>Profil</span></a></div></div>
+  <p class="note">Handicap groß, zwei Kennzahlen, darunter der Verlauf. Bisher gab es diesen Bereich nicht.</p></div>
+<div>
+  <div class="cap">Rangliste — eigener Punkt</div>
+  <div class="phone"><div class="ph-h"><span class="mono">21:47</span><span>•••</span></div>
+  <div class="ph-b"><div class="topbar"><div class="brand"><svg class="ic " width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22V4a1 1 0 0 1 .4-.8A6 6 0 0 1 8 2c3 0 5 2 7.333 2q2 0 3.067-.8A1 1 0 0 1 20 4v10a1 1 0 0 1-.4.8A6 6 0 0 1 16 16c-3 0-5-2-8-2a6 6 0 0 0-4 1.528" /></svg><span class="serif">Kneipen-Golf</span></div><span class="badge gold mono">BONN-7F3K</span></div>
+<div class="scorekopf"><div><div class="l">Nach Stop 3 von 9</div><div class="serif" style="font-size:23px;margin-top:2px">Rangliste</div></div>
+<div style="text-align:right"><div class="l">Dein Platz</div><div class="pl">2.</div></div></div>
+<div class="rk"><span>#</span><span>Spieler</span><span>Stops</span><span>Ges.</span></div>
+<div class="rz f"><span class="p">1</span><span class="n">Mia</span><span class="st">4</span><span class="g">11</span></div>
+<div class="rz ich"><span class="p">2</span><span class="n">Du</span><span class="st">3</span><span class="g">12</span></div>
+<div class="rz"><span class="p">3</span><span class="n">Jonas</span><span class="st">4</span><span class="g">14</span></div>
+<div class="rz"><span class="p">4</span><span class="n">Lena</span><span class="st">1 <span style="color:rgba(238,246,230,.35)">+2 n.</span></span><span class="g">16</span></div>
+<p class="sub" style="margin-top:14px">Niedrigster Wert gewinnt. „+n." = nachgerückte Stops.</p></div><div class="bnav"><a class=""><svg class="ic " width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z" /> <path d="M15 5.764v15" /> <path d="M9 3.236v15" /></svg><span>Spielen</span></a><a class=""><svg class="ic " width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="3" /> <path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15" /> <circle cx="18" cy="5" r="3" /></svg><span>Routen</span></a><a class="an"><svg class="ic " width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14.66V17a1 1 0 0 1-1 1 2 2 0 0 0-2 2v2" /> <path d="M14 14.66V17a1 1 0 0 0 1 1 2 2 0 0 1 2 2v2" /> <path d="M17.916 10H19.5A2.5 2.5 0 0 0 22 7.5V5a1 1 0 0 0-1-1h-3" /> <path d="M4 22h16" /> <path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z" /> <path d="M6.084 10H4.5A2.5 2.5 0 0 1 2 7.5V5a1 1 0 0 1 1-1h3" /></svg><span>Rangliste</span></a><a class=""><svg class="ic " width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /> <circle cx="12" cy="7" r="4" /></svg><span>Profil</span></a></div></div>
+  <p class="note">Nicht mehr hinter einem Tab. Der eigene Platz steht im Kopf, die eigene Zeile ist mit Messing markiert.</p></div>
+</div>
+
+<h2 class="sec">Neues Spiel in drei Schritten</h2>
+<p class="secsub">Ersetzt die 1445 Zeilen lange Einzelseite mit 35 Zustandsvariablen. Entscheidend ist Schritt 2: vollständig vorbelegt und mit einem Tap überspringbar — wer zum ersten Mal spielt, soll keine Golf-Wertung konfigurieren müssen.</p>
+<div class="row">
+<div>
+  <div class="cap">Schritt 1 — Route</div>
+  <div class="phone"><div class="ph-h"><span class="mono">21:47</span><span>•••</span></div>
+  <div class="ph-b"><div class="topbar"><div class="brand"><svg class="ic " width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7" /> <path d="M19 12H5" /></svg><span class="serif" style="font-size:17px">Neues Spiel</span></div><span class="dim" style="font-size:12px">Abbrechen</span></div>
+<div class="step"><div class="s an"><span class="n">1</span> Route</div><div class="bar"></div>
+<div class="s"><span class="n">2</span> Regeln</div><div class="bar"></div><div class="s"><span class="n">3</span> Einladen</div></div>
+<div class="karte" style="min-height:150px">
+  <div class="pin ok" style="left:22%;top:62%"><svg class="ic " width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5" /></svg></div>
+  <div class="pin off" style="left:46%;top:40%">2</div>
+  <div class="pin off" style="left:68%;top:24%">3</div>
+</div>
+<div class="card" style="padding-bottom:6px">
+  <div style="display:flex;justify-content:space-between;align-items:baseline"><div class="h-card" style="margin:0">Deine Stops</div><span class="dim mono" style="font-size:12px">3</span></div>
+  <div class="li"><span class="mono dim" style="width:14px">1</span><div class="txt"><div class="nm">Zum Goldenen Hahn</div><div class="mt">Bonn · Altstadt</div></div><div class="iconbtn dan"><svg class="ic " width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 11v6" /> <path d="M14 11v6" /> <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /> <path d="M3 6h18" /> <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg></div></div>
+  <div class="li"><span class="mono dim" style="width:14px">2</span><div class="txt"><div class="nm">Bönnsch</div><div class="mt">Bonn · Zentrum</div></div><div class="iconbtn dan"><svg class="ic " width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 11v6" /> <path d="M14 11v6" /> <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /> <path d="M3 6h18" /> <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg></div></div>
+</div>
+<div class="stack" style="margin-top:auto;padding-bottom:16px">
+  <button class="btn b-gho"><svg class="ic " width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14" /> <path d="M12 5v14" /></svg> Stop hinzufügen</button>
+  <button class="btn b-pri">Weiter zu den Regeln</button>
+</div></div></div>
+  <p class="note">Karte und Stopliste auf einem Schirm. Löschen als 44-px-Fläche statt 36-px-Symbol.</p></div>
+<div>
+  <div class="cap">Schritt 2 — Regeln (optional)</div>
+  <div class="phone"><div class="ph-h"><span class="mono">21:47</span><span>•••</span></div>
+  <div class="ph-b"><div class="topbar"><div class="brand"><svg class="ic " width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7" /> <path d="M19 12H5" /></svg><span class="serif" style="font-size:17px">Regeln</span></div><span class="dim" style="font-size:12px">Abbrechen</span></div>
+<div class="step"><div class="s ok"><span class="n"><svg class="ic " width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5" /></svg></span> Route</div><div class="bar"></div>
+<div class="s an"><span class="n">2</span> Regeln</div><div class="bar"></div><div class="s"><span class="n">3</span> Einladen</div></div>
+<div class="card" style="border-color:rgba(201,162,74,.35)">
+  <div style="display:flex;gap:10px;align-items:flex-start"><svg class="ic " width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+  <div><div class="h-card" style="font-size:15px;margin-bottom:2px">Alles vorbelegt</div>
+  <p class="sub">Par 4, keine Strafschlücke, alle 12 Spielformen. Du kannst direkt weiter.</p></div></div>
+</div>
+<div class="card"><div class="eyebrow">Par pro Stop</div>
+  <div class="zaehler"><div class="rund"><svg class="ic " width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14" /></svg></div><div class="wert">4</div><div class="rund"><svg class="ic " width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14" /> <path d="M12 5v14" /></svg></div></div>
+  <p class="sub" style="text-align:center">Schlücke, ab denen es Strafpunkte gibt.</p></div>
+<div class="card"><div style="display:flex;justify-content:space-between;align-items:center">
+  <div><div class="h-card" style="font-size:15px;margin:0">Strafschlücke</div><p class="sub">Über Par wird zusätzlich gewertet.</p></div>
+  <div style="width:46px;height:27px;border-radius:999px;border:1px solid var(--linie);position:relative;flex:none">
+  <div style="position:absolute;left:3px;top:3px;width:19px;height:19px;border-radius:50%;background:rgba(238,246,230,.35)"></div></div></div></div>
+<div class="card"><div style="display:flex;justify-content:space-between;align-items:center">
+  <div class="h-card" style="font-size:15px;margin:0">Spielformen</div><span class="badge gruen">12 aktiv</span></div>
+  <p class="sub" style="margin-top:6px">Alle Spiele deiner Bibliothek werden gezogen.</p></div>
+<div class="stack" style="margin-top:auto;padding-bottom:16px">
+  <button class="btn b-pri">Weiter zum Einladen</button>
+  <button class="btn b-gho">Regeln überspringen</button></div></div></div>
+  <p class="note">Der Hinweis oben sagt ausdrücklich, dass man weiterklicken darf. Zähler mit 56-px-Flächen.</p></div>
+<div>
+  <div class="cap">Schritt 3 — Einladen</div>
+  <div class="phone"><div class="ph-h"><span class="mono">21:47</span><span>•••</span></div>
+  <div class="ph-b"><div class="topbar"><div class="brand"><svg class="ic " width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7" /> <path d="M19 12H5" /></svg><span class="serif" style="font-size:17px">Einladen</span></div><span class="dim" style="font-size:12px">Abbrechen</span></div>
+<div class="step"><div class="s ok"><span class="n"><svg class="ic " width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5" /></svg></span> Route</div><div class="bar"></div>
+<div class="s ok"><span class="n"><svg class="ic " width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5" /></svg></span> Regeln</div><div class="bar"></div><div class="s an"><span class="n">3</span> Einladen</div></div>
+<div class="card" style="text-align:center">
+  <div class="eyebrow">Runden-Code</div>
+  <div class="mono" style="font-size:29px;color:var(--messing);letter-spacing:.07em;margin:8px 0 14px">BONN-7F3K</div>
+  <div style="width:146px;height:146px;margin:0 auto 12px;border-radius:12px;background:var(--creme);display:grid;place-items:center;color:var(--gruen)"><svg class="ic " width="92" height="92" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect width="5" height="5" x="3" y="3" rx="1" /> <rect width="5" height="5" x="16" y="3" rx="1" /> <rect width="5" height="5" x="3" y="16" rx="1" /> <path d="M21 16h-3a2 2 0 0 0-2 2v3" /> <path d="M21 21v.01" /> <path d="M12 7v3a2 2 0 0 1-2 2H7" /> <path d="M3 12h.01" /> <path d="M12 3h.01" /> <path d="M12 16v.01" /> <path d="M16 12h1" /> <path d="M21 12v.01" /> <path d="M12 21v-1" /></svg></div>
+  <p class="sub">Scannen zum Beitreten — der Link bringt den Zugang mit.</p>
+  <div style="display:flex;gap:10px;margin-top:12px">
+    <button class="btn b-gho b-sm"><svg class="ic " width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3" /> <circle cx="6" cy="12" r="3" /> <circle cx="18" cy="19" r="3" /> <line x1="8.59" x2="15.42" y1="13.51" y2="17.49" /> <line x1="15.41" x2="8.59" y1="6.51" y2="10.49" /></svg> Teilen</button>
+    <button class="btn b-gho b-sm"><svg class="ic " width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /> <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></svg> Kopieren</button></div>
+</div>
+<div class="card" style="padding-bottom:6px">
+  <div style="display:flex;justify-content:space-between;align-items:baseline"><div class="h-card" style="margin:0">Mitspieler</div><span class="dim mono" style="font-size:12px">3</span></div>
+  <div class="li"><svg class="ic " width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /> <circle cx="12" cy="7" r="4" /></svg><div class="txt"><div class="nm">Du <span class="badge gold" style="margin-left:5px">Gastgeber</span></div></div></div>
+  <div class="li"><svg class="ic " width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /> <circle cx="12" cy="7" r="4" /></svg><div class="txt"><div class="nm">Mia</div></div><div class="iconbtn dan"><svg class="ic " width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18" /> <path d="m6 6 12 12" /></svg></div></div>
+  <div class="li"><svg class="ic " width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /> <circle cx="12" cy="7" r="4" /></svg><div class="txt"><div class="nm">Jonas</div></div><div class="iconbtn dan"><svg class="ic " width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18" /> <path d="m6 6 12 12" /></svg></div></div>
+</div>
+<div class="stack" style="margin-top:auto;padding-bottom:16px"><button class="btn b-pri">Runde starten</button></div></div></div>
+  <p class="note">Code, QR und Mitspieler an einem Ort. Der Link bringt den Zugangscode mit.</p></div>
+</div>
+
+<h2 class="sec">Während des Spiels</h2>
+<p class="secsub">Der eigene Stand wandert aus dem Ranglisten-Tab in die Kopfzeile — Score, Fortschritt und Platz immer sichtbar, ohne einen Tap.</p>
+<div class="row">
+<div>
+  <div class="cap">Karte — Hauptansicht</div>
+  <div class="phone"><div class="ph-h"><span class="mono">21:47</span><span>•••</span></div>
+  <div class="ph-b"><div class="topbar"><div class="brand"><svg class="ic " width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22V4a1 1 0 0 1 .4-.8A6 6 0 0 1 8 2c3 0 5 2 7.333 2q2 0 3.067-.8A1 1 0 0 1 20 4v10a1 1 0 0 1-.4.8A6 6 0 0 1 16 16c-3 0-5-2-8-2a6 6 0 0 0-4 1.528" /></svg><span class="serif">Kneipen-Golf</span></div><span class="badge gold mono">BONN-7F3K</span></div>
+<div class="scorekopf">
+  <div><div class="l">Dein Score</div><div class="v">12</div></div>
+  <div style="text-align:center"><div class="l">Stop</div><div class="v">3<span class="dim" style="font-size:15px">/9</span></div></div>
+  <div style="text-align:right"><div class="l">Platz</div><div class="pl">2.</div></div>
+</div>
+<div class="karte">
+  <div class="pin ok" style="left:14%;top:74%"><svg class="ic " width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5" /></svg></div>
+  <div class="pin ok" style="left:33%;top:56%"><svg class="ic " width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5" /></svg></div>
+  <div class="pin jetzt" style="left:52%;top:41%">3</div>
+  <div class="pin off" style="left:71%;top:25%">4</div>
+</div>
+<div class="card" style="border-color:rgba(201,162,74,.35)">
+  <div class="eyebrow">Nächster Halt · 180 m</div>
+  <div class="h-card" style="margin-top:5px">Zum Goldenen Hahn</div>
+  <div style="margin-top:12px"><button class="btn b-pri">Challenge öffnen</button></div>
+</div></div><div class="bnav"><a class="an"><svg class="ic " width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z" /> <path d="M15 5.764v15" /> <path d="M9 3.236v15" /></svg><span>Spielen</span></a><a class=""><svg class="ic " width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="3" /> <path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15" /> <circle cx="18" cy="5" r="3" /></svg><span>Routen</span></a><a class=""><svg class="ic " width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14.66V17a1 1 0 0 1-1 1 2 2 0 0 0-2 2v2" /> <path d="M14 14.66V17a1 1 0 0 0 1 1 2 2 0 0 1 2 2v2" /> <path d="M17.916 10H19.5A2.5 2.5 0 0 0 22 7.5V5a1 1 0 0 0-1-1h-3" /> <path d="M4 22h16" /> <path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z" /> <path d="M6.084 10H4.5A2.5 2.5 0 0 1 2 7.5V5a1 1 0 0 1 1-1h3" /></svg><span>Rangliste</span></a><a class=""><svg class="ic " width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /> <circle cx="12" cy="7" r="4" /></svg><span>Profil</span></a></div></div>
+  <p class="note">Score, Stop und Platz dauerhaft im Kopf. Der aktuelle Stop ist der einzige gefüllte Pin.</p></div>
+</div>
+</div></body></html>

@@ -32,7 +32,7 @@ import {
 const Map = dynamic(() => import("@/components/Map"), {
   ssr: false,
   loading: () => (
-    <div className="grid h-full w-full place-items-center text-sm text-schaum/40">Karte lädt…</div>
+    <div className="grid h-full w-full place-items-center text-sm text-schaum/55">Karte lädt…</div>
   ),
 });
 
@@ -150,7 +150,7 @@ export default function GeteilteRoutePage() {
           </p>
           <h1 className="font-display text-2xl">{route.name}</h1>
           {route.beschreibung && <p className="text-sm text-schaum/70">{route.beschreibung}</p>}
-          <p className="flex items-center gap-1.5 text-xs text-schaum/50">
+          <p className="flex items-center gap-1.5 text-xs text-schaum/60">
             <IconPin size={12} /> {stops.length} Stops
           </p>
         </Card>
@@ -186,7 +186,7 @@ export default function GeteilteRoutePage() {
                 <span className="min-w-0">
                   <span className="block truncate">{s.name}</span>
                   {s.adresse && (
-                    <span className="block truncate text-xs text-schaum/50">{s.adresse}</span>
+                    <span className="block truncate text-xs text-schaum/60">{s.adresse}</span>
                   )}
                 </span>
               </li>
@@ -246,7 +246,7 @@ export default function GeteilteRoutePage() {
                 nehmen?
               </button>
             ) : (
-              <p className="text-xs text-schaum/40">
+              <p className="text-xs text-schaum/55">
                 Öffentliche Bars bleiben verlinkt, private Bars werden als eigene Kopie gespeichert
                 und in „Bars" als übernommen markiert.
               </p>

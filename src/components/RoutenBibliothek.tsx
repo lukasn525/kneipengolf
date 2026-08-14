@@ -51,7 +51,7 @@ function Chip({
   children: React.ReactNode;
 }) {
   const stil = {
-    neutral: "bg-nacht-2 text-schaum/50",
+    neutral: "bg-nacht-2 text-schaum/60",
     gut: "bg-moos/20 text-moos",
     warn: "bg-ziegel/20 text-ziegel",
   }[ton];
@@ -98,11 +98,11 @@ function StopListe({ route }: { route: RouteMitStops }) {
           <span className="mono w-5 shrink-0 text-right text-bernstein">{s.position + 1}</span>
           <span className="min-w-0">
             <span className="block truncate text-schaum/80">{s.name}</span>
-            {s.adresse && <span className="block truncate text-schaum/40">{s.adresse}</span>}
+            {s.adresse && <span className="block truncate text-schaum/55">{s.adresse}</span>}
           </span>
         </li>
       ))}
-      {route.stops.length === 0 && <li className="text-xs text-schaum/40">Keine Stops.</li>}
+      {route.stops.length === 0 && <li className="text-xs text-schaum/55">Keine Stops.</li>}
     </ol>
   );
 }
@@ -154,7 +154,7 @@ export function RoutenAnsicht({
         <Button className="w-full" onClick={() => router.push("/create?modus=route")}>
           <IconPlus size={16} /> Neue Route bauen
         </Button>
-        <p className="text-xs text-schaum/40">
+        <p className="text-xs text-schaum/55">
           Stadt wählen, Bars zusammenstellen, Namen vergeben – ohne Spieleinstellungen. Gespielt
           wird später mit einem Tipp.
         </p>
@@ -164,10 +164,10 @@ export function RoutenAnsicht({
       <Card className="space-y-3">
         <div className="flex items-baseline justify-between">
           <h2 className="font-display text-xl">Meine Routen</h2>
-          <span className="text-xs text-schaum/40">{liste.eigene.length}</span>
+          <span className="text-xs text-schaum/55">{liste.eigene.length}</span>
         </div>
         {liste.eigene.length === 0 ? (
-          <p className="text-xs text-schaum/40">
+          <p className="text-xs text-schaum/55">
             Noch keine gespeicherte Route. Alles, was du beim Spiel-Erstellen zusammenstellst,
             kannst du dort dauerhaft sichern und später mit einem Tipp wieder spielen.
           </p>
@@ -190,9 +190,9 @@ export function RoutenAnsicht({
       <Card className="space-y-3">
         <div className="flex items-baseline justify-between">
           <h2 className="font-display text-xl">Von der Community</h2>
-          <span className="text-xs text-schaum/40">{liste.community.length}</span>
+          <span className="text-xs text-schaum/55">{liste.community.length}</span>
         </div>
-        <p className="text-xs text-schaum/40">
+        <p className="text-xs text-schaum/55">
           Öffentliche Routen anderer Spieler:innen. Übernehmen legt eine eigene Kopie an – die
           bearbeitest du frei, ohne das Original zu verändern.
         </p>
@@ -208,7 +208,7 @@ export function RoutenAnsicht({
             />
           ))}
           {liste.community.length === 0 && (
-            <li className="text-sm text-schaum/50">Noch keine öffentlichen Routen.</li>
+            <li className="text-sm text-schaum/60">Noch keine öffentlichen Routen.</li>
           )}
         </ul>
       </Card>
@@ -300,7 +300,7 @@ function EigeneRouteZeile({
             )}
             {route.gesperrt && <Chip ton="warn">gesperrt</Chip>}
           </span>
-          <span className="mt-0.5 flex items-center gap-1 text-xs text-schaum/50">
+          <span className="mt-0.5 flex items-center gap-1 text-xs text-schaum/60">
             <IconPin size={12} className="shrink-0" />
             {route.stops.length} Stops
             {route.beschreibung ? ` · ${route.beschreibung}` : ""}
@@ -344,7 +344,7 @@ function EigeneRouteZeile({
               <IconPapierkorb size={17} />
             </IconKnopf>
           </div>
-          <p className="mt-2 text-xs text-schaum/40">
+          <p className="mt-2 text-xs text-schaum/55">
             Über „Bearbeiten" änderst du Name, Beschreibung und Stops.
           </p>
         </>
@@ -411,7 +411,7 @@ function FremdeRouteZeile({
             <span className="truncate font-semibold">{route.name}</span>
             {route.gesperrt && <Chip ton="warn">gesperrt</Chip>}
           </span>
-          <span className="mt-0.5 block text-xs text-schaum/50">
+          <span className="mt-0.5 block text-xs text-schaum/60">
             {route.stops.length} Stops
             {route.beschreibung ? ` · ${route.beschreibung}` : ""}
           </span>
@@ -440,7 +440,7 @@ function FremdeRouteZeile({
                   {freierRoutenName(name, meineNamen)}" nehmen?
                 </button>
               ) : (
-                <p className="text-xs text-schaum/40">
+                <p className="text-xs text-schaum/55">
                   Öffentliche Bars bleiben verlinkt, private Bars werden als eigene Kopie
                   gespeichert und in „Bars" als übernommen markiert.
                 </p>

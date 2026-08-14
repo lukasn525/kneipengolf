@@ -13,7 +13,7 @@ const gruen = { DEFAULT: "#0C1F16", 2: "#12291D", 3: "#1B3A29" };
 const messing = "#C9A24A";
 const creme = "#EEF6E6";
 const moos = "#5B9C6A";
-const ziegel = "#C4553C";
+const ziegel = "#DB7A5C";
 /** Schrift auf Messing-Flächen – dunkelgrün statt Schwarz. */
 const tinte = "#0C1F16";
 

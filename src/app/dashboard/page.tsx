@@ -218,7 +218,7 @@ function DashboardInner() {
                       </span>
                       <span className="min-w-0">
                         <span className="block text-sm font-semibold">{titel}</span>
-                        <span className="block text-xs text-schaum/50">{text}</span>
+                        <span className="block text-xs text-schaum/60">{text}</span>
                       </span>
                     </li>
                   ))}
@@ -231,7 +231,7 @@ function DashboardInner() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-schaum/60">Dein Handicap</p>
-                    <p className="text-xs text-schaum/40">
+                    <p className="text-xs text-schaum/55">
                       {handicap.stops} gewertete Stops · niedriger ist besser
                     </p>
                   </div>
@@ -243,11 +243,11 @@ function DashboardInner() {
                 {statistik && statistik.touren > 0 && (
                   <div className="grid grid-cols-2 gap-2 border-t border-[var(--linie)] pt-3">
                     <div className="rounded-xl bg-nacht-3 px-3 py-2">
-                      <p className="text-xs text-schaum/50">Gespielte Touren</p>
+                      <p className="text-xs text-schaum/60">Gespielte Touren</p>
                       <p className="mono text-xl">{statistik.touren}</p>
                     </div>
                     <div className="rounded-xl bg-nacht-3 px-3 py-2">
-                      <p className="text-xs text-schaum/50">Bestwert</p>
+                      <p className="text-xs text-schaum/60">Bestwert</p>
                       <p className="mono text-xl">{statistik.bestwert ?? "–"}</p>
                     </div>
                   </div>
@@ -266,7 +266,7 @@ function DashboardInner() {
                   <h2 className="font-display text-xl">Nochmal spielen</h2>
                   <button
                     onClick={() => tabWechseln("routen")}
-                    className="text-xs text-schaum/50 hover:text-bernstein"
+                    className="text-xs text-schaum/60 hover:text-bernstein"
                   >
                     alle Routen
                   </button>
@@ -281,12 +281,12 @@ function DashboardInner() {
                         <IconRoute size={18} className="shrink-0 text-bernstein" />
                         <span className="min-w-0 flex-1">
                           <span className="block truncate">{r.name}</span>
-                          <span className="flex items-center gap-1 text-xs text-schaum/50">
+                          <span className="flex items-center gap-1 text-xs text-schaum/60">
                             <IconPin size={11} /> {r.stops.length} Stops · zuletzt{" "}
                             {kurzesDatum(r.zuletztGespielt)}
                           </span>
                         </span>
-                        <IconWeiter size={16} className="shrink-0 text-schaum/40" />
+                        <IconWeiter size={16} className="shrink-0 text-schaum/55" />
                       </Link>
                     </li>
                   ))}
@@ -336,7 +336,7 @@ function DashboardInner() {
                           <span className="mono text-bernstein">{t.code}</span>
                           {t.name ? <span className="text-schaum/60"> · {t.name}</span> : null}
                         </span>
-                        <span className="text-xs text-schaum/50">{statusLabel(t.status)}</span>
+                        <span className="text-xs text-schaum/60">{statusLabel(t.status)}</span>
                       </Link>
                       <button
                         onClick={() => loeschen(t)}

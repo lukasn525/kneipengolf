@@ -67,7 +67,7 @@ type Stop = {
 const Map = dynamic(() => import("@/components/Map"), {
   ssr: false,
   loading: () => (
-    <div className="grid h-full w-full place-items-center text-sm text-schaum/40">Karte lädt…</div>
+    <div className="grid h-full w-full place-items-center text-sm text-schaum/55">Karte lädt…</div>
   ),
 });
 
@@ -651,7 +651,7 @@ function CreateInner() {
                   ))}
                 </div>
               </Field>
-              <p className="text-xs text-schaum/50">
+              <p className="text-xs text-schaum/60">
                 {spielModus === "team"
                   ? "Team-Modus: Jedes Gerät spielt als ein Team (Pass-and-Play im Team), die Rangliste vergleicht Teams."
                   : "Einzelspieler: jede Person wertet für sich."}
@@ -674,7 +674,7 @@ function CreateInner() {
                 </button>
               ))}
               {staedte.length === 0 && (
-                <p className="text-sm text-schaum/50 col-span-2">
+                <p className="text-sm text-schaum/60 col-span-2">
                   Keine Städte gefunden. Wurde das SQL-Schema in Supabase ausgeführt?
                 </p>
               )}
@@ -702,7 +702,7 @@ function CreateInner() {
               <IconRoute size={17} className="shrink-0 text-bernstein" />
               <span className="min-w-0 flex-1">
                 <span className="block text-sm font-semibold">Gespeicherte Route laden</span>
-                <span className="block text-xs text-schaum/50">
+                <span className="block text-xs text-schaum/60">
                   {routenListe.eigene.length} eigene · {routenListe.community.length} aus der
                   Community
                 </span>
@@ -770,7 +770,7 @@ function CreateInner() {
                       title="Auf der Karte zeigen"
                     >
                       <span className="block truncate">{s.name}</span>
-                      {s.adresse && <span className="block text-xs text-schaum/50 truncate">{s.adresse}</span>}
+                      {s.adresse && <span className="block text-xs text-schaum/60 truncate">{s.adresse}</span>}
                     </button>
                     <button onClick={() => move(i, -1)} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-schaum/70 hover:bg-nacht-2" aria-label="hoch">
                       <IconHoch />
@@ -821,7 +821,7 @@ function CreateInner() {
                       placeholder="Kurz: für wen oder wofür?"
                     />
                   </Field>
-                  <p className="flex items-center gap-1.5 text-xs text-schaum/50">
+                  <p className="flex items-center gap-1.5 text-xs text-schaum/60">
                     <IconSchloss size={13} className="shrink-0" />
                     Wird privat gespeichert. Teilen und Veröffentlichen geht danach im Hauptmenü
                     unter „Routen".
@@ -829,6 +829,7 @@ function CreateInner() {
                   <div className="flex flex-wrap gap-2">
                     {eigeneRoute && (
                       <Button
+                        variant="ghost"
                         className="flex-1"
                         onClick={() => routeSichern(false)}
                         disabled={routeBusy || !routeSpeicherbar}
@@ -837,7 +838,7 @@ function CreateInner() {
                       </Button>
                     )}
                     <Button
-                      variant={eigeneRoute ? "ghost" : "primary"}
+                      variant="ghost"
                       className="flex-1"
                       onClick={() => routeSichern(true)}
                       disabled={routeBusy || !routeSpeicherbar}
@@ -867,11 +868,11 @@ function CreateInner() {
               className="flex w-full items-center justify-between text-left"
             >
               <span className="font-display text-xl">Erweiterte Einstellungen</span>
-              <span className="text-schaum/50">{erweitertOffen ? <IconHoch /> : <IconRunter />}</span>
+              <span className="text-schaum/60">{erweitertOffen ? <IconHoch /> : <IconRunter />}</span>
             </button>
 
             {!erweitertOffen ? (
-              <p className="text-xs text-schaum/50">
+              <p className="text-xs text-schaum/60">
                 Par {par} · {strafeAktiv ? "Strafpunkte an" : "Strafpunkte aus"} ·{" "}
                 {spielformAuswahl.filter((s) => s.aktiv).length} Spielformen · Pin:{" "}
                 {GLAESER.find((g) => g.typ === glas)?.label}
@@ -951,7 +952,7 @@ function CreateInner() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <h3 className="font-display text-lg">Spielformen</h3>
-                    <span className="text-xs text-schaum/50">
+                    <span className="text-xs text-schaum/60">
                       {spielformAuswahl.filter((s) => s.aktiv).length} aktiv
                     </span>
                   </div>
@@ -975,7 +976,7 @@ function CreateInner() {
                             {s.titel}
                           </span>
                           {s.beschreibung && (
-                            <span className="block text-xs text-schaum/50">{s.beschreibung}</span>
+                            <span className="block text-xs text-schaum/60">{s.beschreibung}</span>
                           )}
                         </button>
                         <div className="flex shrink-0 items-center gap-2 pt-0.5">
@@ -1015,7 +1016,7 @@ function CreateInner() {
                         onChange={(e) => setSfBesch(e.target.value)}
                         placeholder="Kurze Regel / Beschreibung"
                       />
-                      <p className="flex items-center gap-1.5 text-xs text-schaum/50">
+                      <p className="flex items-center gap-1.5 text-xs text-schaum/60">
                         <IconSchloss size={13} className="shrink-0" />
                         Wird privat in „Meine Spiele" gespeichert.
                       </p>
@@ -1089,7 +1090,7 @@ function CreateInner() {
                   Speichern & direkt Spiel starten →
                 </button>
                 {!routeName.trim() && (
-                  <p className="text-center text-xs text-schaum/40">
+                  <p className="text-center text-xs text-schaum/55">
                     Die Route braucht noch einen Namen.
                   </p>
                 )}
@@ -1116,7 +1117,7 @@ function CreateInner() {
                 <IconX size={22} />
               </button>
             </div>
-            <p className="pb-3 text-xs text-schaum/40">
+            <p className="pb-3 text-xs text-schaum/55">
               Die Stops landen im Formular – Reihenfolge, Bars und Einstellungen kannst du danach
               noch ändern, ohne die gespeicherte Route zu verändern.
             </p>
@@ -1133,7 +1134,7 @@ function CreateInner() {
                 onWaehlen={routeInsFormular}
               />
               {routenListe.eigene.length + routenListe.community.length === 0 && (
-                <p className="mt-6 text-center text-sm text-schaum/50">
+                <p className="mt-6 text-center text-sm text-schaum/60">
                   Noch keine gespeicherten Routen.
                 </p>
               )}
@@ -1179,7 +1180,7 @@ function CreateInner() {
             <div className="min-h-0 flex-1 overflow-y-auto pb-4">
               {pickerTab === "liste" ? (
                 verfuegbareGesamt === 0 ? (
-                  <p className="mt-6 text-center text-sm text-schaum/50">
+                  <p className="mt-6 text-center text-sm text-schaum/60">
                     Alle verfügbaren Bars sind schon in der Route. Wechsle zu „Selbst hinzufügen".
                   </p>
                 ) : (
@@ -1203,7 +1204,7 @@ function CreateInner() {
                       beliebt={beliebt}
                       onWaehlen={barHinzufuegen}
                     />
-                    <p className="pt-2 text-xs text-schaum/40">
+                    <p className="pt-2 text-xs text-schaum/55">
                       Bars aus- oder einblenden kannst du im Hauptmenü unter „Bars".
                     </p>
                   </div>
@@ -1249,16 +1250,16 @@ function CreateInner() {
                         onChange={(e) => setPending((p) => (p ? { ...p, name: e.target.value } : p))}
                         placeholder="Name der Bar"
                       />
-                      <p className="flex items-center gap-1.5 truncate text-xs text-schaum/50">
+                      <p className="flex items-center gap-1.5 truncate text-xs text-schaum/60">
                         <IconPin size={13} className="shrink-0" />
                         <span className="truncate">{pending.adresse ?? "Position auf der Karte gewählt"}</span>
                       </p>
-                      <p className="flex items-center gap-1.5 text-xs text-schaum/50">
+                      <p className="flex items-center gap-1.5 text-xs text-schaum/60">
                         <IconSchloss size={13} className="shrink-0" />
                         Wird privat in „Meine Bars" gespeichert – nur du und deine Mitspieler sehen sie.
                       </p>
                       {!stadt && (
-                        <p className="flex items-center gap-1.5 text-xs text-schaum/50">
+                        <p className="flex items-center gap-1.5 text-xs text-schaum/60">
                           <IconPin size={13} className="shrink-0" />
                           {pendingStadt
                             ? `Stadt automatisch erkannt: ${pendingStadt.stadt.name}`
@@ -1279,7 +1280,7 @@ function CreateInner() {
                       </div>
                     </div>
                   ) : (
-                    <p className="text-xs text-schaum/40">
+                    <p className="text-xs text-schaum/55">
                       Tippe auf die Karte oder such eine Adresse. Den Pin kannst du zum Feinjustieren
                       verschieben.
                     </p>
@@ -1289,7 +1290,7 @@ function CreateInner() {
             </div>
 
             <div className="py-3">
-              <Button className="w-full" onClick={() => setPickerOffen(false)}>
+              <Button variant="ghost" className="w-full" onClick={() => setPickerOffen(false)}>
                 Fertig · {stops.length} Stops
               </Button>
             </div>
@@ -1319,7 +1320,7 @@ function BarGruppe({
     <div className="space-y-2">
       <p
         className={`text-xs uppercase tracking-wide ${
-          hervorgehoben ? "text-bernstein" : "text-schaum/40"
+          hervorgehoben ? "text-bernstein" : "text-schaum/55"
         }`}
       >
         {titel}
@@ -1339,12 +1340,12 @@ function BarGruppe({
                   <IconGlobus size={12} className="shrink-0 text-moos" />
                 )}
                 {b.ersteller_user_id && b.sichtbarkeit === "privat" && (
-                  <IconSchloss size={12} className="shrink-0 text-schaum/40" />
+                  <IconSchloss size={12} className="shrink-0 text-schaum/55" />
                 )}
                 {b.herkunft === "uebernommen" && (
                   <IconUebernommen
                     size={12}
-                    className="shrink-0 text-schaum/40"
+                    className="shrink-0 text-schaum/55"
                     // aus einer geteilten Route in die eigene Liste kopiert
                   />
                 )}
@@ -1354,7 +1355,7 @@ function BarGruppe({
                   </span>
                 )}
               </span>
-              <span className="block truncate text-xs text-schaum/50">
+              <span className="block truncate text-xs text-schaum/60">
                 {beliebtheitText(beliebt.get(b.id)) ?? b.adresse}
               </span>
             </span>
@@ -1388,7 +1389,7 @@ function RoutenGruppe({
     <div className="space-y-2">
       <p
         className={`text-xs uppercase tracking-wide ${
-          hervorgehoben ? "text-bernstein" : "text-schaum/40"
+          hervorgehoben ? "text-bernstein" : "text-schaum/55"
         }`}
       >
         {titel}
@@ -1407,13 +1408,13 @@ function RoutenGruppe({
                 {r.sichtbarkeit === "oeffentlich" ? (
                   <IconGlobus size={12} className="shrink-0 text-moos" />
                 ) : (
-                  <IconSchloss size={12} className="shrink-0 text-schaum/40" />
+                  <IconSchloss size={12} className="shrink-0 text-schaum/55" />
                 )}
                 {r.quelle_route_id && (
-                  <IconUebernommen size={12} className="shrink-0 text-schaum/40" />
+                  <IconUebernommen size={12} className="shrink-0 text-schaum/55" />
                 )}
               </span>
-              <span className="flex items-center gap-1 truncate text-xs text-schaum/50">
+              <span className="flex items-center gap-1 truncate text-xs text-schaum/60">
                 <IconPin size={11} className="shrink-0" />
                 {r.stops.length} Stops
                 {r.beschreibung ? ` · ${r.beschreibung}` : ""}

@@ -125,7 +125,7 @@ function AuthInner() {
           </form>
         </Card>
 
-        <Link href="/" className="text-center text-sm text-schaum/50 hover:text-schaum">
+        <Link href="/" className="text-center text-sm text-schaum/60 hover:text-schaum">
           ← zurück
         </Link>
       </div>
