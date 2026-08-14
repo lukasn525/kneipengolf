@@ -1,21 +1,29 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-
-// Name des Cookies, das den bestandenen Zugang markiert.
-const COOKIE = "kg_zugang";
-
-// Der erwartete Zugangscode. Kann in Vercel über die Umgebungsvariable
-// SITE_ACCESS_CODE überschrieben werden; sonst gilt der Standardwert.
-function erwarteterCode() {
-  return process.env.SITE_ACCESS_CODE ?? "casio2005";
-}
+import {
+  ZUGANG_COOKIE,
+  ZUGANG_COOKIE_OPTIONEN,
+  ZUGANG_PARAM,
+  erwarteterCode,
+} from "@/lib/zugangscode";
 
 export function middleware(req: NextRequest) {
-  const token = req.cookies.get(COOKIE)?.value;
+  const token = req.cookies.get(ZUGANG_COOKIE)?.value;
 
   // Zugang bereits freigeschaltet -> durchlassen.
   if (token && token === erwarteterCode()) {
     return NextResponse.next();
+  }
+
+  // Einladungslink bringt den Zugang mit (…/tour/BONN-JJ6Q?z=…).
+  // Cookie setzen und auf dieselbe URL ohne den Parameter umleiten – so
+  // landet der Code weder in der Adresszeile noch im Browserverlauf.
+  if (req.nextUrl.searchParams.get(ZUGANG_PARAM) === erwarteterCode()) {
+    const sauber = req.nextUrl.clone();
+    sauber.searchParams.delete(ZUGANG_PARAM);
+    const res = NextResponse.redirect(sauber);
+    res.cookies.set(ZUGANG_COOKIE, erwarteterCode(), ZUGANG_COOKIE_OPTIONEN);
+    return res;
   }
 
   // Sonst auf die Zugangsseite umleiten und das ursprüngliche Ziel merken,

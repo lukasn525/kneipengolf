@@ -15,17 +15,47 @@ export type RanglistenZeile = {
   erledigt: number;
   schlucke: number;
   strafpunkte: number;
+  /** Punkte aus nachgerückten Stops (nicht selbst gespielt). */
+  nachgerueckt: number;
+  /** Anzahl der Stops, die nachgerückt gewertet wurden. */
+  nachgeruecktStops: number;
   gesamt: number;
 };
 
-/** Baut die sortierte Rangliste (niedrigster Gesamtwert zuerst). */
+/**
+ * Baut die sortierte Rangliste (niedrigster Gesamtwert zuerst).
+ *
+ * Nachzügler-Regel: Stops, die andere schon gewertet haben, dieser Teilnehmer
+ * aber nicht, zählen mit dem schlechtesten Wert, den an diesem Stop jemand
+ * kassiert hat – man erbt also die Punkte des Letzten. Ohne das gewönne, wer
+ * spät dazukommt, automatisch: fehlende Stops wären 0 Punkte, und beim Golf
+ * gewinnt der niedrigste Wert.
+ *
+ * Stops, an denen noch niemand gewertet hat (die Gruppe ist schlicht noch
+ * nicht dort), bleiben bei allen außen vor – die Live-Rangliste vergleicht
+ * damit immer nur den bereits gespielten Teil des Abends.
+ */
 export function rangliste(
   teilnehmer: Teilnehmer[],
   ergebnisse: Ergebnis[],
   tour: Tour
 ): RanglistenZeile[] {
+  const erledigte = ergebnisse.filter((e) => e.erledigt);
+
+  // Pro Stop den schlechtesten (hoechsten) Gesamtwert merken – das ist die
+  // Ersatzwertung fuer alle, die diesen Stop nicht selbst gespielt haben.
+  const schlechtesterProStop = new Map<string, number>();
+  for (const e of erledigte) {
+    const { gesamt } = scoreEintrag(e, tour);
+    const bisher = schlechtesterProStop.get(e.tour_kneipe_id);
+    if (bisher === undefined || gesamt > bisher) {
+      schlechtesterProStop.set(e.tour_kneipe_id, gesamt);
+    }
+  }
+
   const zeilen: RanglistenZeile[] = teilnehmer.map((t) => {
-    const eigene = ergebnisse.filter((e) => e.teilnehmer_id === t.id && e.erledigt);
+    const eigene = erledigte.filter((e) => e.teilnehmer_id === t.id);
+    const eigeneStops = new Set(eigene.map((e) => e.tour_kneipe_id));
     let schlucke = 0;
     let strafpunkte = 0;
     let gesamt = 0;
@@ -35,12 +65,29 @@ export function rangliste(
       strafpunkte += s.straf + (e.strafschlucke || 0);
       gesamt += s.gesamt;
     }
-    return { teilnehmer: t, erledigt: eigene.length, schlucke, strafpunkte, gesamt };
+
+    let nachgerueckt = 0;
+    let nachgeruecktStops = 0;
+    for (const [stopId, wert] of schlechtesterProStop) {
+      if (eigeneStops.has(stopId)) continue;
+      nachgerueckt += wert;
+      nachgeruecktStops += 1;
+    }
+
+    return {
+      teilnehmer: t,
+      erledigt: eigene.length,
+      schlucke,
+      strafpunkte,
+      nachgerueckt,
+      nachgeruecktStops,
+      gesamt: gesamt + nachgerueckt,
+    };
   });
 
   zeilen.sort((a, b) => {
     if (a.gesamt !== b.gesamt) return a.gesamt - b.gesamt;
-    return b.erledigt - a.erledigt; // bei Gleichstand: mehr erledigte Stops zuerst
+    return b.erledigt - a.erledigt; // bei Gleichstand: mehr selbst gespielte Stops zuerst
   });
   return zeilen;
 }
@@ -49,6 +96,9 @@ export function rangliste(
  * Golf-Handicap eines Nutzers: durchschnittliche Schlücke über Par pro
  * erledigtem Stop, gemittelt über alle (auch tour-übergreifend) übergebenen
  * Ergebnisse. Niedriger ist besser; negativ = im Schnitt unter Par.
+ *
+ * Bewusst nur selbst gespielte Stops – nachgerückte Wertungen aus der
+ * Rangliste sollen das persönliche Handicap nicht verfälschen.
  */
 export function handicapWert(
   ergebnisse: { schlucke: number; erledigt: boolean; tour_id: string }[],

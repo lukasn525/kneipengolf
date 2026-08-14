@@ -1,10 +1,5 @@
 import { NextResponse } from "next/server";
-
-const COOKIE = "kg_zugang";
-
-function erwarteterCode() {
-  return process.env.SITE_ACCESS_CODE ?? "casio2005";
-}
+import { ZUGANG_COOKIE, ZUGANG_COOKIE_OPTIONEN, erwarteterCode } from "@/lib/zugangscode";
 
 export async function POST(req: Request) {
   let code = "";
@@ -20,12 +15,6 @@ export async function POST(req: Request) {
   }
 
   const res = NextResponse.json({ ok: true });
-  res.cookies.set(COOKIE, erwarteterCode(), {
-    httpOnly: true,
-    secure: true,
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 180, // ~180 Tage
-  });
+  res.cookies.set(ZUGANG_COOKIE, erwarteterCode(), ZUGANG_COOKIE_OPTIONEN);
   return res;
 }

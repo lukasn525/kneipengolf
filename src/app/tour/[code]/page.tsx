@@ -262,6 +262,11 @@ function TourInner() {
     return teilnehmer.filter((t) => t.user_id === user?.id || t.user_id === null);
   }, [teilnehmer, meinGeraet, user?.id]);
 
+  const binDabei = useMemo(
+    () => teilnehmer.some((t) => t.geraet_id === meinGeraet || (!!user && t.user_id === user.id)),
+    [teilnehmer, meinGeraet, user]
+  );
+
   function hatGewertet(kneipeId: string, tid: string) {
     return ergebnisse.some(
       (e) => e.tour_kneipe_id === kneipeId && e.teilnehmer_id === tid && e.erledigt
@@ -307,6 +312,33 @@ function TourInner() {
       await ladeTeilnehmer(tour.id);
       if (alsGeraet) waehleAktiv((data as Teilnehmer).id);
     }
+  }
+
+  /**
+   * Teilnehmer entfernen – nur die Person, die die Tour erstellt hat.
+   * Nötig, weil ein Teilnehmer, der nicht (mehr) mitspielt, sonst jeden
+   * Stop blockiert: der Übergang zum nächsten Game wartet auf ALLE.
+   * Die Ergebnisse hängen per ON DELETE CASCADE mit dran.
+   */
+  async function teilnehmerEntfernen(t: Teilnehmer) {
+    if (!tour || !istHost) return;
+    if (
+      !window.confirm(
+        `${t.name} aus der Tour entfernen? Alle Wertungen dieser Person gehen verloren.`
+      )
+    )
+      return;
+    const { error } = await supabase().from("teilnehmer").delete().eq("id", t.id);
+    if (error) {
+      setAktionsFehler("Entfernen fehlgeschlagen: " + error.message);
+      return;
+    }
+    if (aktivId === t.id) {
+      setAktivId(null);
+      localStorage.removeItem(aktivKey(upper));
+    }
+    await ladeTeilnehmer(tour.id);
+    await ladeErgebnisse(tour.id);
   }
 
   async function speichereErgebnis(kneipeId: string, patch: Partial<Ergebnis>) {
@@ -628,6 +660,21 @@ function TourInner() {
         </div>
       </div>
 
+      {/*
+        Nachzügler: Wer bei laufender Tour dazukommt, hat noch keinen
+        Teilnehmer auf diesem Gerät – ohne dieses Feld käme er gar nicht
+        mehr rein, weil die Beitritts-Oberfläche sonst nur in der Lobby steht.
+      */}
+      {tour.status === "laufend" && !binDabei && (
+        <div className="mx-auto w-full max-w-md px-4 pb-2">
+          <NachzueglerBeitritt
+            team={tour.spiel_modus === "team"}
+            standardName={(user?.user_metadata?.display_name as string) || ""}
+            onBeitreten={(name) => teilnehmerHinzufuegen(name, true)}
+          />
+        </div>
+      )}
+
       {tab === "karte" && aktivId && tour.status === "laufend" && (
         <div className="mx-auto w-full max-w-md px-4 pb-2">
           <button
@@ -696,7 +743,14 @@ function TourInner() {
         </div>
       ) : (
         <div className="flex-1 overflow-auto mx-auto w-full max-w-md px-4 pb-6">
-          <Ranglisten tour={tour} teilnehmer={teilnehmer} ergebnisse={ergebnisse} aktivId={aktivId} />
+          <Ranglisten
+            tour={tour}
+            teilnehmer={teilnehmer}
+            ergebnisse={ergebnisse}
+            aktivId={aktivId}
+            istHost={istHost}
+            onEntfernen={teilnehmerEntfernen}
+          />
 
           {tour.status === "beendet" && user && teilnehmer.some((t) => t.user_id === user.id) && (
             <KneipenBewertung tourId={tour.id} kneipen={kneipen} userId={user.id} />
@@ -882,8 +936,27 @@ function Lobby({
   const habeMich = teilnehmer.some((t) => t.id === aktivId);
   const team = tour.spiel_modus === "team";
 
+  // Einladungslink mit Zugangscode bauen. Ohne den landet der Eingeladene
+  // erst auf der Passwortabfrage, die in der Einladung gar nicht steht –
+  // und bricht ab. Klappt der Abruf nicht, bleibt es beim nackten Link.
   useEffect(() => {
-    setEinladungsUrl(window.location.href);
+    let ab = false;
+    const nackt = window.location.href;
+    setEinladungsUrl(nackt);
+    fetch("/api/einladung")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (ab || !d?.z) return;
+        const u = new URL(nackt);
+        u.searchParams.set("z", d.z as string);
+        setEinladungsUrl(u.toString());
+      })
+      .catch(() => {
+        /* Kein Netz – der nackte Link tut es auch, nur mit Codeabfrage. */
+      });
+    return () => {
+      ab = true;
+    };
   }, []);
 
   // Im Einzelspieler-Modus den festen Nickname vorschlagen
@@ -1208,19 +1281,82 @@ function KneipenBewertung({
   );
 }
 
+// ── Beitritt bei laufender Tour ───────────────────────
+function NachzueglerBeitritt({
+  team,
+  standardName,
+  onBeitreten,
+}: {
+  team: boolean;
+  standardName?: string;
+  onBeitreten: (name: string) => void;
+}) {
+  const [offen, setOffen] = useState(false);
+  const [name, setName] = useState(team ? "" : standardName ?? "");
+
+  if (!offen) {
+    return (
+      <Button variant="ghost" className="w-full" onClick={() => setOffen(true)}>
+        {team ? "Team tritt noch bei" : "Ich spiele mit"}
+      </Button>
+    );
+  }
+
+  return (
+    <Card className="space-y-3">
+      <div>
+        <h2 className="font-display text-lg">{team ? "Team eintragen" : "Mitspielen"}</h2>
+        <p className="text-xs text-schaum/50">
+          Die Tour läuft schon. Für die verpassten Stops bekommst du jeweils die Punkte des
+          Letzten – so entsteht kein Vorteil durchs Zuspätkommen.
+        </p>
+      </div>
+      <Field label={team ? "Team-Name" : "Dein Name"}>
+        <Input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder={team ? "Team-Name" : "Dein Name"}
+          autoFocus
+        />
+      </Field>
+      <div className="flex gap-2">
+        <Button
+          className="flex-1"
+          disabled={!name.trim()}
+          onClick={() => {
+            onBeitreten(name);
+            setName("");
+            setOffen(false);
+          }}
+        >
+          Beitreten
+        </Button>
+        <Button variant="ghost" onClick={() => setOffen(false)}>
+          Abbrechen
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
 // ── Rangliste ────────────────────────────────────────────
 function Ranglisten({
   tour,
   teilnehmer,
   ergebnisse,
   aktivId,
+  istHost,
+  onEntfernen,
 }: {
   tour: Tour;
   teilnehmer: Teilnehmer[];
   ergebnisse: Ergebnis[];
   aktivId: string | null;
+  istHost?: boolean;
+  onEntfernen?: (t: Teilnehmer) => void;
 }) {
   const zeilen = rangliste(teilnehmer, ergebnisse, tour);
+  const gibtNachgerueckte = zeilen.some((z) => z.nachgeruecktStops > 0);
   const beendet = tour.status === "beendet";
   return (
     <Card className="space-y-3">
@@ -1248,13 +1384,39 @@ function Ranglisten({
                 {i === 0 && z.erledigt > 0 ? "👑 " : ""}
                 {z.teilnehmer.name}
               </span>
-              <span className="text-xs text-schaum/50">{z.erledigt} Stops</span>
+              <span className="text-xs text-schaum/50">
+                {z.erledigt} Stops
+                {z.nachgeruecktStops > 0 && (
+                  <span className="text-schaum/40"> +{z.nachgeruecktStops} n.</span>
+                )}
+              </span>
               <span className="mono text-lg w-10 text-right">{z.gesamt}</span>
+              {istHost && onEntfernen && tour.status !== "beendet" && (
+                <button
+                  onClick={() => onEntfernen(z.teilnehmer)}
+                  className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-ziegel hover:bg-nacht-2"
+                  aria-label={`${z.teilnehmer.name} entfernen`}
+                  title={`${z.teilnehmer.name} entfernen`}
+                >
+                  <IconX size={14} />
+                </button>
+              )}
             </li>
           ))}
         </ol>
       )}
       <p className="text-xs text-schaum/40">Niedrigster Gesamtwert gewinnt (Golf). Inkl. Strafpunkte über Par.</p>
+      {gibtNachgerueckte && (
+        <p className="text-xs text-schaum/40">
+          „+n." = nachgerückte Stops: Wer später dazukam, bekommt dort die Punkte des Letzten.
+        </p>
+      )}
+      {istHost && tour.status !== "beendet" && (
+        <p className="text-xs text-schaum/40">
+          Als Gastgeber:in kannst du über das ✕ jemanden entfernen, der nicht mehr mitspielt –
+          sonst wartet der nächste Stop ewig auf diese Person.
+        </p>
+      )}
     </Card>
   );
 }
