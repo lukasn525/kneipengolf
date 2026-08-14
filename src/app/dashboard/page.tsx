@@ -299,7 +299,7 @@ function DashboardInner() {
               <p className="text-sm text-schaum/70">
                 Stadt wählen, Kneipen-Route festlegen, Mitspieler einladen.
               </p>
-              <Link href="/create">
+              <Link href="/create" className="block">
                 <Button className="w-full">Spiel erstellen</Button>
               </Link>
             </Card>

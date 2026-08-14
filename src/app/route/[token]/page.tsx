@@ -122,7 +122,7 @@ export default function GeteilteRoutePage() {
           <p className="text-sm text-schaum/60">
             Der Link ist abgelaufen, wurde zurückgezogen oder enthält einen Tippfehler.
           </p>
-          <Link href="/dashboard">
+          <Link href="/dashboard" className="block">
             <Button variant="ghost" className="w-full">
               Zum Hauptmenü
             </Button>
@@ -204,7 +204,7 @@ export default function GeteilteRoutePage() {
             <Button className="w-full" onClick={() => router.push(`/create?route=${fertig.routeId}`)}>
               Direkt spielen <IconWeiter size={16} />
             </Button>
-            <Link href="/dashboard?tab=routen">
+            <Link href="/dashboard?tab=routen" className="block">
               <Button variant="ghost" className="w-full">
                 Zu meinen Routen
               </Button>
@@ -213,7 +213,7 @@ export default function GeteilteRoutePage() {
         ) : route.ist_eigene ? (
           <Card className="space-y-3">
             <p className="text-sm text-schaum/70">Das ist deine eigene Route.</p>
-            <Link href="/dashboard?tab=routen">
+            <Link href="/dashboard?tab=routen" className="block">
               <Button variant="ghost" className="w-full">
                 Zu meinen Routen
               </Button>
@@ -224,7 +224,10 @@ export default function GeteilteRoutePage() {
             <p className="text-sm text-schaum/70">
               Zum Speichern brauchst du ein Konto. Danach landest du automatisch wieder hier.
             </p>
-            <Link href={`/auth?modus=login&weiter=${encodeURIComponent(`/route/${token}`)}`}>
+            <Link
+              href={`/auth?modus=login&weiter=${encodeURIComponent(`/route/${token}`)}`}
+              className="block"
+            >
               <Button className="w-full">Anmelden & speichern</Button>
             </Link>
           </Card>

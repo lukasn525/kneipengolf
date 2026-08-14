@@ -32,10 +32,10 @@ export default function Home() {
         {!konfiguriert && <KonfigHinweis />}
 
         <Card className="space-y-3">
-          <Link href="/auth?modus=registrieren">
+          <Link href="/auth?modus=registrieren" className="block">
             <Button className="w-full">Konto erstellen</Button>
           </Link>
-          <Link href="/auth?modus=login">
+          <Link href="/auth?modus=login" className="block">
             <Button variant="ghost" className="w-full">
               Ich habe schon ein Konto
             </Button>
