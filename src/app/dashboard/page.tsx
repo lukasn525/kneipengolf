@@ -192,7 +192,7 @@ function DashboardInner() {
             key={t.key}
             onClick={() => tabWechseln(t.key)}
             className={`rounded-lg py-2 text-sm font-semibold transition ${
-              tab === t.key ? "bg-bernstein text-[#2a1d0a]" : "text-schaum/70 hover:text-schaum"
+              tab === t.key ? "bg-bernstein text-tinte" : "text-schaum/70 hover:text-schaum"
             }`}
           >
             {t.label}

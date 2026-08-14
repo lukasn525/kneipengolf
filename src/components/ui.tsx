@@ -10,8 +10,8 @@ export function Button({
   const base =
     "inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed";
   const styles = {
-    primary: "bg-bernstein text-[#2a1d0a] hover:brightness-105 active:brightness-95",
-    ghost: "bg-nacht-3 text-schaum hover:bg-[#37291c] border border-[var(--linie)]",
+    primary: "bg-bernstein text-tinte hover:brightness-105 active:brightness-95",
+    ghost: "bg-nacht-3 text-schaum hover:bg-[#234a34] border border-[var(--linie)]",
     danger: "bg-ziegel text-schaum hover:brightness-110",
   }[variant];
   return <button className={`${base} ${styles} ${className}`} {...props} />;

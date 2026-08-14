@@ -643,7 +643,7 @@ function CreateInner() {
                       type="button"
                       onClick={() => setSpielModus(m)}
                       className={`rounded-lg py-2 text-sm font-semibold transition ${
-                        spielModus === m ? "bg-bernstein text-[#2a1d0a]" : "text-schaum/70"
+                        spielModus === m ? "bg-bernstein text-tinte" : "text-schaum/70"
                       }`}
                     >
                       {m === "einzel" ? "Einzelspieler" : "Team"}
@@ -992,7 +992,7 @@ function CreateInner() {
                           <span
                             className={`grid h-6 w-6 place-items-center rounded-full border text-xs ${
                               s.aktiv
-                                ? "border-bernstein bg-bernstein text-[#2a1d0a]"
+                                ? "border-bernstein bg-bernstein text-tinte"
                                 : "border-[var(--linie)] text-transparent"
                             }`}
                           >
@@ -1161,7 +1161,7 @@ function CreateInner() {
                 onClick={() => setPickerTab("liste")}
                 disabled={verfuegbareGesamt === 0}
                 className={`rounded-lg py-2 text-sm font-semibold transition disabled:opacity-40 ${
-                  pickerTab === "liste" ? "bg-bernstein text-[#2a1d0a]" : "text-schaum/70"
+                  pickerTab === "liste" ? "bg-bernstein text-tinte" : "text-schaum/70"
                 }`}
               >
                 Aus Liste
@@ -1169,7 +1169,7 @@ function CreateInner() {
               <button
                 onClick={() => setPickerTab("selbst")}
                 className={`rounded-lg py-2 text-sm font-semibold transition ${
-                  pickerTab === "selbst" ? "bg-bernstein text-[#2a1d0a]" : "text-schaum/70"
+                  pickerTab === "selbst" ? "bg-bernstein text-tinte" : "text-schaum/70"
                 }`}
               >
                 Selbst hinzufügen
@@ -1360,7 +1360,7 @@ function BarGruppe({
             </span>
             <button
               onClick={() => onWaehlen(b)}
-              className="shrink-0 rounded-lg bg-bernstein px-3 py-2 text-sm font-semibold text-[#2a1d0a]"
+              className="shrink-0 rounded-lg bg-bernstein px-3 py-2 text-sm font-semibold text-tinte"
             >
               + Hinzufügen
             </button>
@@ -1421,7 +1421,7 @@ function RoutenGruppe({
             </span>
             <button
               onClick={() => onWaehlen(r)}
-              className="shrink-0 rounded-lg bg-bernstein px-3 py-2 text-sm font-semibold text-[#2a1d0a]"
+              className="shrink-0 rounded-lg bg-bernstein px-3 py-2 text-sm font-semibold text-tinte"
               disabled={r.stops.length === 0}
             >
               Laden

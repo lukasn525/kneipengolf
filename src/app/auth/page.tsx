@@ -82,7 +82,7 @@ function AuthInner() {
                 key={m}
                 onClick={() => setModus(m)}
                 className={`rounded-lg py-2 text-sm font-semibold transition ${
-                  modus === m ? "bg-bernstein text-[#2a1d0a]" : "text-schaum/70"
+                  modus === m ? "bg-bernstein text-tinte" : "text-schaum/70"
                 }`}
               >
                 {m === "login" ? "Anmelden" : "Registrieren"}

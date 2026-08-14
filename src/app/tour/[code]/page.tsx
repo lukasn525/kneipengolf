@@ -651,7 +651,7 @@ function TourInner() {
               key={m}
               onClick={() => setTab(m)}
               className={`rounded-lg py-2 text-sm font-semibold transition ${
-                tab === m ? "bg-bernstein text-[#2a1d0a]" : "text-schaum/70"
+                tab === m ? "bg-bernstein text-tinte" : "text-schaum/70"
               }`}
             >
               {m === "karte" ? "Karte" : m === "stops" ? "Stops" : "Rangliste"}
@@ -724,7 +724,7 @@ function TourInner() {
               href={googleMapsUrl(kneipen.map((k) => [k.lat, k.lng] as [number, number]))}
               target="_blank"
               rel="noopener noreferrer"
-              className="absolute bottom-4 right-4 z-[900] flex items-center gap-2 rounded-full bg-bernstein px-4 py-3 text-sm font-semibold text-[#2a1d0a] shadow-lg active:brightness-95"
+              className="absolute bottom-4 right-4 z-[900] flex items-center gap-2 rounded-full bg-bernstein px-4 py-3 text-sm font-semibold text-tinte shadow-lg active:brightness-95"
             >
               <IconKompass size={16} /> Navigieren
             </a>
@@ -1545,7 +1545,7 @@ function ChallengePanel({
                 </button>
                 <span className="mono text-2xl w-8 text-center">{schlucke}</span>
                 <button
-                  className="h-10 w-10 rounded-full bg-bernstein text-[#2a1d0a] text-xl"
+                  className="h-10 w-10 rounded-full bg-bernstein text-tinte text-xl"
                   onClick={() => onChange({ schlucke: schlucke + 1, strafschlucke: 0 })}
                 >
                   +

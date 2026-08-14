@@ -1,33 +1,41 @@
-@import url("https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Inter:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Inter:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap");
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/*
+  Palette „Clubhouse“ – Flaschengrün, Messing, Creme.
+  Die Variablennamen bleiben wie gehabt, damit alles Bestehende sie erbt.
+*/
 :root {
-  --nacht: #16110d;
-  --nacht-2: #211913;
-  --nacht-3: #2c2118;
-  --bernstein: #f0a830;
-  --schaum: #f7f0e1;
-  --linie: rgba(247, 240, 225, 0.14);
+  --nacht: #0c1f16;
+  --nacht-2: #12291d;
+  --nacht-3: #1b3a29;
+  --bernstein: #c9a24a;
+  --schaum: #eef6e6;
+  --linie: rgba(238, 246, 230, 0.13);
 }
 
 html,
 body {
-  background: #0d0a07;
+  background: #0a1b13;
   color: var(--schaum);
   font-family: "Inter", system-ui, sans-serif;
   min-height: 100dvh;
 }
 
+/* Serif als Stimme der Marke – Country-Club-Ton statt Grotesk. */
 h1,
 h2,
 h3,
 .font-display {
-  font-family: "Bricolage Grotesque", system-ui, sans-serif;
+  font-family: "Newsreader", Georgia, serif;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
+/* Space Mono bleibt Zahlen, Codes und Scores vorbehalten. */
 .mono {
   font-family: "Space Mono", monospace;
 }
@@ -36,7 +44,7 @@ h3,
 .leaflet-container {
   width: 100%;
   height: 100%;
-  background: #1a140e;
+  background: #0f241a;
 }
 
 /* Kneipen-Pin (SVG-Tropfen mit Comic-Glas) */
