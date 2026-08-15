@@ -20,16 +20,23 @@ export function SeitenKopf({
   titel,
   zurueckZu = "/dashboard",
   zurueckLabel = "Zurück",
+  onZurueck,
   aktion,
 }: {
   titel: string;
   zurueckZu?: string;
   zurueckLabel?: string;
+  /** Eigene Rücksprung-Logik, z. B. einen Schritt statt eine Seite zurück. */
+  onZurueck?: () => void;
   aktion?: React.ReactNode;
 }) {
   const router = useRouter();
 
   function zurueck() {
+    if (onZurueck) {
+      onZurueck();
+      return;
+    }
     const hatHistorie =
       typeof window !== "undefined" &&
       window.history.length > 1 &&

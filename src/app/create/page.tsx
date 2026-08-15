@@ -26,6 +26,7 @@ import {
   IconUebernommen,
   IconPlus,
   IconFlamme,
+  IconHaken,
 } from "@/components/Icons";
 import {
   barAnlegen,
@@ -113,6 +114,18 @@ function CreateInner() {
   const [beliebt, setBeliebt] = useState<BeliebtheitMap>(leereBeliebtheit);
   const [pickerOffen, setPickerOffen] = useState(false);
   const [pickerTab, setPickerTab] = useState<"liste" | "selbst">("liste");
+
+  /**
+   * Schritt im Ablauf „Neues Spiel": 1 Route · 2 Regeln · 3 Übersicht.
+   *
+   * Gilt nur fürs Spielerstellen. Der Routen-Modus (`modusRoute`) bleibt
+   * bewusst eine einzelne Seite – dort gibt es keine Regeln, ein Ablauf mit
+   * Schritten wäre nur Umweg.
+   *
+   * Schritt 2 ist vollständig vorbelegt und überspringbar: wer zum ersten
+   * Mal spielt, soll keine Golf-Wertung konfigurieren müssen.
+   */
+  const [schritt, setSchritt] = useState<1 | 2 | 3>(1);
   const [erweitertOffen, setErweitertOffen] = useState(false);
 
   // Routen: laden (eigene / Community) und die aktuelle Stopliste sichern
@@ -604,9 +617,60 @@ function CreateInner() {
   return (
     <Shell>
       <SeitenKopf
-        titel={modusRoute ? (eigeneRoute ? "Route bearbeiten" : "Route erstellen") : "Spiel erstellen"}
+        titel={
+          modusRoute
+            ? eigeneRoute
+              ? "Route bearbeiten"
+              : "Route erstellen"
+            : schritt === 1
+              ? "Route"
+              : schritt === 2
+                ? "Regeln"
+                : "Übersicht"
+        }
         zurueckZu={modusRoute ? "/dashboard?tab=routen" : "/dashboard"}
+        zurueckLabel={!modusRoute && schritt > 1 ? "Schritt zurück" : "Zurück"}
+        onZurueck={
+          !modusRoute && schritt > 1
+            ? () => setSchritt((v) => (v === 3 ? 2 : 1))
+            : undefined
+        }
       />
+
+      {/* Fortschritt – nur im Spiel-Ablauf, nicht beim Routenbauen. */}
+      {!modusRoute && (
+        <div className="flex items-center gap-2 pt-3">
+          {([1, 2, 3] as const).map((n, i) => {
+            const erledigt = schritt > n;
+            const aktivS = schritt === n;
+            return (
+              <div key={n} className="flex flex-1 items-center gap-2">
+                <button
+                  onClick={() => erledigt && setSchritt(n)}
+                  disabled={!erledigt}
+                  className={`flex min-h-[44px] items-center gap-2 text-xs ${
+                    aktivS ? "text-schaum" : erledigt ? "text-schaum/70" : "text-schaum/45"
+                  }`}
+                >
+                  <span
+                    className={`mono grid h-6 w-6 shrink-0 place-items-center rounded-full border text-[11px] ${
+                      aktivS
+                        ? "border-bernstein bg-bernstein text-tinte"
+                        : erledigt
+                          ? "border-moos text-moos"
+                          : "border-[var(--linie)]"
+                    }`}
+                  >
+                    {erledigt ? "\u2713" : n}
+                  </span>
+                  {["Route", "Regeln", "Übersicht"][i]}
+                </button>
+                {n < 3 && <span className="h-px flex-1 bg-[var(--linie)]" />}
+              </div>
+            );
+          })}
+        </div>
+      )}
       <div className={`space-y-5 mt-3 ${modusRoute ? "pb-44" : "pb-24"}`}>
         <div>
           {modusRoute && (
@@ -617,6 +681,8 @@ function CreateInner() {
           )}
         </div>
 
+        {(modusRoute || schritt === 1) && (
+        <>
         <Card className="space-y-3">
           {modusRoute ? (
             <>
@@ -883,9 +949,27 @@ function CreateInner() {
               ))}
           </Card>
         )}
+        </>
+        )}
 
         {/* Par, Glas und Spielformen gehören zum Abend, nicht zur Vorlage. */}
-        {aktiv && !modusRoute && (
+        {aktiv && !modusRoute && schritt === 2 && (
+          <Card className="space-y-2 border-moos/40">
+            <div className="flex items-start gap-2.5">
+              <IconHaken size={18} className="mt-0.5 shrink-0 text-moos" />
+              <div>
+                <h2 className="font-display text-lg">Alles vorbelegt</h2>
+                <p className="text-sm text-schaum/60">
+                  Par {par}, {strafeAktiv ? "Strafpunkte an" : "keine Strafpunkte"},{" "}
+                  {spielformAuswahl.filter((s) => s.aktiv).length} Spielformen. Du kannst direkt
+                  weiter – ändern kannst du das hier, wenn du magst.
+                </p>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {aktiv && !modusRoute && schritt === 2 && (
           <Card className="space-y-3">
             <button
               type="button"
@@ -1076,6 +1160,43 @@ function CreateInner() {
           </Card>
         )}
 
+        {/* ── Schritt 3: Übersicht ────────────────────────────────── */}
+        {aktiv && !modusRoute && schritt === 3 && (
+          <Card className="space-y-3">
+            <h2 className="font-display text-xl">Alles bereit?</h2>
+            <ul className="divide-y divide-[var(--linie)] text-sm">
+              <li className="flex items-center justify-between py-2.5">
+                <span className="text-schaum/60">Stadt</span>
+                <span>{stadt ? stadt.name : "eigene Auswahl"}</span>
+              </li>
+              <li className="flex items-center justify-between py-2.5">
+                <span className="text-schaum/60">Route</span>
+                <span className="mono">{stopsText(stops.length)}</span>
+              </li>
+              <li className="flex items-center justify-between py-2.5">
+                <span className="text-schaum/60">Par pro Stop</span>
+                <span className="mono">{par}</span>
+              </li>
+              <li className="flex items-center justify-between py-2.5">
+                <span className="text-schaum/60">Strafpunkte</span>
+                <span>{strafeAktiv ? `an · ${strafeProSchluck} pro Schluck über Par` : "aus"}</span>
+              </li>
+              <li className="flex items-center justify-between py-2.5">
+                <span className="text-schaum/60">Spielformen</span>
+                <span className="mono">{spielformAuswahl.filter((s) => s.aktiv).length}</span>
+              </li>
+              <li className="flex items-center justify-between py-2.5">
+                <span className="text-schaum/60">Modus</span>
+                <span>{spielModus === "team" ? "Team" : "Einzelspieler"}</span>
+              </li>
+            </ul>
+            <p className="text-xs text-schaum/60">
+              Nach dem Erstellen bekommst du Code und QR zum Teilen – Mitspieler können bis zum
+              Start und auch danach noch dazukommen.
+            </p>
+          </Card>
+        )}
+
         {fehler && <p className="text-sm text-ziegel">{fehler}</p>}
       </div>
 
@@ -1120,10 +1241,34 @@ function CreateInner() {
                   </p>
                 )}
               </>
-            ) : (
-              <Button className="w-full" onClick={erstellen} disabled={busy}>
-                {busy ? "erstelle…" : "Spiel erstellen & Code generieren"}
+            ) : schritt === 1 ? (
+              <Button
+                className="w-full"
+                onClick={() => {
+                  setErweitertOffen(true);
+                  setSchritt(2);
+                }}
+              >
+                Weiter zu den Regeln
               </Button>
+            ) : schritt === 2 ? (
+              <>
+                <Button className="w-full" onClick={() => setSchritt(3)}>
+                  Weiter zur Übersicht
+                </Button>
+                <Button variant="ghost" className="w-full" onClick={() => setSchritt(3)}>
+                  Regeln überspringen
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button className="w-full" onClick={erstellen} disabled={busy}>
+                  {busy ? "erstelle…" : "Spiel erstellen & Code generieren"}
+                </Button>
+                <Button variant="ghost" className="w-full" onClick={() => setSchritt(2)}>
+                  Zurück zu den Regeln
+                </Button>
+              </>
             )}
           </div>
         </div>
