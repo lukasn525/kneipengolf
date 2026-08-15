@@ -38,9 +38,16 @@ export type RanglistenZeile = {
 export function rangliste(
   teilnehmer: Teilnehmer[],
   ergebnisse: Ergebnis[],
-  tour: Tour
+  tour: Tour,
+  /**
+   * Stop-IDs in Routenreihenfolge. Ohne diese Angabe greift die
+   * Nachrück-Wertung nur bei beendeten Touren – siehe unten.
+   */
+  reihenfolge?: string[]
 ): RanglistenZeile[] {
   const erledigte = ergebnisse.filter((e) => e.erledigt);
+  const beendet = tour.status === "beendet";
+  const platzImWeg = new Map(reihenfolge?.map((id, i) => [id, i]) ?? []);
 
   // Pro Stop den schlechtesten (hoechsten) Gesamtwert merken – das ist die
   // Ersatzwertung fuer alle, die diesen Stop nicht selbst gespielt haben.
@@ -66,10 +73,29 @@ export function rangliste(
       gesamt += s.gesamt;
     }
 
+    /*
+     * Nachrücken darf NUR für Stops gelten, die diese Person nicht mehr
+     * spielen wird – nicht für solche, die sie schlicht noch nicht erreicht
+     * hat. Sonst springt der Live-Score nach oben, sobald jemand anderes ein
+     * Loch vor einem beendet, und fällt wieder, wenn man aufschließt.
+     *
+     * „Nicht mehr spielbar" heißt: die Tour ist vorbei – oder die Person ist
+     * in der Route schon an diesem Stop vorbei (sie hat einen späteren
+     * gewertet). Fehlt die Reihenfolge, wird während des Spiels nichts
+     * nachgerückt; der Endstand bleibt davon unberührt.
+     */
+    const weitesterEigener = eigene.reduce((max, e) => {
+      const i = platzImWeg.get(e.tour_kneipe_id);
+      return i !== undefined && i > max ? i : max;
+    }, -1);
+
     let nachgerueckt = 0;
     let nachgeruecktStops = 0;
     for (const [stopId, wert] of schlechtesterProStop) {
       if (eigeneStops.has(stopId)) continue;
+      const i = platzImWeg.get(stopId);
+      const schonVorbei = i !== undefined && i < weitesterEigener;
+      if (!beendet && !schonVorbei) continue;
       nachgerueckt += wert;
       nachgeruecktStops += 1;
     }

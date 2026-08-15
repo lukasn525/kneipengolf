@@ -257,13 +257,16 @@ function TourInner() {
    * im Ranglisten-Tab – man musste also aktiv wegklicken, um zu sehen,
    * wie man steht. Das ist der Grund, warum man überhaupt spielt.
    */
+  /** Stop-IDs in Routenreihenfolge – siehe Nachrück-Regel in game.ts. */
+  const reihenfolge = useMemo(() => kneipen.map((k) => k.id), [kneipen]);
+
   const meinStand = useMemo(() => {
     if (!tour || !aktivId) return null;
-    const zeilen = rangliste(teilnehmer, ergebnisse, tour);
+    const zeilen = rangliste(teilnehmer, ergebnisse, tour, reihenfolge);
     const i = zeilen.findIndex((z) => z.teilnehmer.id === aktivId);
     if (i < 0) return null;
     return { platz: i + 1, gesamt: zeilen[i].gesamt, von: zeilen.length };
-  }, [teilnehmer, ergebnisse, tour, aktivId]);
+  }, [teilnehmer, ergebnisse, tour, aktivId, reihenfolge]);
 
   // ── Gameplay: wen verwaltet dieses Gerät? ──────────────
   // Pass-and-Play: Teilnehmer mit unserer geraet_id. Für ältere Touren ohne
@@ -505,7 +508,7 @@ function TourInner() {
   }
 
   async function ergebnisTeilen() {
-    const zeilen = rangliste(teilnehmer, ergebnisse, tour!);
+    const zeilen = rangliste(teilnehmer, ergebnisse, tour!, kneipen.map((k) => k.id));
     const liste = zeilen.map((z, i) => `${i + 1}. ${z.teilnehmer.name} – ${z.gesamt}`).join("\n");
     const text = `🍺 Kneipen-Golf${tour?.name ? " – " + tour.name : ""}\n${liste}`;
     const url = typeof window !== "undefined" ? window.location.href : "";
@@ -783,6 +786,7 @@ function TourInner() {
             tour={tour}
             teilnehmer={teilnehmer}
             ergebnisse={ergebnisse}
+            reihenfolge={reihenfolge}
             aktivId={aktivId}
             istHost={istHost}
             onEntfernen={teilnehmerEntfernen}
@@ -1398,6 +1402,7 @@ function Ranglisten({
   tour,
   teilnehmer,
   ergebnisse,
+  reihenfolge,
   aktivId,
   istHost,
   onEntfernen,
@@ -1405,11 +1410,13 @@ function Ranglisten({
   tour: Tour;
   teilnehmer: Teilnehmer[];
   ergebnisse: Ergebnis[];
+  /** Stop-IDs in Routenreihenfolge – Grundlage der Nachrück-Wertung. */
+  reihenfolge: string[];
   aktivId: string | null;
   istHost?: boolean;
   onEntfernen?: (t: Teilnehmer) => void;
 }) {
-  const zeilen = rangliste(teilnehmer, ergebnisse, tour);
+  const zeilen = rangliste(teilnehmer, ergebnisse, tour, reihenfolge);
   const gibtNachgerueckte = zeilen.some((z) => z.nachgeruecktStops > 0);
   const beendet = tour.status === "beendet";
   return (

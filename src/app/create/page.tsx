@@ -545,7 +545,16 @@ function CreateInner() {
   }
 
   async function erstellen() {
-    if (!user || stops.length === 0 || (!stadt && !eigenerModus)) return;
+    // Früher ein stiller `return`: der Knopf tat dann einfach nichts. In
+    // Schritt 3 ist man weit weg von der Ursache – also sagen, was fehlt.
+    if (!user) {
+      setFehler("Deine Anmeldung ist abgelaufen. Bitte lade die Seite neu.");
+      return;
+    }
+    if (stops.length === 0 || (!stadt && !eigenerModus)) {
+      setFehler("Die Route hat noch keine Stops – geh zurück zu Schritt 1.");
+      return;
+    }
     const aktiveSpielformen = spielformAuswahl.filter((s) => s.aktiv);
     if (aktiveSpielformen.length === 0) {
       setFehler("Mindestens eine Spielform muss aktiv sein.");
