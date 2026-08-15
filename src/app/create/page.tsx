@@ -278,14 +278,32 @@ function CreateInner() {
     setRouteFormOffen(false);
     const liste = await ladeBars(user?.id, id);
     setBarListe(liste);
-    // Standardroute: kuratierte Bars der Stadt, 9 Stops wie 9 Golf-Löcher.
-    // Persönlich ausgeblendete Bars kommen gar nicht in den Vorschlag.
-    setStops(
-      liste.kuratiert
-        .filter((b) => !liste.ausgeblendet.has(b.id))
-        .slice(0, 9)
-        .map(stopAus)
+    setStops(await standardStops(liste, id));
+  }
+
+  /**
+   * Vorschlag beim Wählen einer Stadt: die 9 beliebtesten Bars dieser Stadt,
+   * 9 Stops wie 9 Golf-Löcher.
+   *
+   * Bewusst aus ALLEN sichtbaren Bars der Stadt – kuratierte, öffentliche aus
+   * der Community und eigene gleichberechtigt. Vorher zog der Vorschlag nur
+   * aus `kuratiert`, also nur aus den vom Team angelegten Bars: in Bonn kamen
+   * so 8 statt 9 Stops heraus, weil zwei der zehn Bonner Bars selbst angelegt
+   * waren und stillschweigend übersprungen wurden.
+   *
+   * `ladeBars` liefert eigene Bars unabhängig von der Stadt (damit sie in der
+   * Bibliothek immer auftauchen) – für den Vorschlag muss deshalb auf die
+   * gewählte Stadt gefiltert werden, sonst landet die Hamburger Stammkneipe
+   * in einer Bonner Runde.
+   *
+   * Persönlich ausgeblendete Bars kommen gar nicht erst in Frage.
+   */
+  async function standardStops(liste: BarListe, id: number): Promise<Stop[]> {
+    const auswahl = [...liste.kuratiert, ...liste.community, ...liste.eigene].filter(
+      (b) => b.stadt_id === id && !liste.ausgeblendet.has(b.id)
     );
+    const werte = await ladeBeliebtheit(auswahl.map((b) => b.id));
+    return nachBeliebtheit(auswahl, werte).slice(0, 9).map(stopAus);
   }
 
   async function eigeneStadtWaehlen() {
@@ -727,9 +745,16 @@ function CreateInner() {
                 {routeMeldung}
               </p>
             )}
+            {/*
+              Neun ist der Vorschlag, keine Bedingung: gespielt werden kann mit
+              jeder Zahl ab einem Stop. Hat die Stadt weniger als neun Bars,
+              sagt der Text das nüchtern – ohne zum Nachlegen aufzufordern.
+            */}
             <p className="text-sm text-schaum/60">
-              Standardmäßig sind 9 Bars geladen. Reihenfolge anpassen, entfernen – oder über „Bar
-              hinzufügen" ergänzen.
+              {stops.length < 9
+                ? `Alle ${stopsText(stops.length)} dieser Stadt sind vorgeschlagen – mit weniger als neun spielt es sich genauso.`
+                : "Vorgeschlagen sind die 9 beliebtesten Bars der Stadt."}{" "}
+              Reihenfolge anpassen, entfernen – oder über „Bar hinzufügen" ergänzen.
             </p>
 
             {stops.length > 0 && (
