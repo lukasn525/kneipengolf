@@ -293,3 +293,13 @@ export function IconPokal(p: IconProps) {
     </Basis>
   );
 }
+
+/** Pfeil nach links – zurück eine Ebene höher. */
+export function IconZurueck(p: IconProps) {
+  return (
+    <Basis {...p}>
+      <path d="m12 19-7-7 7-7" />
+      <path d="M19 12H5" />
+    </Basis>
+  );
+}

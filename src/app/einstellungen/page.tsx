@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useSession } from "@/components/SessionProvider";
 import { Guard } from "@/components/Guard";
-import { TopBar } from "@/components/TopBar";
+import { SeitenKopf } from "@/components/SeitenKopf";
 import { Button, Card, Field, Input, Shell } from "@/components/ui";
 import {
   KARTEN_STILE,
@@ -62,9 +62,8 @@ function EinstellungenInner() {
 
   return (
     <Shell>
-      <TopBar />
-      <div className="mt-2 space-y-5 pb-10">
-        <h1 className="font-display text-2xl">Einstellungen</h1>
+      <SeitenKopf titel="Einstellungen" zurueckZu="/profil" zurueckLabel="Profil" />
+      <div className="mt-3 space-y-5 pb-10">
 
         <Card className="space-y-3">
           <Field label="Fester Nickname">

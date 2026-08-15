@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useSession } from "@/components/SessionProvider";
 import { Guard } from "@/components/Guard";
-import { TopBar } from "@/components/TopBar";
+import { SeitenKopf } from "@/components/SeitenKopf";
 import { Button, Card, Field, Input, Shell } from "@/components/ui";
 import { tourCode } from "@/lib/game";
 import { GlasIcon } from "@/components/GlasIcon";
@@ -585,12 +585,12 @@ function CreateInner() {
 
   return (
     <Shell>
-      <TopBar />
-      <div className={`space-y-5 mt-2 ${modusRoute ? "pb-44" : "pb-24"}`}>
+      <SeitenKopf
+        titel={modusRoute ? (eigeneRoute ? "Route bearbeiten" : "Route erstellen") : "Spiel erstellen"}
+        zurueckZu={modusRoute ? "/dashboard?tab=routen" : "/dashboard"}
+      />
+      <div className={`space-y-5 mt-3 ${modusRoute ? "pb-44" : "pb-24"}`}>
         <div>
-          <h1 className="font-display text-2xl">
-            {modusRoute ? (eigeneRoute ? "Route bearbeiten" : "Route erstellen") : "Spiel erstellen"}
-          </h1>
           {modusRoute && (
             <p className="mt-1 text-sm text-schaum/60">
               Stadt wählen, Bars zusammenstellen, Namen vergeben. Gespielt wird später – mit einem

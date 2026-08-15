@@ -49,8 +49,18 @@ function DashboardInner() {
   const params = useSearchParams();
   const { user } = useSession();
 
-  const startTab = params.get("tab");
-  const [tab, setTab] = useState<TabKey>(istTab(startTab) ? startTab : "spielen");
+  /**
+   * Der aktive Bereich wird aus der URL abgeleitet, NICHT in State gehalten.
+   *
+   * Vorher stand er in einem useState, das die URL nur beim ersten Rendern
+   * las. Der Wechsel über die untere Navigation bleibt aber innerhalb von
+   * /dashboard – React hängt die Komponente dabei nicht neu ein, der
+   * Initialwert lief nie wieder, und der Inhalt blieb stehen, während die
+   * URL und die Markierung unten schon umsprangen. Nur ein Neuladen half.
+   * Mit der URL als einziger Quelle kann das nicht mehr auseinanderlaufen.
+   */
+  const tabParam = params.get("tab");
+  const tab: TabKey = istTab(tabParam) ? tabParam : "spielen";
   const [sammlung, setSammlung] = useState<SammlungKey>("bars");
   const [rolle, setRolle] = useState<BenutzerRolle>(null);
   const [staedte, setStaedte] = useState<Stadt[]>([]);
@@ -161,9 +171,8 @@ function DashboardInner() {
     })();
   }, [user]);
 
+  /** Bereich wechseln – die URL ist die Quelle, der Rest folgt daraus. */
   function tabWechseln(k: TabKey) {
-    setTab(k);
-    // Tab in die URL schreiben, damit „zurück" und geteilte Links stimmen
     router.replace(k === "spielen" ? "/dashboard" : `/dashboard?tab=${k}`, { scroll: false });
   }
 
