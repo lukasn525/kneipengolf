@@ -8,7 +8,7 @@ import { useSession } from "@/components/SessionProvider";
 import { Guard } from "@/components/Guard";
 import { SeitenKopf } from "@/components/SeitenKopf";
 import { Button, Card, Field, Input, Shell } from "@/components/ui";
-import { tourCode } from "@/lib/game";
+import { tourCode, stopsText } from "@/lib/game";
 import { GlasIcon } from "@/components/GlasIcon";
 import { GLAESER } from "@/lib/glas";
 import { AdressSuche, type GeoTreffer } from "@/components/AdressSuche";
@@ -415,7 +415,7 @@ function CreateInner() {
     );
     setRouteBesch(r.beschreibung ?? "");
     setBarListe(await ladeBars(user?.id, r.stadt_id ?? undefined));
-    setRouteMeldung(`Route „${r.name}" geladen – ${r.stops.length} Stops.`);
+    setRouteMeldung(`Route „${r.name}" geladen – ${stopsText(r.stops.length)}.`);
   }
 
   /** Öffnet das Speichern-Formular mit einem freien Namensvorschlag. */
@@ -714,7 +714,7 @@ function CreateInner() {
         {aktiv && (
           <Card className="space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="font-display text-xl">Route ({stops.length} Stops)</h2>
+              <h2 className="font-display text-xl">Route ({stopsText(stops.length)})</h2>
               {geladeneRoute && (
                 <span className="inline-flex min-w-0 items-center gap-1 rounded-full bg-bernstein/15 px-2 py-0.5 text-[11px] text-bernstein">
                   <IconRoute size={11} className="shrink-0" />
@@ -1069,7 +1069,7 @@ function CreateInner() {
                       ? "speichere…"
                       : eigeneRoute
                         ? "Änderungen speichern"
-                        : `Route speichern · ${stops.length} Stops`}
+                        : `Route speichern · ${stopsText(stops.length)}`}
                   </Button>
                   {eigeneRoute && (
                     <Button
@@ -1291,7 +1291,7 @@ function CreateInner() {
 
             <div className="py-3">
               <Button variant="ghost" className="w-full" onClick={() => setPickerOffen(false)}>
-                Fertig · {stops.length} Stops
+                Fertig · {stopsText(stops.length)}
               </Button>
             </div>
           </div>
@@ -1416,7 +1416,7 @@ function RoutenGruppe({
               </span>
               <span className="flex items-center gap-1 truncate text-xs text-schaum/60">
                 <IconPin size={11} className="shrink-0" />
-                {r.stops.length} Stops
+                {stopsText(r.stops.length)}
                 {r.beschreibung ? ` · ${r.beschreibung}` : ""}
               </span>
             </span>

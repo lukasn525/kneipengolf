@@ -44,7 +44,7 @@ export default function Home() {
 
         <p className="text-center text-xs text-schaum/60">
           Spielbar auch komplett alkoholfrei – „Getränk“ ist neutral. Bitte trinkt verantwortungsvoll
-          und kennt eure Grenzen. 🚱→🚰
+          und kennt eure Grenzen.
         </p>
       </div>
     </Shell>

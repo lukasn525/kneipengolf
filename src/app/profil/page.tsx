@@ -8,7 +8,7 @@ import { Guard } from "@/components/Guard";
 import { TopBar } from "@/components/TopBar";
 import { BottomNav, BottomNavAbstand } from "@/components/BottomNav";
 import { Button, Card, Shell } from "@/components/ui";
-import { handicapWert, rangliste } from "@/lib/game";
+import { handicapText, handicapWert, rangliste, stopsText } from "@/lib/game";
 import { IconPokal, IconProfil } from "@/components/Icons";
 import type { Ergebnis, Teilnehmer, Tour } from "@/lib/types";
 
@@ -118,12 +118,12 @@ function ProfilInner() {
           <Card className="text-center">
             <p className="text-[10px] uppercase tracking-[.13em] text-bernstein">Handicap</p>
             <p className="mono my-2 text-4xl leading-tight text-bernstein">
-              {handicap.wert === null ? "–" : `${handicap.wert > 0 ? "+" : ""}${handicap.wert}`}
+              {handicapText(handicap.wert)}
             </p>
             <p className="text-xs text-schaum/60">
               {handicap.stops === 0
                 ? "Noch keine gewerteten Stops"
-                : `${handicap.stops} gewertete Stops · niedriger ist besser`}
+                : `${stopsText(handicap.stops)} gewertet · niedriger ist besser`}
             </p>
           </Card>
         )}
@@ -159,7 +159,7 @@ function ProfilInner() {
                     <span className="min-w-0 flex-1">
                       <span className="block truncate">{v.name || v.code}</span>
                       <span className="block text-xs text-schaum/60">
-                        {kurzesDatum(v.datum)} · {v.stops} Stops · Platz {v.platz} von {v.von}
+                        {kurzesDatum(v.datum)} · {stopsText(v.stops)} · Platz {v.platz} von {v.von}
                       </span>
                     </span>
                     <span className="mono shrink-0 text-schaum/60">{v.gesamt}</span>

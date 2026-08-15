@@ -7,11 +7,11 @@ import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useSession } from "@/components/SessionProvider";
 import { Guard } from "@/components/Guard";
-import { TopBar } from "@/components/TopBar";
+import { SeitenKopf } from "@/components/SeitenKopf";
 import { Button, Card, Field, Input, Shell } from "@/components/ui";
 import { rangliste, scoreEintrag, tourCode } from "@/lib/game";
 import { holeRoute, googleMapsUrl } from "@/lib/nav";
-import { IconFlamme, IconKompass, IconWeiter, IconX } from "@/components/Icons";
+import { IconFlamme, IconKompass, IconPokal, IconWeiter, IconX } from "@/components/Icons";
 import { geraetId } from "@/lib/ugc";
 import { empfehlungSetzen, ladeEigeneEmpfehlungen } from "@/lib/beliebtheit";
 import type {
@@ -583,8 +583,8 @@ function TourInner() {
   if (!bereit) {
     return (
       <Shell>
-        <TopBar />
-        <div className="mt-2 space-y-3">
+        <SeitenKopf titel={upper} />
+        <div className="mt-3 space-y-3">
           <div className="kg-skeleton h-24 w-full" />
           <div className="kg-skeleton h-10 w-full" />
           <div className="kg-skeleton h-64 w-full" />
@@ -595,8 +595,8 @@ function TourInner() {
   if (ladefehler || !tour) {
     return (
       <Shell>
-        <TopBar />
-        <Card>
+        <SeitenKopf titel={upper} />
+        <Card className="mt-3">
           <p className="text-ziegel">{ladefehler ?? "Fehler."}</p>
         </Card>
       </Shell>
@@ -626,7 +626,7 @@ function TourInner() {
     <div className="flex flex-col h-dvh">
       {aktionsFehler && <Toast msg={aktionsFehler} onClose={() => setAktionsFehler(null)} />}
       <div className="mx-auto w-full max-w-md px-4">
-        <TopBar />
+        <SeitenKopf titel={tour.name || tour.code} />
       </div>
 
       {/* aktiver Spieler + Tabs */}
@@ -726,7 +726,7 @@ function TourInner() {
                 <span className="block font-display text-lg">{naechsterStop.name}</span>
               </>
             ) : (
-              <span className="block font-display text-lg">Alle Stops erledigt 🎉</span>
+              <span className="block font-display text-lg">Alle Stops erledigt</span>
             )}
           </button>
           <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-nacht-3">
@@ -830,7 +830,7 @@ function TourInner() {
       {tour.status === "beendet" && tab === "karte" && (
         <div className="mx-auto w-full max-w-md px-4 pb-4">
           <Button className="w-full" onClick={() => setTab("rangliste")}>
-            🏆 Zur Endauswertung
+            <IconPokal size={17} /> Zur Endauswertung
           </Button>
         </div>
       )}
@@ -1024,8 +1024,8 @@ function Lobby({
   return (
     <Shell>
       {fehler && <Toast msg={fehler} onClose={() => onFehlerClose?.()} />}
-      <TopBar />
-      <div className="space-y-5 mt-2">
+      <SeitenKopf titel={tour.name || "Lobby"} />
+      <div className="space-y-5 mt-3">
         <Card className="text-center space-y-3">
           <p className="text-sm text-schaum/60">Tour-Code</p>
           <p className="mono text-3xl text-bernstein tracking-wider">{tour.code}</p>
@@ -1417,11 +1417,17 @@ function Ranglisten({
       {beendet && zeilen[0] && zeilen[0].erledigt > 0 && (
         <div className="kg-pop rounded-2xl border border-bernstein/40 bg-bernstein/10 p-4 text-center">
           <p className="text-xs uppercase tracking-wide text-schaum/60">Sieger</p>
-          <p className="font-display text-2xl">👑 {zeilen[0].teilnehmer.name}</p>
+          <p className="flex items-center justify-center gap-2 font-display text-2xl">
+            <IconPokal size={20} className="text-bernstein" />
+            {zeilen[0].teilnehmer.name}
+          </p>
           <p className="mono text-bernstein">{zeilen[0].gesamt} Punkte</p>
         </div>
       )}
-      <h2 className="font-display text-xl">{beendet ? "🏆 Endauswertung" : "Rangliste (live)"}</h2>
+      <h2 className="flex items-center gap-2 font-display text-xl">
+        {beendet && <IconPokal size={18} className="text-bernstein" />}
+        {beendet ? "Endauswertung" : "Rangliste (live)"}
+      </h2>
       {zeilen.length === 0 ? (
         <p className="text-sm text-schaum/60">Noch keine Wertungen.</p>
       ) : (
@@ -1435,7 +1441,6 @@ function Ranglisten({
             >
               <span className="mono w-6 text-center text-bernstein">{i + 1}</span>
               <span className="flex-1 min-w-0 truncate">
-                {i === 0 && z.erledigt > 0 ? "👑 " : ""}
                 {z.teilnehmer.name}
               </span>
               <span className="text-xs text-schaum/60">

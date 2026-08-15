@@ -1,6 +1,7 @@
 "use client";
 
 import { ButtonHTMLAttributes, InputHTMLAttributes } from "react";
+import { IconFlagge } from "./Icons";
 
 export function Button({
   className = "",
@@ -60,7 +61,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
 export function Logo({ klein = false }: { klein?: boolean }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="text-2xl">🍺</span>
+      <IconFlagge size={klein ? 18 : 22} className="text-bernstein" />
       <span className={`font-display font-extrabold ${klein ? "text-lg" : "text-2xl"}`}>
         Kneipen-Golf
       </span>

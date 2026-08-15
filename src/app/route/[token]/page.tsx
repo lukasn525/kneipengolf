@@ -20,6 +20,7 @@ import { useSession } from "@/components/SessionProvider";
 import { TopBar } from "@/components/TopBar";
 import { Button, Card, Field, Input, Logo, Shell } from "@/components/ui";
 import { KonfigHinweis } from "@/components/KonfigHinweis";
+import { stopsText } from "@/lib/game";
 import { IconPin, IconRoute, IconUebernommen, IconWeiter } from "@/components/Icons";
 import {
   eigeneRoutenNamen,
@@ -151,7 +152,7 @@ export default function GeteilteRoutePage() {
           <h1 className="font-display text-2xl">{route.name}</h1>
           {route.beschreibung && <p className="text-sm text-schaum/70">{route.beschreibung}</p>}
           <p className="flex items-center gap-1.5 text-xs text-schaum/60">
-            <IconPin size={12} /> {stops.length} Stops
+            <IconPin size={12} /> {stopsText(stops.length)}
           </p>
         </Card>
 

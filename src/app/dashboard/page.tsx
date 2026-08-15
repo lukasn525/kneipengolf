@@ -9,7 +9,7 @@ import { Guard } from "@/components/Guard";
 import { TopBar } from "@/components/TopBar";
 import { BottomNav, BottomNavAbstand } from "@/components/BottomNav";
 import { Button, Card, Field, Input, Shell } from "@/components/ui";
-import { handicapWert } from "@/lib/game";
+import { handicapText, handicapWert, stopsText } from "@/lib/game";
 import { IconPapierkorb, IconPin, IconRoute, IconWeiter } from "@/components/Icons";
 import { BarsAnsicht, SpieleAnsicht } from "@/components/Bibliothek";
 import { RoutenAnsicht } from "@/components/RoutenBibliothek";
@@ -250,12 +250,11 @@ function DashboardInner() {
                   <div>
                     <p className="text-sm text-schaum/60">Dein Handicap</p>
                     <p className="text-xs text-schaum/55">
-                      {handicap.stops} gewertete Stops · niedriger ist besser
+                      {stopsText(handicap.stops)} gewertet · niedriger ist besser
                     </p>
                   </div>
                   <p className="mono text-3xl text-bernstein">
-                    {handicap.wert > 0 ? "+" : ""}
-                    {handicap.wert}
+                    {handicapText(handicap.wert)}
                   </p>
                 </div>
                 {statistik && statistik.touren > 0 && (
@@ -302,7 +301,7 @@ function DashboardInner() {
                         <span className="min-w-0 flex-1">
                           <span className="block truncate">{r.name}</span>
                           <span className="flex items-center gap-1 text-xs text-schaum/60">
-                            <IconPin size={11} /> {r.stops.length} Stops · zuletzt{" "}
+                            <IconPin size={11} /> {stopsText(r.stops.length)} · zuletzt{" "}
                             {kurzesDatum(r.zuletztGespielt)}
                           </span>
                         </span>

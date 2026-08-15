@@ -114,6 +114,23 @@ export function handicapWert(
   return { wert: Math.round(avg * 10) / 10, stops: diffs.length };
 }
 
+/**
+ * Handicap als Text: echtes Minuszeichen (−, U+2212) statt Bindestrich und
+ * ein ausgeschriebenes Plus über Par. Bei einer Zahl, die so groß im Profil
+ * steht, sieht man den Unterschied zum Trennstrich sofort.
+ */
+export function handicapText(wert: number | null): string {
+  if (wert === null) return "–";
+  if (wert > 0) return `+${wert}`;
+  if (wert < 0) return `\u2212${Math.abs(wert)}`;
+  return "0";
+}
+
+/** „1 Stop" statt „1 Stops". */
+export function stopsText(anzahl: number): string {
+  return `${anzahl} ${anzahl === 1 ? "Stop" : "Stops"}`;
+}
+
 /** Erzeugt einen lesbaren Tour-Code, z.B. "KOELN-7F3K". */
 export function tourCode(praefix: string): string {
   const zufall = Math.random().toString(36).slice(2, 6).toUpperCase();

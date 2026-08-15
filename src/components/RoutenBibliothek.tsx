@@ -30,6 +30,7 @@ import {
   IconWeiter,
 } from "@/components/Icons";
 import { istModerator } from "@/lib/ugc";
+import { stopsText } from "@/lib/game";
 import {
   freierRoutenName,
   ladeRouten,
@@ -302,7 +303,7 @@ function EigeneRouteZeile({
           </span>
           <span className="mt-0.5 flex items-center gap-1 text-xs text-schaum/60">
             <IconPin size={12} className="shrink-0" />
-            {route.stops.length} Stops
+            {stopsText(route.stops.length)}
             {route.beschreibung ? ` · ${route.beschreibung}` : ""}
           </span>
         </button>
@@ -412,7 +413,7 @@ function FremdeRouteZeile({
             {route.gesperrt && <Chip ton="warn">gesperrt</Chip>}
           </span>
           <span className="mt-0.5 block text-xs text-schaum/60">
-            {route.stops.length} Stops
+            {stopsText(route.stops.length)}
             {route.beschreibung ? ` · ${route.beschreibung}` : ""}
           </span>
         </button>
