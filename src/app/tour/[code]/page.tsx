@@ -1450,10 +1450,13 @@ function Ranglisten({
               <span className="flex-1 min-w-0 truncate">
                 {z.teilnehmer.name}
               </span>
-              <span className="text-xs text-schaum/60">
-                {z.erledigt} Stops
+              {/* Zwei Zeilen statt Umbruch mitten im Wert. */}
+              <span className="shrink-0 text-right text-xs leading-tight text-schaum/60">
+                <span className="block whitespace-nowrap">{z.erledigt} Stops</span>
                 {z.nachgeruecktStops > 0 && (
-                  <span className="text-schaum/55"> +{z.nachgeruecktStops} n.</span>
+                  <span className="block whitespace-nowrap text-schaum/55">
+                    +{z.nachgeruecktStops} geerbt
+                  </span>
                 )}
               </span>
               <span className="mono text-lg w-10 text-right">{z.gesamt}</span>
@@ -1474,7 +1477,7 @@ function Ranglisten({
       <p className="text-xs text-schaum/55">Niedrigster Gesamtwert gewinnt (Golf). Inkl. Strafpunkte über Par.</p>
       {gibtNachgerueckte && (
         <p className="text-xs text-schaum/55">
-          „+n." = nachgerückte Stops: Wer später dazukam, bekommt dort die Punkte des Letzten.
+          „geerbt" = Stops, die jemand nicht mehr spielen konnte. Dafür zählen die Punkte des Letzten.
         </p>
       )}
       {istHost && tour.status !== "beendet" && (

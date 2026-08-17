@@ -244,12 +244,23 @@ function CreateInner() {
     ladeBeliebtheit(ids).then(setBeliebt);
   }, [barListe]);
 
-  // Schnellstart aus dem Hauptmenü: /create?route=<id>
+  /**
+   * Schnellstart aus dem Hauptmenü: /create?route=<id>
+   *
+   * Wer „Nochmal spielen" tippt, hat Route und Regeln längst entschieden –
+   * der springt direkt zur Übersicht. Zurück geht über die Schrittleiste,
+   * falls doch noch etwas geändert werden soll.
+   */
   useEffect(() => {
     const id = params.get("route");
     if (!id || !user || geladeneRoute) return;
     ladeRoute(id).then((r) => {
-      if (r) routeInsFormular(r);
+      if (!r) return;
+      routeInsFormular(r);
+      if (params.get("modus") !== "route") {
+        setErweitertOffen(true);
+        setSchritt(3);
+      }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params, user]);
@@ -985,7 +996,7 @@ function CreateInner() {
               onClick={() => setErweitertOffen((o) => !o)}
               className="flex w-full items-center justify-between text-left"
             >
-              <span className="font-display text-xl">Erweiterte Einstellungen</span>
+              <span className="font-display text-xl">Spielregeln</span>
               <span className="text-schaum/60">{erweitertOffen ? <IconHoch /> : <IconRunter />}</span>
             </button>
 

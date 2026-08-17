@@ -2,10 +2,22 @@
 
 export type KartenStil = "dunkel" | "hell" | "farbig";
 
-export const KARTEN_STILE: { id: KartenStil; label: string; url: string; sub: string }[] = [
+/**
+ * `gruen` schaltet den Flaschengrün-Filter über die Kacheln (siehe
+ * `.kg-karte-gruen` in globals.css). Nur beim dunklen Stil sinnvoll –
+ * helle Karten werden davon schlammig.
+ */
+export const KARTEN_STILE: {
+  id: KartenStil;
+  label: string;
+  url: string;
+  sub: string;
+  gruen?: boolean;
+}[] = [
   {
     id: "dunkel",
-    label: "Dunkel",
+    label: "Clubhouse",
+    gruen: true,
     url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
     sub: "abcd",
   },

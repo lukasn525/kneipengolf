@@ -33,7 +33,6 @@ export type Bar = {
   lng: number;
   adresse: string | null;
   stadt_id: number | null;
-  kategorie: string | null;
   notiz: string | null;
   ersteller_user_id: string | null;
   sichtbarkeit: Sichtbarkeit;

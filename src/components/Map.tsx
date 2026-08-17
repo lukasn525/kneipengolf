@@ -10,9 +10,10 @@ import { kartenTile } from "@/lib/einstellungen";
 
 function pinHtml(glas: GlasTyp, erledigt: boolean, nummer: number): string {
   const id = `${nummer}-${erledigt ? "d" : "o"}`;
-  const dropTop = erledigt ? "#86b06f" : "#f6b943";
-  const dropBot = erledigt ? "#5d8050" : "#e0902a";
-  const badgeBg = erledigt ? "#46663a" : "#2a1d0a";
+  // Palette „Clubhouse": Messing für offene Stops, Moos für erledigte.
+  const dropTop = erledigt ? "#6FAE7C" : "#D9B45E";
+  const dropBot = erledigt ? "#487C55" : "#A8842F";
+  const badgeBg = erledigt ? "#2C5238" : "#0C1F16";
   const badge = erledigt ? "✓" : String(nummer);
   return `
   <svg width="44" height="56" viewBox="0 0 44 56" xmlns="http://www.w3.org/2000/svg">
@@ -24,13 +25,13 @@ function pinHtml(glas: GlasTyp, erledigt: boolean, nummer: number): string {
     </defs>
     <ellipse cx="22" cy="53" rx="7" ry="2.4" fill="rgba(0,0,0,.35)"/>
     <path d="M22 3 C12.6 3 5 10.6 5 20 C5 32 22 51 22 51 C22 51 39 32 39 20 C39 10.6 31.4 3 22 3 Z"
-          fill="url(#drop${id})" stroke="#2a1d0a" stroke-width="2"/>
-    <circle cx="22" cy="20" r="12" fill="#f7f0e1" stroke="#2a1d0a" stroke-width="1.5"/>
+          fill="url(#drop${id})" stroke="#0C1F16" stroke-width="2"/>
+    <circle cx="22" cy="20" r="12" fill="#EEF6E6" stroke="#0C1F16" stroke-width="1.5"/>
     <g transform="translate(10,8)">${glasInnerSvg(glas)}</g>
     <g>
-      <circle cx="34" cy="9" r="7.5" fill="${badgeBg}" stroke="#f7f0e1" stroke-width="1.5"/>
+      <circle cx="34" cy="9" r="7.5" fill="${badgeBg}" stroke="#EEF6E6" stroke-width="1.5"/>
       <text x="34" y="9" text-anchor="middle" dominant-baseline="central"
-            font-family="'Space Mono', monospace" font-size="9" font-weight="700" fill="#f7f0e1">${badge}</text>
+            font-family="'Space Mono', monospace" font-size="9" font-weight="700" fill="#EEF6E6">${badge}</text>
     </g>
   </svg>`;
 }
@@ -51,10 +52,10 @@ function pendingIcon() {
   <svg width="46" height="58" viewBox="0 0 46 58" xmlns="http://www.w3.org/2000/svg">
     <ellipse cx="23" cy="55" rx="7" ry="2.4" fill="rgba(0,0,0,.35)"/>
     <path d="M23 3 C13 3 5 11 5 21 C5 33 23 53 23 53 C23 53 41 33 41 21 C41 11 33 3 23 3 Z"
-          fill="#f6b943" stroke="#2a1d0a" stroke-width="2"/>
-    <circle cx="23" cy="21" r="11" fill="#2a1d0a"/>
+          fill="#C9A24A" stroke="#0C1F16" stroke-width="2"/>
+    <circle cx="23" cy="21" r="11" fill="#0C1F16"/>
     <text x="23" y="21" text-anchor="middle" dominant-baseline="central"
-          font-size="15" font-weight="800" fill="#f6b943">+</text>
+          font-size="15" font-weight="800" fill="#C9A24A">+</text>
   </svg>`;
   return L.divIcon({
     className: "kneipe-pin kneipe-pin-pending",
@@ -141,7 +142,12 @@ export default function Map({
 }) {
   const tile = kartenTile();
   return (
-    <MapContainer center={center} zoom={zoom} zoomControl={false} className="h-full w-full">
+    <MapContainer
+      center={center}
+      zoom={zoom}
+      zoomControl={false}
+      className={`h-full w-full ${tile.gruen ? "kg-karte-gruen" : ""}`}
+    >
       <TileLayer
         url={tile.url}
         subdomains={tile.sub}
@@ -162,13 +168,13 @@ export default function Map({
           />
           <Polyline
             positions={routeCoords}
-            pathOptions={{ color: "#f6b943", weight: 5, opacity: 0.95, lineJoin: "round", lineCap: "round" }}
+            pathOptions={{ color: "#C9A24A", weight: 5, opacity: 0.95, lineJoin: "round", lineCap: "round" }}
           />
         </>
       ) : route && stops.length > 1 ? (
         <Polyline
           positions={stops.map((s) => [s.lat, s.lng] as [number, number])}
-          pathOptions={{ color: "#f6b943", weight: 3, opacity: 0.55, dashArray: "6 8" }}
+          pathOptions={{ color: "#C9A24A", weight: 3, opacity: 0.55, dashArray: "6 8" }}
         />
       ) : null}
 

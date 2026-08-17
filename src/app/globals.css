@@ -47,6 +47,17 @@ h3,
   background: #0f241a;
 }
 
+/*
+  Flaschengrüner Kartenstil.
+  Der Filter liegt bewusst NUR auf der Kachel-Ebene: Pins, Route und
+  Bedienelemente liegen in eigenen Leaflet-Panes und behalten dadurch
+  ihr Messing und Moos. Werte an einer nachgebauten CARTO-dark_all-Kachel
+  ausgewählt – grün genug, Straßennamen bleiben lesbar.
+*/
+.kg-karte-gruen .leaflet-tile-pane {
+  filter: sepia(0.5) hue-rotate(78deg) saturate(2) brightness(0.86) contrast(1.05);
+}
+
 /* Kneipen-Pin (SVG-Tropfen mit Comic-Glas) */
 .kneipe-pin {
   background: none;

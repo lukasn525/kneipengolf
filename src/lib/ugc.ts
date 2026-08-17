@@ -119,7 +119,6 @@ export async function barAnlegen(
     lng: number;
     adresse?: string | null;
     stadt_id?: number | null;
-    kategorie?: string | null;
   }
 ): Promise<Bar | null> {
   const { data, error } = await supabase()
@@ -130,7 +129,6 @@ export async function barAnlegen(
       lng: bar.lng,
       adresse: bar.adresse ?? null,
       stadt_id: bar.stadt_id ?? null,
-      kategorie: bar.kategorie ?? null,
       ersteller_user_id: userId,
       sichtbarkeit: "privat",
     })

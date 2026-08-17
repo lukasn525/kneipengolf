@@ -45,8 +45,17 @@ export function SeitenKopf({
     else router.push(zurueckZu);
   }
 
+  /*
+   * Der Hintergrund läuft über ein Pseudo-Element auf volle Fensterbreite.
+   * Ohne das endet die klebende Leiste auf breiten Bildschirmen an der
+   * Inhaltskante, und darunter scrollt der Inhalt sichtbar vorbei.
+   */
   return (
-    <header className="sticky top-0 z-[900] -mx-4 flex items-center gap-1 border-b border-[var(--linie)] bg-nacht/95 px-4 py-2 backdrop-blur">
+    <header
+      className="sticky top-0 z-[900] -mx-4 flex items-center gap-1 border-b border-[var(--linie)] px-4 py-2
+                 before:absolute before:inset-y-0 before:left-1/2 before:-z-10 before:w-screen
+                 before:-translate-x-1/2 before:bg-nacht/95 before:backdrop-blur before:content-['']"
+    >
       <button
         onClick={zurueck}
         className="-ml-2 flex min-h-[44px] shrink-0 items-center gap-1 rounded-lg px-2 text-schaum/70 transition hover:text-schaum"
