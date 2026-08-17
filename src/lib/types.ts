@@ -38,6 +38,12 @@ export type Bar = {
   sichtbarkeit: Sichtbarkeit;
   gesperrt: boolean;
   sortierung: number | null;
+  /**
+   * Höchstens drei Begriffe aus dem Vokabular in `src/lib/tags.ts`.
+   * Optional, weil Bars ohne Tags ausdrücklich in Ordnung sind – der
+   * Zugriff läuft über `barTags()`, nie direkt.
+   */
+  tags?: string[] | null;
   /** 'uebernommen' = aus einer geteilten Route in die eigene Liste kopiert */
   herkunft?: BarHerkunft;
   /** Ursprungsbar der Kopie (weich – wird NULL, wenn das Original verschwindet) */

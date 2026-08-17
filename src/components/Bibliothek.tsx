@@ -23,10 +23,13 @@ import {
   IconFlamme,
   IconPlus,
   IconSchloss,
+  IconStift,
   IconUebernommen,
   IconWarnung,
   IconX,
 } from "@/components/Icons";
+import { TagFilter, TagListe, TagWahl } from "@/components/TagChips";
+import { barTags, passtZuTags } from "@/lib/tags";
 import {
   barAnlegen,
   barAusblenden,
@@ -34,6 +37,7 @@ import {
   barMelden,
   barSichtbarkeitSetzen,
   barSperren,
+  barTagsSetzen,
   darfBearbeiten,
   istModerator,
   ladeBars,
@@ -209,6 +213,7 @@ export function BarsAnsicht({
   const [formOffen, setFormOffen] = useState(false);
   const [treffer, setTreffer] = useState<GeoTreffer | null>(null);
   const [name, setName] = useState("");
+  const [neueTags, setNeueTags] = useState<string[]>([]);
   const [stadtId, setStadtId] = useState<number | null>(null);
   /** Wurde die Stadt automatisch gesetzt? Nur für den Hinweistext. */
   const [stadtAuto, setStadtAuto] = useState<Ortstreffer | null>(null);
@@ -217,6 +222,13 @@ export function BarsAnsicht({
   const [nurEigene, setNurEigene] = useState(false);
   /** Stadt-Filter über beide Listen */
   const [filter, setFilter] = useState<StadtFilter>("alle");
+  /**
+   * Tag-Filter, kombinierbar mit dem Stadt-Filter. Leer = keine
+   * Einschränkung. `ohneTags` steht daneben und schließt die Tag-Auswahl
+   * aus – „gemütlich UND ohne Tags" wäre per Definition leer.
+   */
+  const [tagFilter, setTagFilter] = useState<string[]>([]);
+  const [ohneTags, setOhneTags] = useState(false);
   const [stadtwahlOffen, setStadtwahlOffen] = useState(false);
   const [stadtSuche, setStadtSuche] = useState("");
   /** Volle Städteliste im Anlege-Formular (sonst reicht der erkannte Chip) */
@@ -254,6 +266,7 @@ export function BarsAnsicht({
       lng: treffer.lng,
       adresse: treffer.label,
       stadt_id: stadtId,
+      tags: neueTags,
     });
     setBusy(false);
     if (!bar) {
@@ -261,6 +274,7 @@ export function BarsAnsicht({
       return;
     }
     setName("");
+    setNeueTags([]);
     setTreffer(null);
     setStadtId(null);
     setStadtAuto(null);
@@ -269,6 +283,8 @@ export function BarsAnsicht({
     // Filter mitziehen, sonst landet die neue Bar hinter einem aktiven
     // Stadt-Filter und wirkt, als wäre sie nicht gespeichert worden.
     setFilter(bar.stadt_id ?? "ohne");
+    setTagFilter([]);
+    setOhneTags(false);
     setMeldung(`„${bar.name}" ist gespeichert – privat, nur für dich.`);
     laden();
   }
@@ -310,15 +326,30 @@ export function BarsAnsicht({
 
   const anzahlFuer = (f: StadtFilter) => alleBars.filter((b) => trifftZu(b, f)).length;
 
+  /**
+   * Tag-Bedingung, getrennt von der Stadt-Bedingung: beide gelten
+   * gleichzeitig („Bonn" + „gemütlich"), aber jede zählt für sich.
+   */
+  const trifftTags = (b: Bar) =>
+    ohneTags ? barTags(b).length === 0 : passtZuTags(b, tagFilter);
+
+  /** Zählung für die Tag-Chips – innerhalb der schon gewählten Stadt. */
+  const inStadt = alleBars.filter((b) => trifftZu(b, filter));
+  const anzahlFuerTag = (tag: string) => inStadt.filter((b) => barTags(b).includes(tag)).length;
+  const ohneTagsAnzahl = inStadt.filter((b) => barTags(b).length === 0).length;
+
   const sortiere = (l: Bar[]) =>
     sortierung === "beliebt"
       ? nachBeliebtheit(l, werte)
       : [...l].sort((a, b) => a.name.localeCompare(b.name, "de"));
 
-  const eigeneGefiltert = sortiere(liste.eigene.filter((b) => trifftZu(b, filter)));
+  const eigeneGefiltert = sortiere(
+    liste.eigene.filter((b) => trifftZu(b, filter)).filter(trifftTags)
+  );
   const fremdeGefiltert = sortiere(
     fremde
       .filter((b) => trifftZu(b, filter))
+      .filter(trifftTags)
       .filter((b) => (nurEigene ? liste.ausgeblendet.has(b.id) : true))
   );
 
@@ -447,6 +478,7 @@ export function BarsAnsicht({
                       ? "Stadt selbst gewählt."
                       : "Keine Stadt erkannt – optional selbst zuordnen."}
                 </p>
+                <TagWahl wert={neueTags} onChange={setNeueTags} />
                 <Button className="w-full" disabled={!name.trim() || busy} onClick={anlegen}>
                   {busy ? "speichere…" : "Privat speichern"}
                 </Button>
@@ -500,6 +532,22 @@ export function BarsAnsicht({
               </button>
             )}
           </div>
+
+          {/* Zweite Zeile: Tags. Kombiniert mit der Stadt darüber. */}
+          <TagFilter
+            gewaehlt={tagFilter}
+            onChange={(t) => {
+              setTagFilter(t);
+              if (t.length > 0) setOhneTags(false);
+            }}
+            anzahlFuer={anzahlFuerTag}
+            ohneAnzahl={ohneTagsAnzahl}
+            ohneAktiv={ohneTags}
+            onOhne={() => {
+              setOhneTags((o) => !o);
+              setTagFilter([]);
+            }}
+          />
 
           <div className="flex items-center gap-3 text-xs text-schaum/55">
             <span>Sortierung</span>
@@ -649,6 +697,27 @@ function BarZeile({
   const darf = darfBearbeiten(bar, userId, rolle);
   const oeffentlich = bar.sichtbarkeit === "oeffentlich";
 
+  /**
+   * Tags werden direkt in der Zeile bearbeitet – ein eigener
+   * Bearbeiten-Screen wäre für drei Chips zu viel Weg. `entwurf !== null`
+   * heißt: die Auswahl ist offen.
+   */
+  const [entwurf, setEntwurf] = useState<string[] | null>(null);
+  const [tagsBusy, setTagsBusy] = useState(false);
+
+  async function tagsSpeichern() {
+    if (!entwurf) return;
+    setTagsBusy(true);
+    const ok = await barTagsSetzen(bar.id, entwurf);
+    setTagsBusy(false);
+    if (!ok) {
+      onMeldung("Die Tags ließen sich nicht speichern.");
+      return;
+    }
+    setEntwurf(null);
+    onAendern();
+  }
+
   async function sichtbarkeitUmschalten() {
     if (
       !oeffentlich &&
@@ -696,71 +765,105 @@ function BarZeile({
 
   return (
     <li
-      className={`flex items-center gap-2 rounded-xl border px-3 py-2 ${
+      className={`rounded-xl border px-3 py-2 ${
         ausgeblendet
           ? "border-[var(--linie)] bg-nacht-3/40 opacity-60"
           : "border-[var(--linie)] bg-nacht-3"
       }`}
     >
-      <span className="min-w-0 flex-1">
-        <span className="flex flex-wrap items-center gap-2">
-          <span className="truncate">{bar.name}</span>
-          <BeliebtheitsChip wert={beliebtheit} />
-          {eigen && <SichtbarkeitsChip oeffentlich={oeffentlich} />}
-          {eigen && bar.herkunft === "uebernommen" && <UebernommenChip />}
-          {bar.gesperrt && (
-            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-ziegel/20 px-2 py-0.5 text-[11px] text-ziegel">
-              <IconWarnung size={11} /> gesperrt
+      <div className="flex items-center gap-2">
+        <span className="min-w-0 flex-1">
+          <span className="flex flex-wrap items-center gap-2">
+            <span className="truncate">{bar.name}</span>
+            <BeliebtheitsChip wert={beliebtheit} />
+            {eigen && <SichtbarkeitsChip oeffentlich={oeffentlich} />}
+            {eigen && bar.herkunft === "uebernommen" && <UebernommenChip />}
+            {bar.gesperrt && (
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-ziegel/20 px-2 py-0.5 text-[11px] text-ziegel">
+                <IconWarnung size={11} /> gesperrt
+              </span>
+            )}
+          </span>
+          {/* Tags stehen unter dem Namen: sie beschreiben den Laden,
+              sie sind kein Status wie „privat" oder „gesperrt". */}
+          {barTags(bar).length > 0 && (
+            <span className="mt-1 flex flex-wrap items-center gap-1.5">
+              <TagListe bar={bar} />
             </span>
           )}
+          {beliebtheitText(beliebtheit) ? (
+            <span className="block truncate text-xs text-schaum/60">
+              {beliebtheitText(beliebtheit)}
+            </span>
+          ) : (
+            bar.adresse && (
+              <span className="block truncate text-xs text-schaum/60">{bar.adresse}</span>
+            )
+          )}
         </span>
-        {beliebtheitText(beliebtheit) ? (
-          <span className="block truncate text-xs text-schaum/60">
-            {beliebtheitText(beliebtheit)}
-          </span>
-        ) : (
-          bar.adresse && <span className="block truncate text-xs text-schaum/60">{bar.adresse}</span>
-        )}
-      </span>
 
-      <IconKnopf
-        titel={ausgeblendet ? "wieder einblenden" : "für mich ausblenden"}
-        onClick={ausblendenUmschalten}
-      >
-        {ausgeblendet ? <IconAugeAus size={17} /> : <IconAuge size={17} />}
-      </IconKnopf>
-
-      {darf && (
-        <>
+        {darf && (
           <IconKnopf
-            titel={oeffentlich ? "wieder privat stellen" : "öffentlich stellen"}
-            onClick={sichtbarkeitUmschalten}
+            titel={entwurf ? "Tags schließen" : "Tags bearbeiten"}
+            onClick={() => setEntwurf(entwurf ? null : barTags(bar))}
           >
-            {oeffentlich ? <IconSchloss size={17} /> : <IconGlobus size={17} />}
+            {entwurf ? <IconX size={17} /> : <IconStift size={17} />}
           </IconKnopf>
-          <IconKnopf titel="löschen" gefahr onClick={loeschen}>
-            <IconPapierkorb size={17} />
-          </IconKnopf>
-        </>
-      )}
+        )}
 
-      {!darf && !eigen && (
-        <IconKnopf titel="Bar melden" onClick={melden}>
-          <IconWarnung size={17} />
-        </IconKnopf>
-      )}
-
-      {istModerator(rolle) && !eigen && (
         <IconKnopf
-          titel={bar.gesperrt ? "entsperren" : "global sperren"}
-          gefahr={!bar.gesperrt}
-          onClick={async () => {
-            await barSperren(bar.id, !bar.gesperrt);
-            onAendern();
-          }}
+          titel={ausgeblendet ? "wieder einblenden" : "für mich ausblenden"}
+          onClick={ausblendenUmschalten}
         >
-          <IconSchloss size={17} />
+          {ausgeblendet ? <IconAugeAus size={17} /> : <IconAuge size={17} />}
         </IconKnopf>
+
+        {darf && (
+          <>
+            <IconKnopf
+              titel={oeffentlich ? "wieder privat stellen" : "öffentlich stellen"}
+              onClick={sichtbarkeitUmschalten}
+            >
+              {oeffentlich ? <IconSchloss size={17} /> : <IconGlobus size={17} />}
+            </IconKnopf>
+            <IconKnopf titel="löschen" gefahr onClick={loeschen}>
+              <IconPapierkorb size={17} />
+            </IconKnopf>
+          </>
+        )}
+
+        {!darf && !eigen && (
+          <IconKnopf titel="Bar melden" onClick={melden}>
+            <IconWarnung size={17} />
+          </IconKnopf>
+        )}
+
+        {istModerator(rolle) && !eigen && (
+          <IconKnopf
+            titel={bar.gesperrt ? "entsperren" : "global sperren"}
+            gefahr={!bar.gesperrt}
+            onClick={async () => {
+              await barSperren(bar.id, !bar.gesperrt);
+              onAendern();
+            }}
+          >
+            <IconSchloss size={17} />
+          </IconKnopf>
+        )}
+      </div>
+
+      {entwurf && (
+        <div className="mt-3 space-y-3 border-t border-[var(--linie)] pt-3">
+          <TagWahl wert={entwurf} onChange={setEntwurf} />
+          <div className="flex gap-2">
+            <Button className="flex-1" disabled={tagsBusy} onClick={tagsSpeichern}>
+              {tagsBusy ? "speichere…" : "Tags speichern"}
+            </Button>
+            <Button variant="ghost" onClick={() => setEntwurf(null)}>
+              Abbrechen
+            </Button>
+          </div>
+        </div>
       )}
     </li>
   );

@@ -36,6 +36,8 @@ import {
   spielformLoeschen,
   type BarListe,
 } from "@/lib/ugc";
+import { TagFilter, TagListe } from "@/components/TagChips";
+import { barTags, passtZuTags } from "@/lib/tags";
 import { erkenneStadt } from "@/lib/orte";
 import {
   beliebtheitText,
@@ -114,6 +116,12 @@ function CreateInner() {
   const [beliebt, setBeliebt] = useState<BeliebtheitMap>(leereBeliebtheit);
   const [pickerOffen, setPickerOffen] = useState(false);
   const [pickerTab, setPickerTab] = useState<"liste" | "selbst">("liste");
+  /**
+   * Tag-Filter im Bar-Picker. Bewusst nur hier und nicht global: beim
+   * Routenbauen ist die Frage „was für ein Laden", in der Bibliothek
+   * dagegen meist „welche Bar noch mal".
+   */
+  const [pickerTags, setPickerTags] = useState<string[]>([]);
 
   /**
    * Schritt im Ablauf „Neues Spiel": 1 Route · 2 Regeln · 3 Übersicht.
@@ -187,6 +195,22 @@ function CreateInner() {
   const verfuegbareEigene = (barListe?.eigene ?? []).filter(frei);
   const verfuegbareGesamt =
     verfuegbareKuratiert.length + verfuegbareCommunity.length + verfuegbareEigene.length;
+  // Der Tag-Filter greift erst bei der Anzeige. Sonst würde ein Filter
+  // ohne Treffer den ganzen Reiter „Aus Liste" deaktivieren – und es sähe
+  // aus, als wäre die Bibliothek leer statt die Auswahl zu eng.
+  const nachTags = (l: Bar[]) => l.filter((b) => passtZuTags(b, pickerTags));
+  const alleVerfuegbaren = [
+    ...verfuegbareEigene,
+    ...verfuegbareKuratiert,
+    ...verfuegbareCommunity,
+  ];
+  const anzahlFuerTag = (tag: string) =>
+    alleVerfuegbaren.filter((b) => barTags(b).includes(tag)).length;
+  const gefiltertEigene = nachTags(verfuegbareEigene);
+  const gefiltertKuratiert = nachTags(verfuegbareKuratiert);
+  const gefiltertCommunity = nachTags(verfuegbareCommunity);
+  const gefiltertGesamt =
+    gefiltertEigene.length + gefiltertKuratiert.length + gefiltertCommunity.length;
   const mapCenter = useMemo<[number, number]>(() => {
     if (stops.length) {
       const la = stops.reduce((a, s) => a + s.lat, 0) / stops.length;
@@ -418,6 +442,9 @@ function CreateInner() {
 
   function openPicker() {
     setPending(null);
+    // Frisch aufmachen heißt frisch anfangen – ein Filter von vorhin
+    // sähe aus, als wäre die Bibliothek geschrumpft.
+    setPickerTags([]);
     setPickerTab(verfuegbareGesamt > 0 ? "liste" : "selbst");
     setPickerOffen(true);
   }
@@ -1375,25 +1402,39 @@ function CreateInner() {
                   </p>
                 ) : (
                   <div className="space-y-4">
-                    <BarGruppe
-                      titel="Meine Bars"
-                      bars={verfuegbareEigene}
-                      beliebt={beliebt}
-                      onWaehlen={barHinzufuegen}
-                      hervorgehoben
+                    <TagFilter
+                      gewaehlt={pickerTags}
+                      onChange={setPickerTags}
+                      anzahlFuer={anzahlFuerTag}
                     />
-                    <BarGruppe
-                      titel="Vorschläge"
-                      bars={verfuegbareKuratiert}
-                      beliebt={beliebt}
-                      onWaehlen={barHinzufuegen}
-                    />
-                    <BarGruppe
-                      titel="Von der Community"
-                      bars={verfuegbareCommunity}
-                      beliebt={beliebt}
-                      onWaehlen={barHinzufuegen}
-                    />
+                    {gefiltertGesamt === 0 ? (
+                      <p className="mt-6 text-center text-sm text-schaum/60">
+                        Keine Bar mit dieser Auswahl. Tag abwählen – oder unter „Selbst
+                        hinzufügen" eine neue eintragen.
+                      </p>
+                    ) : (
+                      <>
+                        <BarGruppe
+                          titel="Meine Bars"
+                          bars={gefiltertEigene}
+                          beliebt={beliebt}
+                          onWaehlen={barHinzufuegen}
+                          hervorgehoben
+                        />
+                        <BarGruppe
+                          titel="Vorschläge"
+                          bars={gefiltertKuratiert}
+                          beliebt={beliebt}
+                          onWaehlen={barHinzufuegen}
+                        />
+                        <BarGruppe
+                          titel="Von der Community"
+                          bars={gefiltertCommunity}
+                          beliebt={beliebt}
+                          onWaehlen={barHinzufuegen}
+                        />
+                      </>
+                    )}
                     <p className="pt-2 text-xs text-schaum/55">
                       Bars aus- oder einblenden kannst du im Hauptmenü unter „Bars".
                     </p>
@@ -1545,6 +1586,11 @@ function BarGruppe({
                   </span>
                 )}
               </span>
+              {barTags(b).length > 0 && (
+                <span className="mt-1 flex flex-wrap items-center gap-1.5">
+                  <TagListe bar={b} />
+                </span>
+              )}
               <span className="block truncate text-xs text-schaum/60">
                 {beliebtheitText(beliebt.get(b.id)) ?? b.adresse}
               </span>

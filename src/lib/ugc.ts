@@ -14,6 +14,7 @@
  */
 
 import { supabase } from "./supabaseClient";
+import { tagsFuerSpeichern } from "./tags";
 import type { Bar, BenutzerRolle, Sichtbarkeit, Spielform } from "./types";
 
 const GERAET_KEY = "kg-geraet-id";
@@ -119,6 +120,7 @@ export async function barAnlegen(
     lng: number;
     adresse?: string | null;
     stadt_id?: number | null;
+    tags?: string[];
   }
 ): Promise<Bar | null> {
   const { data, error } = await supabase()
@@ -131,6 +133,9 @@ export async function barAnlegen(
       stadt_id: bar.stadt_id ?? null,
       ersteller_user_id: userId,
       sichtbarkeit: "privat",
+      // Immer durch `tagsFuerSpeichern` – die Datenbank prüft nur die
+      // Anzahl, das Vokabular hält allein der Client sauber.
+      tags: tagsFuerSpeichern(bar.tags ?? []),
     })
     .select()
     .single();
@@ -148,6 +153,21 @@ export async function barSichtbarkeitSetzen(
 
 export async function barUmbenennen(barId: string, name: string): Promise<boolean> {
   const { error } = await supabase().from("bars").update({ name: name.trim() }).eq("id", barId);
+  return !error;
+}
+
+/**
+ * Setzt die Tags einer Bar neu (ersetzend, nicht ergänzend).
+ *
+ * Wer das darf, entscheidet die RLS-Policy `bars_aendern` – Ersteller
+ * oder Moderation. Die UI bietet es nur an, wo `darfBearbeiten` gilt;
+ * geht doch etwas durch, blockt die Datenbank.
+ */
+export async function barTagsSetzen(barId: string, tags: string[]): Promise<boolean> {
+  const { error } = await supabase()
+    .from("bars")
+    .update({ tags: tagsFuerSpeichern(tags) })
+    .eq("id", barId);
   return !error;
 }
 
