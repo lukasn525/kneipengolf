@@ -12,7 +12,6 @@ import { Button, Card, Field, Input, Shell } from "@/components/ui";
 import { rangliste, scoreEintrag, tourCode } from "@/lib/game";
 import { holeRoute, googleMapsUrl } from "@/lib/nav";
 import { IconFlamme, IconKompass, IconPokal, IconWeiter, IconX } from "@/components/Icons";
-import { geraetId } from "@/lib/ugc";
 import { empfehlungSetzen, ladeEigeneEmpfehlungen } from "@/lib/beliebtheit";
 import type {
   Ergebnis,
@@ -22,6 +21,7 @@ import type {
   Teilnehmer,
   Tour,
   TourKneipe,
+  TourVorschau,
 } from "@/lib/types";
 
 const Map = dynamic(() => import("@/components/Map"), {
@@ -61,6 +61,17 @@ function TourInner() {
   const [aktionsFehler, setAktionsFehler] = useState<string | null>(null);
   const [panel, setPanel] = useState<TourKneipe | null>(null);
   const [ladefehler, setLadefehler] = useState<string | null>(null);
+  /**
+   * Runde existiert, aber wir gehören (noch) nicht dazu.
+   *
+   * Seit der Mitgliedschafts-RLS liefert ein normales SELECT auf `touren`
+   * für Außenstehende nichts – sonst könnte jedes Konto jede fremde Runde
+   * mitlesen. Damit die Lobby trotzdem nicht leer bleibt, holt
+   * `tour_vorschau()` das Nötigste: Name, Status, Anzahl. Mehr sieht man
+   * erst nach dem Beitritt.
+   */
+  const [vorschau, setVorschau] = useState<TourVorschau | null>(null);
+  const [beitrittBusy, setBeitrittBusy] = useState(false);
   const [bereit, setBereit] = useState(false);
   const [routeCoords, setRouteCoords] = useState<[number, number][]>([]);
   const [rematchBusy, setRematchBusy] = useState(false);
@@ -86,10 +97,20 @@ function TourInner() {
         .maybeSingle();
       if (tErr) throw tErr; // Netz-/Serverfehler -> Offline-Fallback unten
       if (!t) {
-        setLadefehler("Tour nicht gefunden.");
+        // Kein Zugriff – aber vielleicht gibt es die Runde und wir sind
+        // nur noch nicht dabei. Genau der Fall beim Einladungslink.
+        const { data: v } = await sb.rpc("tour_vorschau", { p_code: upper });
+        const treffer = (v as TourVorschau[] | null)?.[0] ?? null;
+        if (treffer) {
+          setVorschau(treffer);
+          setLadefehler(null);
+        } else {
+          setLadefehler("Tour nicht gefunden.");
+        }
         setBereit(true);
         return;
       }
+      setVorschau(null);
       const [k, c, te, er, sf] = await Promise.all([
         sb.from("tour_kneipen").select("*").eq("tour_id", t.id).order("position"),
         sb.from("kneipen_challenge").select("*").eq("tour_id", t.id),
@@ -268,19 +289,24 @@ function TourInner() {
     return { platz: i + 1, gesamt: zeilen[i].gesamt, von: zeilen.length };
   }, [teilnehmer, ergebnisse, tour, aktivId, reihenfolge]);
 
-  // ── Gameplay: wen verwaltet dieses Gerät? ──────────────
-  // Pass-and-Play: Teilnehmer mit unserer geraet_id. Für ältere Touren ohne
-  // geraet_id fallen wir auf „eigener Account + Namen ohne Konto" zurück.
-  const meinGeraet = useMemo(() => geraetId(), []);
-  const meineTeilnehmer = useMemo(() => {
-    const mitGeraet = teilnehmer.filter((t) => t.geraet_id === meinGeraet);
-    if (mitGeraet.length) return mitGeraet;
-    return teilnehmer.filter((t) => t.user_id === user?.id || t.user_id === null);
-  }, [teilnehmer, meinGeraet, user?.id]);
+  // ── Gameplay: für wen darf dieses Konto werten? ────────
+  //
+  // Ich selbst plus meine Gäste. Früher hing das an einer `geraet_id` aus
+  // dem localStorage – die ist gelöscht, sobald man Browserdaten leert
+  // oder das Handy wechselt, und als Rechtekriterium war sie ohnehin
+  // wertlos (jeder Client kann jede behaupten). `verwaltet_von` hängt am
+  // Konto und deckt sich exakt mit dem, was die RLS erlaubt.
+  const meineTeilnehmer = useMemo(
+    () =>
+      user
+        ? teilnehmer.filter((t) => t.user_id === user.id || t.verwaltet_von === user.id)
+        : [],
+    [teilnehmer, user]
+  );
 
   const binDabei = useMemo(
-    () => teilnehmer.some((t) => t.geraet_id === meinGeraet || (!!user && t.user_id === user.id)),
-    [teilnehmer, meinGeraet, user]
+    () => !!user && teilnehmer.some((t) => t.user_id === user.id),
+    [teilnehmer, user]
   );
 
   function hatGewertet(kneipeId: string, tid: string) {
@@ -307,27 +333,47 @@ function TourInner() {
   }
 
   // ── Aktionen ───────────────────────────────────────────
-  async function teilnehmerHinzufuegen(name: string, alsGeraet: boolean) {
-    if (!tour || !name.trim()) return;
+  /**
+   * Zwei verschiedene Vorgänge hinter einem Knopf:
+   *
+   *  • `alsIchSelbst` – ich trete mit meinem Konto bei. Läuft über
+   *    `tour_beitreten()`, weil ich die Runde vorher gar nicht lesen darf
+   *    (Henne-Ei). Die Funktion ist idempotent: zweimal antippen legt
+   *    keinen zweiten Spieler an.
+   *  • sonst – ich lege einen Gast an. Ein Gast ist nur ein Name in dieser
+   *    Runde: kein Konto, keine Statistik. Er gehört meinem Konto, und nur
+   *    ich (oder der Host) kann für ihn werten.
+   */
+  async function teilnehmerHinzufuegen(name: string, alsIchSelbst: boolean) {
+    if (!name.trim() || !user) return;
+
+    if (alsIchSelbst) {
+      setBeitrittBusy(true);
+      const { data, error } = await supabase().rpc("tour_beitreten", {
+        p_code: upper,
+        p_name: name.trim(),
+      });
+      setBeitrittBusy(false);
+      if (error) {
+        setAktionsFehler("Beitreten fehlgeschlagen: " + error.message);
+        return;
+      }
+      await ladeAlles();
+      if (typeof data === "string") waehleAktiv(data);
+      return;
+    }
+
+    if (!tour) return;
     const { data, error } = await supabase()
       .from("teilnehmer")
-      .insert({
-        tour_id: tour.id,
-        name: name.trim(),
-        user_id: alsGeraet ? user?.id ?? null : null,
-        // Dieses Gerät verwaltet den Teilnehmer -> Basis für den Auto-Wechsel
-        geraet_id: meinGeraet,
-      })
+      .insert({ tour_id: tour.id, name: name.trim(), verwaltet_von: user.id })
       .select()
       .single();
     if (error) {
-      setAktionsFehler("Beitreten fehlgeschlagen: " + error.message);
+      setAktionsFehler("Gast hinzufügen fehlgeschlagen: " + error.message);
       return;
     }
-    if (data) {
-      await ladeTeilnehmer(tour.id);
-      if (alsGeraet) waehleAktiv((data as Teilnehmer).id);
-    }
+    if (data) await ladeTeilnehmer(tour.id);
   }
 
   /**
@@ -337,7 +383,10 @@ function TourInner() {
    * Die Ergebnisse hängen per ON DELETE CASCADE mit dran.
    */
   async function teilnehmerEntfernen(t: Teilnehmer) {
-    if (!tour || !istHost) return;
+    // Der Host darf jeden entfernen; wer einen Gast angelegt hat, darf
+    // seinen eigenen wieder rausnehmen. Deckt sich mit `tn_loeschen`.
+    const darfEntfernen = istHost || (!!user && t.verwaltet_von === user.id);
+    if (!tour || !darfEntfernen) return;
     if (
       !window.confirm(
         `${t.name} aus der Tour entfernen? Alle Wertungen dieser Person gehen verloren.`
@@ -595,6 +644,42 @@ function TourInner() {
       </Shell>
     );
   }
+  /*
+   * Eingeladen, aber noch nicht dabei. Bewusst eine eigene, karge Ansicht:
+   * Wer nicht in der Runde ist, sieht weder Stops noch Namen noch Punkte –
+   * nur, dass es die Runde gibt und wie viele mitspielen.
+   */
+  if (!tour && vorschau) {
+    return (
+      <Shell>
+        <SeitenKopf titel={upper} />
+        <Card className="mt-3 space-y-4">
+          <div>
+            <h1 className="font-display text-2xl">{vorschau.name ?? "Kneipen-Golf"}</h1>
+            <p className="mt-1 text-sm text-schaum/60">
+              {vorschau.status === "beendet"
+                ? "Diese Runde ist schon vorbei."
+                : `${vorschau.anzahl_teilnehmer} ${
+                    vorschau.anzahl_teilnehmer === 1 ? "Person spielt" : "Personen spielen"
+                  } mit.`}
+            </p>
+          </div>
+          {vorschau.status === "beendet" ? (
+            <p className="text-sm text-schaum/60">
+              Beitreten geht nicht mehr. Wer dabei war, sieht sie weiterhin im Dashboard.
+            </p>
+          ) : (
+            <BeitrittsFeld
+              busy={beitrittBusy}
+              onBeitreten={(n) => teilnehmerHinzufuegen(n, true)}
+            />
+          )}
+          {aktionsFehler && <p className="text-sm text-ziegel">{aktionsFehler}</p>}
+        </Card>
+      </Shell>
+    );
+  }
+
   if (ladefehler || !tour) {
     return (
       <Shell>
@@ -1672,5 +1757,37 @@ export default function TourPage() {
     <Guard>
       <TourInner />
     </Guard>
+  );
+}
+
+/**
+ * Namensfeld für den Beitritt über einen Einladungslink. Eigenes kleines
+ * Bauteil, weil die Vorschau-Ansicht keine Tour-Daten hat – der ganze
+ * Lobby-Block darüber setzt eine geladene Tour voraus.
+ */
+function BeitrittsFeld({
+  busy,
+  onBeitreten,
+}: {
+  busy: boolean;
+  onBeitreten: (name: string) => void;
+}) {
+  const [name, setName] = useState("");
+  return (
+    <div className="space-y-3">
+      <Field label="Dein Name">
+        <Input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Wie sollen dich die anderen sehen?"
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && name.trim() && !busy) onBeitreten(name);
+          }}
+        />
+      </Field>
+      <Button className="w-full" disabled={!name.trim() || busy} onClick={() => onBeitreten(name)}>
+        {busy ? "trete bei…" : "Beitreten"}
+      </Button>
+    </div>
   );
 }

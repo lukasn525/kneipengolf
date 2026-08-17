@@ -133,14 +133,39 @@ export type TourKneipe = {
   bar_id?: string | null;
 };
 
+/**
+ * Ein Mitspieler in einer Tour – entweder ein Konto oder ein Gast.
+ *
+ * Genau eines von beiden ist gesetzt:
+ *  • `user_id`       – eigenes Konto, eigenes Handy, eigene Statistik.
+ *  • `verwaltet_von` – Gast: nur ein Name in dieser Runde. Kein Konto,
+ *    keine Historie, keine Rechte. Er gehört dem Konto, das ihn angelegt
+ *    hat; nur dieses (oder der Host) kann für ihn werten.
+ *
+ * Ein Gast wird nie zu einem Konto. Wer später mit eigener App dazukommt,
+ * tritt als neuer Teilnehmer bei – Punkte wandern nicht mit.
+ */
 export type Teilnehmer = {
   id: string;
   tour_id: string;
   name: string;
   user_id: string | null;
-  /** Gerät, das diesen Teilnehmer verwaltet (Pass-and-Play) */
-  geraet_id?: string | null;
+  verwaltet_von?: string | null;
   erstellt_am: string;
+};
+
+/**
+ * Was man von einer Runde sieht, bevor man dabei ist (`tour_vorschau()`).
+ * Bewusst wenig: genug für „will ich beitreten?", zu wenig zum Mitlesen.
+ */
+export type TourVorschau = {
+  id: string;
+  code: string;
+  name: string | null;
+  status: TourStatus;
+  stadt_id: number | null;
+  spiel_modus: SpielModus;
+  anzahl_teilnehmer: number;
 };
 
 export type KneipenChallenge = {

@@ -191,13 +191,14 @@ function DashboardInner() {
     setFehler(null);
     setBusy(true);
     const sauber = code.trim().toUpperCase();
-    const { data, error } = await supabase()
-      .from("touren")
-      .select("code")
-      .eq("code", sauber)
-      .maybeSingle();
+    // Über `tour_vorschau()` statt per SELECT auf `touren`: seit der
+    // Mitgliedschafts-RLS sieht man fremde Runden nicht mehr direkt – ein
+    // SELECT käme hier immer leer zurück, und jeder gültige Code eines
+    // Freundes sähe aus wie ein Tippfehler.
+    const { data, error } = await supabase().rpc("tour_vorschau", { p_code: sauber });
     setBusy(false);
-    if (error || !data) {
+    const treffer = (data as { code: string }[] | null)?.[0] ?? null;
+    if (error || !treffer) {
       setFehler("Keine Tour mit diesem Code gefunden.");
       return;
     }

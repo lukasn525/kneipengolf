@@ -17,18 +17,11 @@ import { supabase } from "./supabaseClient";
 import { tagsFuerSpeichern } from "./tags";
 import type { Bar, BenutzerRolle, Sichtbarkeit, Spielform } from "./types";
 
-const GERAET_KEY = "kg-geraet-id";
-
-/** Stabile Geräte-ID (Pass-and-Play: welches Gerät verwaltet wen). */
-export function geraetId(): string {
-  if (typeof window === "undefined") return "server";
-  let id = localStorage.getItem(GERAET_KEY);
-  if (!id) {
-    id = crypto.randomUUID();
-    localStorage.setItem(GERAET_KEY, id);
-  }
-  return id;
-}
+// Hier stand bis v5.0 eine `geraetId()` aus dem localStorage, an der
+// Pass-and-Play hing. Sie ist ersatzlos weg: Gäste hängen jetzt an
+// `teilnehmer.verwaltet_von`, also am Konto. Das übersteht gelöschte
+// Browserdaten und einen Handywechsel – und ist im Gegensatz zu einer
+// selbst gemeldeten Geräte-ID überhaupt prüfbar.
 
 // ── Rollen ────────────────────────────────────────────────────────
 export async function ladeRolle(userId: string | undefined): Promise<BenutzerRolle> {
