@@ -4,7 +4,13 @@
  * Über die Umgebungsvariable SITE_ACCESS_CODE überschreibbar.
  */
 export function erwarteterCode(): string {
-  return process.env.SITE_ACCESS_CODE ?? "casio2005";
+  // `||` statt `??` mit Absicht: `??` greift nur bei undefined, nicht bei "".
+  // Eine in Vercel angelegte, aber leer gelassene Variable hätte den
+  // erwarteten Code auf "" gesetzt – und damit die ganze Seite gesperrt.
+  // Die Middleware lässt bei leerem Cookie niemanden durch, und über
+  // /api/zugang wäre auch keine Eingabe mehr gültig gewesen: Aussperrung
+  // für alle, ohne Fehlermeldung.
+  return process.env.SITE_ACCESS_CODE || "casio2005";
 }
 
 /** Name des Cookies, das den bestandenen Zugang markiert. */

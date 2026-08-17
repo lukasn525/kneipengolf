@@ -27,3 +27,6 @@ next-env.d.ts
 _weg*/
 _to_delete*/
 kg*.tgz
+
+# Testabdeckung (vitest --coverage)
+/coverage
