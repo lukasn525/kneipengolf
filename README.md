@@ -13,9 +13,10 @@ Strafpunkte. Am Ende: Sieger und Rangliste.
 1. **Konto erstellen** (E-Mail + Passwort).
 2. **Spiel erstellen** → Stadt wählen oder eine gespeicherte **Route** laden.
 3. **Route anpassen**: Reihenfolge ändern, Stops entfernen, eigene Bar ergänzen.
-4. **Golf-Regeln** einstellen (Par, Strafpunkte, Spielformen) → Tour-Code entsteht.
-5. **Mitspieler einladen** (Link, QR oder Code) – oder mehrere Personen auf einem
-   Gerät (Pass-and-Play).
+4. **Golf-Regeln** einstellen (Par, Strafpunkte, Spielformen) – alles vorbelegt und
+   überspringbar → Tour-Code entsteht.
+5. **Mitspieler einladen** (Link, QR oder Code). Wer kein Konto hat, wird als
+   **Gast** von einem Mitspieler eingetragen und von dessen Konto verwaltet.
 6. **Loslaufen.** An jedem Stop Challenge ziehen, Schlücke zählen, eintragen. Das
    Spiel weiß, wer als Nächstes dran ist; die Rangliste läuft live mit.
 7. **Auswerten** und kurz markieren, welche Kneipen top waren.
@@ -24,10 +25,11 @@ Strafpunkte. Am Ende: Sieger und Rangliste.
 
 | Bereich | Kurz |
 | --- | --- |
-| **Bars** | Eigene Bars dauerhaft am Konto, privat oder veröffentlicht; Filter nach Stadt; Stadt wird beim Anlegen automatisch erkannt |
+| **Bars** | Eigene Bars dauerhaft am Konto, privat oder veröffentlicht; Filter nach Stadt und Tags; Stadt wird beim Anlegen automatisch erkannt |
 | **Spiele** | Eigene Spielformen am Konto statt pro Tour neu getippt |
 | **Routen** | Ganze Routen speichern, veröffentlichen und **per Link teilen**; geteilte Routen lassen sich übernehmen |
 | **Beliebtheit** | Bars sammeln Zuspruch aus Empfehlungen, Spielen und Routen – der Picker schlägt Bewährtes zuerst vor |
+| **Karte** | Vier Stile, gemeinsames `Kartenfeld` mit eigener Bedienung (Zoom, „Alles zeigen") und Namens-Chip am Pin |
 | **Moderation** | Melden, global sperren, Community-Bars ins kuratierte Set übernehmen |
 
 ## Tech-Stack
@@ -36,9 +38,11 @@ Strafpunkte. Am Ende: Sieger und Rangliste.
 | --- | --- |
 | Framework | Next.js 14 (App Router) + TypeScript |
 | Styling | Tailwind CSS |
-| Karte | Leaflet + OpenStreetMap (kein API-Key) |
+| Karte | Leaflet; Kacheln standardmäßig **Esri World Topo**, dazu CARTO Dark/Light/Voyager – Auswahl in `src/lib/einstellungen.ts` |
 | Geocoding | Photon (über eigene Route `/api/geocode`) |
+| Wegberechnung | OSRM-Demo-Server (über `/api/route`) |
 | Backend | Supabase (Auth, PostgreSQL, Realtime, RLS) |
+| Tests | Vitest (Unit) + `supabase/tests/rls_test.sql` (Zeilenschutz) |
 | Hosting | Vercel |
 
 ---
@@ -76,30 +80,54 @@ brauchen Supabase.
 3. Unter **Environment Variables** eintragen:
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - optional `SITE_ACCESS_CODE` (Zugangssperre, Standard siehe `src/middleware.ts`)
+   - optional `SITE_ACCESS_CODE` (Zugangssperre, Standard siehe `src/lib/zugangscode.ts`)
 4. Deployen. Danach in Supabase unter **Authentication → URL Configuration** die
    Vercel-URL als **Site URL** eintragen.
 
 > Env-Vars später geändert? Einmal **Redeploy** auslösen.
 
+**Production entsteht hier nicht durch einen Push.** Ein Push auf einen
+`dev-*`-Branch baut eine **Preview**; live geht sie erst über *Promote to
+Production* im Vercel-Dashboard. Und: Preview und Production hängen bislang an
+**derselben** Supabase-Instanz – wer auf der Preview eine Tour anlegt, legt sie in
+den echten Daten an.
+
+## Tests
+
+```bash
+npm test             # Unit-Tests, unter zwei Sekunden
+npm run test:watch
+npm run test:coverage
+```
+
+Der Zeilenschutz wird nicht hier geprüft, sondern mit
+`supabase/tests/rls_test.sql` im Supabase-SQL-Editor. Die Datei läuft in einer
+Transaktion und räumt selbst auf. Was warum getestet wird, steht in
+[`tests/README.md`](./tests/README.md).
+
 ## Projektstruktur
 
 ```
 src/
+├── middleware.ts              Zugangscode vor der ganzen Seite
 ├── app/
 │   ├── layout.tsx             Root-Layout + Session-Provider
 │   ├── page.tsx               Start / Login-Einstieg
 │   ├── auth/page.tsx          Registrieren & Anmelden (mit ?weiter=)
-│   ├── zugang/page.tsx        Zugangscode vor der ganzen Seite
+│   ├── zugang/page.tsx        Zugangscode-Eingabe
 │   ├── dashboard/page.tsx     Hauptmenü: Spielen · Routen · Bars · Spiele
-│   ├── create/page.tsx        Spiel erstellen · Routen-Modus (?modus=route)
+│   ├── create/page.tsx        Spiel erstellen in drei Schritten · Routen-Modus (?modus=route)
+│   ├── einstellungen/page.tsx Nickname, Kartenstil, Standard-Modus
+│   ├── profil/page.tsx        Handicap, Kennzahlen, Verlauf
 │   ├── route/[token]/page.tsx Geteilte Route ansehen und übernehmen
 │   ├── tour/[code]/page.tsx   Lobby · Karte + Challenge · Rangliste · Auswertung
-│   └── api/                   geocode · route (Wegberechnung) · zugang
-├── components/                UI, Karte, Bibliothek, Routen, Guard, TopBar
-└── lib/                       Supabase-Client, Typen, Golf-Wertung, ugc,
-                               routen, beliebtheit, orte, einstellungen
-supabase/                      Nummerierte Migrationen + seeds/ (siehe README dort)
+│   └── api/                   geocode · route (Wegberechnung) · zugang · einladung
+├── components/                ui, Map, Kartenfeld, Bibliothek, Routen, Guard,
+│                              TopBar, BottomNav, SeitenKopf, Icons
+└── lib/                       Supabase-Client, Typen, Golf-Wertung, ugc, routen,
+                               beliebtheit, orte, tags, glas, einstellungen, zugangscode
+tests/                         Vitest-Tests zu src/lib (siehe README dort)
+supabase/                      Nummerierte Migrationen, seeds/, tests/ (siehe README dort)
 docs/                          Konzept, Architektur, Roadmap (siehe README dort)
 ```
 
@@ -112,6 +140,11 @@ docs/                          Konzept, Architektur, Roadmap (siehe README dort)
 - **Neue Stadt:** Zeile in `staedte` ergänzen. Die automatische Stadt-Erkennung
   beim Anlegen einer Bar greift danach sofort.
 - **Spielformen:** Tabelle `spielformen` – oder direkt in der App unter *Spiele*.
+- **Tags:** Das Vokabular steht allein in `src/lib/tags.ts`, nicht in der
+  Datenbank. Einen Tag ändern kostet eine Zeile, keine Migration.
+- **Kartenstile:** `KARTEN_STILE` in `src/lib/einstellungen.ts`. Jeder Eintrag
+  bringt URL, Quellenangabe, Zoomgrenze und Ladefarbe mit – ein weiterer Stil ist
+  ein weiterer Eintrag.
 
 ## Wertung (Golf)
 
@@ -123,4 +156,6 @@ Strafpunkte (wenn aktiv): `max(0, roh − par) × strafe_pro_schluck`.
 
 - **[docs/README.md](./docs/README.md)** – Einstieg in Konzept und Architektur
 - **[supabase/README.md](./supabase/README.md)** – Datenbank, Reihenfolge, Fallstricke
-- **[docs/roadmap.md](./docs/roadmap.md)** – was als Nächstes ansteht
+- **[tests/README.md](./tests/README.md)** – was geprüft wird und was nicht
+- **[docs/roadmap.md](./docs/roadmap.md)** – Produktrichtung; die tagesaktuelle
+  Arbeitsliste liegt im Claude-Projekt unter `claude/todo.md`
