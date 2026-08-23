@@ -51,6 +51,7 @@ declare
   v_ben   uuid := (select id from t_user where rolle='ben');
   v_fremd uuid := (select id from t_user where rolle='fremd');
   v_tour uuid; v_stop uuid; v_bar_oeff uuid; v_bar_priv uuid;
+  v_tour2 uuid; v_stop2 uuid;
   v_tn_host uuid; v_tn_gastH uuid; v_tn_anna uuid; v_tn_gastA uuid; v_tn_ben uuid;
 begin
   -- ── Aufbau: eine gemischte Runde, wie sie real vorkommt ────────
@@ -262,6 +263,60 @@ begin
     ('host','korrigiert Annas Gast', true, darf_werten(v_tn_gastA)),
     ('host','korrigiert Anna',       true, darf_werten(v_tn_anna)),
     ('host','sieht eigene private Bar', true, exists(select 1 from bars where id=v_bar_priv));
+
+  -- ── Eine Tour anlegen – so wie die App es tut ───────────────────
+  -- Die Runde oben ist als Datenbank-Eigentümer aufgebaut worden, also
+  -- ohne RLS. Damit war der wichtigste Schreibweg der App nie geprüft:
+  -- `.insert(...).select()` wird zu `insert ... returning`, und das
+  -- RETURNING läuft zusätzlich durch die SELECT-Policy. Solange die nur
+  -- `darf_tour(id)` war, scheiterte genau das (siehe
+  -- `14_touren_lesen_returning.sql`) – ein INSERT ohne `returning` lief
+  -- dagegen durch. Deshalb hier beide Fälle einzeln.
+  begin
+    insert into touren (code, name, host_user_id, status)
+      values ('ZZ-RLSNEU', 'Zweite Prüfrunde', v_host, 'lobby');
+    insert into t_pruef(bereich,fall,erwartet,ist) values
+      ('host','legt Tour an (ohne returning)',true,found);
+  exception when others then
+    insert into t_pruef(bereich,fall,erwartet,ist) values
+      ('host','legt Tour an (ohne returning)',true,false);
+  end;
+
+  begin
+    insert into touren (code, name, host_user_id, status)
+      values ('ZZ-RLSAPP', 'App-Prüfrunde', v_host, 'lobby') returning id into v_tour2;
+    insert into t_pruef(bereich,fall,erwartet,ist) values
+      ('host','legt Tour an und liest sie zurueck',true,v_tour2 is not null);
+  exception when others then
+    insert into t_pruef(bereich,fall,erwartet,ist) values
+      ('host','legt Tour an und liest sie zurueck',true,false);
+  end;
+
+  -- Direkt danach die beiden Folge-Inserts der App, ebenfalls mit
+  -- RETURNING: sie hängen an `ist_host(tour_id)` und dürfen nicht an
+  -- derselben Snapshot-Falle scheitern.
+  begin
+    insert into tour_kneipen (tour_id, name, lat, lng, position)
+      values (v_tour2, 'Stop der App-Runde', 50.73, 7.10, 0) returning id into v_stop2;
+    insert into kneipen_challenge (tour_id, tour_kneipe_id, titel, beschreibung)
+      values (v_tour2, v_stop2, 'Spiel der App-Runde', 'nur für den Test');
+    insert into t_pruef(bereich,fall,erwartet,ist) values
+      ('host','fuellt neue Tour mit Stops und Spielen',true,true);
+  exception when others then
+    insert into t_pruef(bereich,fall,erwartet,ist) values
+      ('host','fuellt neue Tour mit Stops und Spielen',true,false);
+  end;
+
+  -- Verboten-Fall: eine Tour auf fremden Namen bleibt unmöglich.
+  begin
+    insert into touren (code, name, host_user_id, status)
+      values ('ZZ-RLSFREMD', 'Untergeschoben', v_anna, 'lobby');
+    insert into t_pruef(bereich,fall,erwartet,ist) values
+      ('host','legt KEINE Tour fuer ein fremdes Konto an',true,false);
+  exception when others then
+    insert into t_pruef(bereich,fall,erwartet,ist) values
+      ('host','legt KEINE Tour fuer ein fremdes Konto an',true,true);
+  end;
 
   begin
     update tour_kneipen set name='Teststop (Host)' where id=v_stop;

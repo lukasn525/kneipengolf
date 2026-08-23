@@ -148,12 +148,16 @@ export default function Map({
       zoomControl={false}
       className={`h-full w-full ${tile.gruen ? "kg-karte-gruen" : ""}`}
     >
+      {/* `key` erzwingt eine neue Ebene, wenn der Stil wechselt – sonst behielte
+          Leaflet die alte URL. Attribution, Zoomgrenze und Retina stehen im
+          Preset, weil das jeder Anbieter anders handhabt. */}
       <TileLayer
+        key={tile.id}
         url={tile.url}
-        subdomains={tile.sub}
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-        maxZoom={20}
-        detectRetina
+        subdomains={tile.sub ?? []}
+        attribution={tile.attribution}
+        maxZoom={tile.maxZoom}
+        detectRetina={tile.retina !== false}
       />
       <FitBounds stops={stops} pending={pending} />
       <FlyTo ziel={flyTo} />

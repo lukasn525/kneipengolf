@@ -9,6 +9,7 @@ import { SeitenKopf } from "@/components/SeitenKopf";
 import { Button, Card, Field, Input, Shell } from "@/components/ui";
 import {
   KARTEN_STILE,
+  KARTEN_STANDARD,
   getKartenStil,
   setKartenStil,
   getStandardModus,
@@ -20,7 +21,7 @@ function EinstellungenInner() {
   const router = useRouter();
   const { user } = useSession();
   const [nick, setNick] = useState("");
-  const [kartenStil, setStil] = useState<KartenStil>("dunkel");
+  const [kartenStil, setStil] = useState<KartenStil>(KARTEN_STANDARD);
   const [modus, setModus] = useState<"einzel" | "team">("einzel");
   const [busy, setBusy] = useState(false);
   const [hinweis, setHinweis] = useState<string | null>(null);
@@ -83,18 +84,21 @@ function EinstellungenInner() {
 
         <Card className="space-y-3">
           <h2 className="font-display text-xl">Kartenstil</h2>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2">
             {KARTEN_STILE.map((k) => (
               <button
                 key={k.id}
                 onClick={() => stilWaehlen(k.id)}
-                className={`rounded-xl border px-3 py-3 text-sm font-semibold transition ${
+                className={`min-h-[64px] rounded-xl border px-3 py-3 text-left transition ${
                   kartenStil === k.id
                     ? "border-bernstein bg-nacht-3"
                     : "border-[var(--linie)] bg-nacht-2 hover:bg-nacht-3"
                 }`}
               >
-                {k.label}
+                <span className="block text-sm font-semibold">{k.label}</span>
+                <span className="mt-0.5 block text-xs leading-snug text-schaum/55">
+                  {k.hinweis}
+                </span>
               </button>
             ))}
           </div>

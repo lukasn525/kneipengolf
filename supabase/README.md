@@ -18,6 +18,11 @@ arbeitet sie einmal von oben nach unten durch.
 | 07 | `07_ugc_bars_spiele.sql` | **UGC-Architektur:** `bars` als einzige Quelle, Rollen, Sichtbarkeit, Moderation, Migration der Altbestände |
 | 08 | `08_routen_teilen.sql` | **Routen:** speichern, veröffentlichen, per Link teilen, übernehmen; `touren.route_id` |
 | 09 | `09_beliebtheit.sql` | **Beliebtheit:** `bar_empfehlungen` + View `bar_beliebtheit` |
+| 10 | `10_aufraeumen.sql` | Entfernt `bars.kategorie` (abgelöst vom Tag-Konzept) |
+| 11 | `11_tags.sql` | **Tags:** `bars.tags` als Array; Vokabular lebt in `src/lib/tags.ts` |
+| 12 | `12_rls_mitgliedschaft.sql` | **Zeilenschutz auf Mitgliedschaft:** `darf_tour` / `ist_host` / `darf_werten`, `tour_vorschau`, `tour_beitreten`, Gäste mit `verwaltet_von` |
+| 13 | `13_aufraeumen_geraet_id.sql` | Nachlauf zu 12: `teilnehmer.geraet_id` entfernen (erst nach bestätigtem Deploy) |
+| 14 | `14_touren_lesen_returning.sql` | Korrektur: `touren_lesen` prüft den Host direkt, sonst scheitert „Spiel erstellen“ am eigenen `insert ... returning` |
 
 ## Seeds
 
