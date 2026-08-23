@@ -24,6 +24,8 @@ import type {
   TourVorschau,
 } from "@/lib/types";
 
+import { Kartenfeld } from "@/components/Kartenfeld";
+
 const Map = dynamic(() => import("@/components/Map"), {
   ssr: false,
   loading: () => <div className="h-full w-full grid place-items-center text-schaum/55">Karte lädt…</div>,
@@ -827,32 +829,38 @@ function TourInner() {
       )}
 
       {tab === "karte" ? (
-        <div className="relative flex-1 min-h-0">
-          <Map
-            stops={kneipen}
-            erledigt={erledigtSet}
-            onPin={oeffneStop}
-            center={center}
-            zoom={stadt?.zoom ?? 14}
-            glas={tour.glas_typ ?? "bier"}
-            routeCoords={routeCoords}
-            route
-          />
-          {!aktivId && (
-            <div className="absolute inset-x-0 top-2 mx-auto w-fit rounded-full bg-ziegel px-4 py-2 text-sm">
-              Wähle oben deinen Spieler, dann tippe eine Kneipe an.
-            </div>
-          )}
-          {kneipen.length > 0 && (
-            <a
-              href={googleMapsUrl(kneipen.map((k) => [k.lat, k.lng] as [number, number]))}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="absolute bottom-4 right-4 z-[900] flex items-center gap-2 rounded-full bg-bernstein px-4 py-3 text-sm font-semibold text-tinte shadow-lg active:brightness-95"
-            >
-              <IconKompass size={16} /> Navigieren
-            </a>
-          )}
+        /* Auch waehrend des Spiels ein gerahmtes Feld statt einer
+           randlosen Flaeche: Die Karte soll wie die anderen Bauteile in
+           der Seite liegen. Der Abstand aussen ist der Unterschied
+           zwischen „Karte in der App" und „App auf einer Karte". */
+        <div className="min-h-0 flex-1 px-4 pb-4">
+          <Kartenfeld hoehe="h-full">
+            <Map
+              stops={kneipen}
+              erledigt={erledigtSet}
+              onPin={oeffneStop}
+              center={center}
+              zoom={stadt?.zoom ?? 14}
+              glas={tour.glas_typ ?? "bier"}
+              routeCoords={routeCoords}
+              route
+            />
+            {!aktivId && (
+              <div className="absolute inset-x-0 top-2 z-[900] mx-auto w-fit rounded-full bg-ziegel px-4 py-2 text-sm">
+                Wähle oben deinen Spieler, dann tippe eine Kneipe an.
+              </div>
+            )}
+            {kneipen.length > 0 && (
+              <a
+                href={googleMapsUrl(kneipen.map((k) => [k.lat, k.lng] as [number, number]))}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="absolute bottom-4 left-4 z-[900] flex items-center gap-2 rounded-full bg-bernstein px-4 py-3 text-sm font-semibold text-tinte shadow-lg active:brightness-95"
+              >
+                <IconKompass size={16} /> Navigieren
+              </a>
+            )}
+          </Kartenfeld>
         </div>
       ) : tab === "stops" ? (
         <div className="flex-1 overflow-auto mx-auto w-full max-w-md px-4 pb-6">

@@ -14,6 +14,12 @@ export type KartenPreset = {
   attribution: string;
   maxZoom: number;
   /**
+   * Grundton der Fläche, solange die Kacheln noch unterwegs sind. Muss zum
+   * Stil passen, sonst blitzt beim Öffnen kurz die falsche Farbe auf – bei
+   * einer hellen Karte auf dunkelgrünem Grund fällt genau das auf.
+   */
+  flaeche: string;
+  /**
    * Kacheln in doppelter Auflösung anfordern. Nur sinnvoll, wenn der Anbieter
    * das unterstützt – bei CARTO über `{r}` → `@2x`. Anbieter ohne diese
    * Variante liefern sonst einfach die nächste Zoomstufe, was mehr Kacheln
@@ -28,7 +34,18 @@ export type KartenPreset = {
   gruen?: boolean;
 };
 
-const OSM = '<a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
+const OSM = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
+
+/*
+  Die Leiste unten rechts liegt auf einer kleinen Karte im Weg, sobald sie
+  umbricht – deshalb steht dort nur die Kurzform. Die vollstaendige
+  Quellenliste des Anbieters haengt im `title` des Links und erscheint beim
+  Draufzeigen. Wer sie lieber sichtbar haette, verlaengert hier den Text.
+*/
+const ESRI_QUELLEN =
+  "Esri, HERE, Garmin, Intermap, increment P, GEBCO, USGS, FAO, NPS, NRCAN, " +
+  "GeoBase, IGN, Kadaster NL, Ordnance Survey, Esri Japan, METI, Esri China " +
+  "(Hong Kong), OpenStreetMap-Mitwirkende";
 
 export const KARTEN_STILE: KartenPreset[] = [
   {
@@ -40,10 +57,9 @@ export const KARTEN_STILE: KartenPreset[] = [
     hinweis: "Warm und hell, gute Lesbarkeit",
     url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
     attribution:
-      'Kacheln &copy; <a href="https://www.esri.com">Esri</a> &mdash; Esri, HERE, Garmin, USGS, NPS, &copy; ' +
-      OSM +
-      "-Mitwirkende",
+      '&copy; <a href="https://www.esri.com" title="' + ESRI_QUELLEN + '">Esri</a> · ' + OSM,
     maxZoom: 19,
+    flaeche: "#EDE7DA",
     // Esri liefert für diesen Dienst keine @2x-Kacheln.
     retina: false,
   },
@@ -54,8 +70,9 @@ export const KARTEN_STILE: KartenPreset[] = [
     gruen: true,
     url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
     sub: "abcd",
-    attribution: "&copy; " + OSM + ' &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    attribution: OSM + ' · &copy; <a href="https://carto.com/attributions">CARTO</a>',
     maxZoom: 20,
+    flaeche: "#0F241A",
   },
   {
     id: "hell",
@@ -63,8 +80,9 @@ export const KARTEN_STILE: KartenPreset[] = [
     hinweis: "Blasses Grau, sehr zurückhaltend",
     url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
     sub: "abcd",
-    attribution: "&copy; " + OSM + ' &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    attribution: OSM + ' · &copy; <a href="https://carto.com/attributions">CARTO</a>',
     maxZoom: 20,
+    flaeche: "#E8E8E3",
   },
   {
     id: "farbig",
@@ -72,8 +90,9 @@ export const KARTEN_STILE: KartenPreset[] = [
     hinweis: "Bunt, viel Detail",
     url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
     sub: "abcd",
-    attribution: "&copy; " + OSM + ' &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    attribution: OSM + ' · &copy; <a href="https://carto.com/attributions">CARTO</a>',
     maxZoom: 20,
+    flaeche: "#E4E0D6",
   },
 ];
 

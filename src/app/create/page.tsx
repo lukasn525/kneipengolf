@@ -14,6 +14,7 @@ import { GLAESER } from "@/lib/glas";
 import { AdressSuche, type GeoTreffer } from "@/components/AdressSuche";
 import { holeRoute, reverseGeocode } from "@/lib/nav";
 import { getStandardModus } from "@/lib/einstellungen";
+import { Kartenfeld } from "@/components/Kartenfeld";
 import {
   IconHoch,
   IconRunter,
@@ -871,7 +872,7 @@ function CreateInner() {
             </p>
 
             {stops.length > 0 && (
-              <div className="h-64 overflow-hidden rounded-xl border border-[var(--linie)]">
+              <Kartenfeld>
                 <Map
                   stops={stops.map((s, i) => ({
                     id: String(i),
@@ -891,7 +892,7 @@ function CreateInner() {
                   route
                   flyTo={flyTo}
                 />
-              </div>
+              </Kartenfeld>
             )}
 
             {stops.length > 0 && (
@@ -1447,7 +1448,7 @@ function CreateInner() {
                     placeholder="Adresse oder Bar suchen…"
                     onWaehlen={ausSucheWaehlen}
                   />
-                  <div className="relative h-64 overflow-hidden rounded-xl border border-[var(--linie)]">
+                  <Kartenfeld>
                     <Map
                       stops={stops.map((s, i) => ({
                         id: String(i),
@@ -1469,11 +1470,11 @@ function CreateInner() {
                       flyTo={flyTo}
                     />
                     {pendingBusy && (
-                      <div className="absolute left-2 top-2 rounded-full bg-nacht/90 px-3 py-1 text-xs text-schaum/80">
+                      <div className="absolute left-2 top-2 z-[900] rounded-full bg-nacht/90 px-3 py-1 text-xs text-schaum/80">
                         Adresse wird gesucht…
                       </div>
                     )}
-                  </div>
+                  </Kartenfeld>
                   {pending ? (
                     <div className="space-y-2 rounded-xl border border-bernstein/50 bg-nacht-3 p-3">
                       <Input

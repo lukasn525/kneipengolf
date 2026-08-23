@@ -30,6 +30,8 @@ import {
   type RoutenVorschau,
 } from "@/lib/routen";
 
+import { Kartenfeld } from "@/components/Kartenfeld";
+
 const Map = dynamic(() => import("@/components/Map"), {
   ssr: false,
   loading: () => (
@@ -157,7 +159,7 @@ export default function GeteilteRoutePage() {
         </Card>
 
         {stops.length > 0 && (
-          <div className="h-56 overflow-hidden rounded-2xl border border-[var(--linie)]">
+          <Kartenfeld>
             <Map
               stops={stops.map((s, i) => ({
                 id: String(i),
@@ -175,7 +177,7 @@ export default function GeteilteRoutePage() {
               glas="bier"
               route
             />
-          </div>
+          </Kartenfeld>
         )}
 
         <Card className="space-y-2">

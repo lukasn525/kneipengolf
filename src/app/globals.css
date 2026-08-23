@@ -44,7 +44,83 @@ h3,
 .leaflet-container {
   width: 100%;
   height: 100%;
+  /* Die Grundfarbe kommt als Inline-Stil aus dem Kartenpreset (`flaeche`),
+     weil sie zum gewaehlten Stil passen muss. Der Wert hier ist nur der
+     Rueckfall, falls einmal keiner gesetzt ist. */
   background: #0f241a;
+  font-family: inherit;
+}
+
+/*
+  ── Kartenfeld ──────────────────────────────────────────────────
+  Der nach innen laufende Schatten ist der Grund, warum eine helle Karte
+  ueberhaupt in diesem dunklen Layout sitzen kann: Ohne ihn stoesst Sand
+  hart gegen Flaschengruen, und die Karte wirkt wie ein Loch in der Seite.
+  Er liegt ueber allen Leaflet-Ebenen, faengt aber keine Klicks ab.
+*/
+.kg-kartenfeld::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 850;
+  pointer-events: none;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px rgba(12, 31, 22, 0.28), inset 0 0 34px rgba(12, 31, 22, 0.42);
+}
+
+/*
+  Attribution: Pflichtangabe, aber Leaflets weisser Kasten mit blauen
+  Systemlinks war der sichtbarste Hinweis darauf, dass hier eine fremde
+  Karte klebt. Inhalt bleibt unveraendert, nur die Kleidung wechselt.
+*/
+.leaflet-control-attribution {
+  background: rgba(12, 31, 22, 0.72) !important;
+  color: rgba(238, 246, 230, 0.5) !important;
+  font-family: inherit !important;
+  font-size: 9.5px !important;
+  line-height: 1.5 !important;
+  padding: 2px 7px !important;
+  margin: 0 !important;
+  border-radius: 8px 0 0 0;
+  backdrop-filter: blur(4px);
+  /* Einzeilig bleiben: umbrechend legt sich die Leiste sonst als Balken
+     ueber den unteren Kartenrand. */
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.leaflet-control-attribution a {
+  color: rgba(238, 246, 230, 0.72) !important;
+  text-decoration: none;
+}
+
+/* Eigene Bedienung – oben rechts, ausserhalb des Daumenwegs zur Navigation. */
+.kg-karte-bedienung {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 900;
+}
+
+/*
+  Namens-Chip am Pin. `!important` ueberall, weil Leaflet den Tooltip
+  inline mit eigenen Werten ausstattet.
+*/
+.leaflet-tooltip.kg-chip {
+  background: var(--nacht-2) !important;
+  color: var(--schaum) !important;
+  border: 1px solid var(--linie) !important;
+  border-radius: 999px !important;
+  padding: 4px 10px !important;
+  font-family: inherit !important;
+  font-size: 11.5px !important;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35) !important;
+}
+.leaflet-tooltip.kg-chip::before {
+  border-top-color: var(--nacht-2) !important;
 }
 
 /*

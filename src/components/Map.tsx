@@ -1,12 +1,22 @@
 "use client";
 
-import { useEffect } from "react";
-import { MapContainer, TileLayer, Marker, Polyline, useMap, useMapEvents } from "react-leaflet";
+import { useEffect, useRef } from "react";
+import {
+  AttributionControl,
+  MapContainer,
+  TileLayer,
+  Marker,
+  Polyline,
+  Tooltip,
+  useMap,
+  useMapEvents,
+} from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { TourKneipe, GlasTyp } from "@/lib/types";
 import { glasInnerSvg } from "@/lib/glas";
 import { kartenTile } from "@/lib/einstellungen";
+import { IconPlus, IconMinus, IconAllesZeigen } from "@/components/Icons";
 
 function pinHtml(glas: GlasTyp, erledigt: boolean, nummer: number): string {
   const id = `${nummer}-${erledigt ? "d" : "o"}`;
@@ -65,6 +75,99 @@ function pendingIcon() {
   });
 }
 
+/**
+ * Alle Stops (und der Vorschau-Pin) in einem Rechteck. Einmal berechnet,
+ * zweimal gebraucht: beim ersten Aufbau und für „Alles zeigen".
+ */
+function rahmenUm(stops: TourKneipe[], pending?: [number, number] | null) {
+  const pts = stops.map((s) => [s.lat, s.lng] as [number, number]);
+  if (pending) pts.push(pending);
+  return pts.length ? L.latLngBounds(pts) : null;
+}
+
+/**
+ * Bedienung im App-Stil statt Leaflets Default-Steuerung.
+ *
+ * Leaflets eigene Knöpfe sind abgeschaltet (`zoomControl={false}`), waren
+ * aber durch nichts ersetzt: Auf dem Handy konnte man pinchen, sichtbar war
+ * nichts, und wer die Karte einmal verschoben hatte, fand die Route nicht
+ * wieder – `FitBounds` läuft nur, wenn sich die Stops ändern.
+ *
+ * `disableClickPropagation` ist hier Pflicht und kein Feinschliff: Ohne das
+ * landet jeder Tipp auf „+" zusätzlich als Karten-Klick beim Elternteil und
+ * setzt im Erstellen-Ablauf einen neuen Stop.
+ */
+function Bedienung({
+  stops,
+  pending,
+}: {
+  stops: TourKneipe[];
+  pending?: [number, number] | null;
+}) {
+  const map = useMap();
+  const box = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!box.current) return;
+    L.DomEvent.disableClickPropagation(box.current);
+    L.DomEvent.disableScrollPropagation(box.current);
+  }, []);
+
+  function allesZeigen() {
+    const b = rahmenUm(stops, pending);
+    if (b) map.fitBounds(b, { padding: [40, 40], maxZoom: 16 });
+  }
+
+  const knopf =
+    "flex h-11 w-11 items-center justify-center text-schaum/85 transition " +
+    "hover:bg-nacht-3 hover:text-schaum active:bg-nacht-3";
+
+  return (
+    <div ref={box} className="kg-karte-bedienung">
+      <div className="flex flex-col overflow-hidden rounded-xl border border-[var(--linie)] bg-nacht-2/95 backdrop-blur">
+        <button type="button" onClick={() => map.zoomIn()} className={knopf} aria-label="Näher heran">
+          <IconPlus size={18} />
+        </button>
+        <div className="h-px bg-[var(--linie)]" />
+        <button type="button" onClick={() => map.zoomOut()} className={knopf} aria-label="Weiter weg">
+          <IconMinus size={18} />
+        </button>
+        {stops.length > 0 && (
+          <>
+            <div className="h-px bg-[var(--linie)]" />
+            <button type="button" onClick={allesZeigen} className={knopf} aria-label="Alles zeigen">
+              <IconAllesZeigen size={17} />
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Das Scrollrad zoomt erst, wenn man die Karte einmal angetippt hat, und
+ * hört wieder auf, sobald der Zeiger sie verlässt. Sonst bleibt man am
+ * Rechner beim Seitenscrollen in der Karte hängen – der Grund, warum
+ * eingebettete Karten das fast überall so machen. Auf dem Handy ohne
+ * Wirkung, dort zoomt weiterhin die Geste.
+ */
+function RadZoom() {
+  const map = useMap();
+  useEffect(() => {
+    map.scrollWheelZoom.disable();
+    const an = () => map.scrollWheelZoom.enable();
+    const aus = () => map.scrollWheelZoom.disable();
+    map.on("click", an);
+    map.on("mouseout", aus);
+    return () => {
+      map.off("click", an);
+      map.off("mouseout", aus);
+    };
+  }, [map]);
+  return null;
+}
+
 function FitBounds({
   stops,
   pending,
@@ -77,13 +180,12 @@ function FitBounds({
   // nicht bei jedem Render oder beim Verschieben des Pending-Pins.
   const sig = stops.map((s) => `${s.lat.toFixed(5)},${s.lng.toFixed(5)}`).join("|");
   useEffect(() => {
-    const pts = stops.map((s) => [s.lat, s.lng] as [number, number]);
-    if (pts.length === 0 && pending) {
+    if (stops.length === 0 && pending) {
       map.setView(pending, Math.max(map.getZoom(), 15));
       return;
     }
-    if (pts.length === 0) return;
-    const bounds = L.latLngBounds(pts);
+    const bounds = rahmenUm(stops);
+    if (!bounds) return;
     map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sig]);
@@ -146,7 +248,13 @@ export default function Map({
       center={center}
       zoom={zoom}
       zoomControl={false}
+      /* Eigene Steuerung ohne Leaflets „Leaflet"-Vorspann samt Fahnen-Icon –
+         zwei Zeilen Quellenangabe verdecken auf einer kleinen Karte zu viel. */
+      attributionControl={false}
       className={`h-full w-full ${tile.gruen ? "kg-karte-gruen" : ""}`}
+      /* Grundton passend zum Stil, damit beim Öffnen nicht erst eine
+         dunkelgrüne Fläche aufblitzt und dann eine helle Karte kommt. */
+      style={{ background: tile.flaeche }}
     >
       {/* `key` erzwingt eine neue Ebene, wenn der Stil wechselt – sonst behielte
           Leaflet die alte URL. Attribution, Zoomgrenze und Retina stehen im
@@ -159,8 +267,11 @@ export default function Map({
         maxZoom={tile.maxZoom}
         detectRetina={tile.retina !== false}
       />
+      <AttributionControl position="bottomright" prefix={false} />
       <FitBounds stops={stops} pending={pending} />
       <FlyTo ziel={flyTo} />
+      <RadZoom />
+      <Bedienung stops={stops} pending={pending} />
       {onMapClick && <ClickHandler onMapClick={onMapClick} />}
 
       {routeCoords && routeCoords.length > 1 ? (
@@ -182,13 +293,21 @@ export default function Map({
         />
       ) : null}
 
+      {/* Der Chip beantwortet die Frage, die man vor einer Karte zuerst
+          hat: Welche Bar ist das? Am Rechner beim Überfahren, am Handy
+          beim Antippen. Im Erstellen-Ablauf ist er die einzige Rückmeldung
+          auf einen Pin-Tipp – dort tat bisher gar nichts. */}
       {stops.map((k, i) => (
         <Marker
           key={k.id}
           position={[k.lat, k.lng]}
           icon={pinIcon(glas, erledigt.has(k.id), i + 1)}
           eventHandlers={{ click: () => onPin(k) }}
-        />
+        >
+          <Tooltip direction="top" offset={[0, -52]} opacity={1} className="kg-chip">
+            {i + 1}. {k.name}
+          </Tooltip>
+        </Marker>
       ))}
 
       {pending && (
