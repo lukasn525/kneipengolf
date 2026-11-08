@@ -10,6 +10,26 @@ export function scoreEintrag(e: Ergebnis, tour: Tour): { roh: number; straf: num
   return { roh, straf, gesamt: roh + straf };
 }
 
+/** Hat dieser Teilnehmer seinen Joker schon gezogen? */
+export function jokerGezogen(ergebnisse: Ergebnis[], teilnehmerId: string): boolean {
+  return ergebnisse.some((e) => e.teilnehmer_id === teilnehmerId && e.joker === true);
+}
+
+/**
+ * Bonus am Ende für alle, die ihren Joker nicht gezogen haben.
+ *
+ * Erst wenn die Tour beendet ist – vorher kann jede:r den Joker noch
+ * ziehen, ein Live-Bonus würde also mitten im Abend wieder verschwinden.
+ * Ohne `joker_bonus` (ältere Zwischenstände) gilt die Vorgabe von 2.
+ */
+export function jokerBonus(
+  tour: { status: string; joker_aktiv?: boolean; joker_bonus?: number },
+  gezogen: boolean
+): number {
+  if (!tour.joker_aktiv || gezogen || tour.status !== "beendet") return 0;
+  return tour.joker_bonus ?? 2;
+}
+
 export type RanglistenZeile = {
   teilnehmer: Teilnehmer;
   erledigt: number;
@@ -19,6 +39,10 @@ export type RanglistenZeile = {
   nachgerueckt: number;
   /** Anzahl der Stops, die nachgerückt gewertet wurden. */
   nachgeruecktStops: number;
+  /** Joker gezogen (zählt an seinem Stop 1 Schluck). */
+  jokerGezogen: boolean;
+  /** Abgezogener Bonus, weil der Joker nicht gezogen wurde – sonst 0. */
+  jokerBonus: number;
   gesamt: number;
 };
 
@@ -34,6 +58,10 @@ export type RanglistenZeile = {
  * Stops, an denen noch niemand gewertet hat (die Gruppe ist schlicht noch
  * nicht dort), bleiben bei allen außen vor – die Live-Rangliste vergleicht
  * damit immer nur den bereits gespielten Teil des Abends.
+ *
+ * Joker: Ein gezogener Joker steht als normale Wertung mit 1 Schluck in den
+ * Ergebnissen. Wer seinen nicht gezogen hat, bekommt nach Tourende den
+ * Bonus abgezogen (`jokerBonus`).
  */
 export function rangliste(
   teilnehmer: Teilnehmer[],
@@ -100,6 +128,9 @@ export function rangliste(
       nachgeruecktStops += 1;
     }
 
+    const gezogen = jokerGezogen(erledigte, t.id);
+    const bonus = jokerBonus(tour, gezogen);
+
     return {
       teilnehmer: t,
       erledigt: eigene.length,
@@ -107,7 +138,9 @@ export function rangliste(
       strafpunkte,
       nachgerueckt,
       nachgeruecktStops,
-      gesamt: gesamt + nachgerueckt,
+      jokerGezogen: gezogen,
+      jokerBonus: bonus,
+      gesamt: gesamt + nachgerueckt - bonus,
     };
   });
 
@@ -124,15 +157,16 @@ export function rangliste(
  * Ergebnisse. Niedriger ist besser; negativ = im Schnitt unter Par.
  *
  * Bewusst nur selbst gespielte Stops – nachgerückte Wertungen aus der
- * Rangliste sollen das persönliche Handicap nicht verfälschen.
+ * Rangliste sollen das persönliche Handicap nicht verfälschen. Aus demselben
+ * Grund zählen Joker-Stops nicht: Dort wurde nicht gespielt.
  */
 export function handicapWert(
-  ergebnisse: { schlucke: number; erledigt: boolean; tour_id: string }[],
+  ergebnisse: { schlucke: number; erledigt: boolean; tour_id: string; joker?: boolean }[],
   parProTour: Record<string, number>
 ): { wert: number | null; stops: number } {
   const diffs: number[] = [];
   for (const e of ergebnisse) {
-    if (!e.erledigt) continue;
+    if (!e.erledigt || e.joker) continue;
     diffs.push((e.schlucke || 0) - (parProTour[e.tour_id] ?? 0));
   }
   if (!diffs.length) return { wert: null, stops: 0 };

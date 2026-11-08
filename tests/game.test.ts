@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { handicapText, handicapWert, rangliste, scoreEintrag, stopsText, tourCode } from "@/lib/game";
-import { ROUTE, gast, offeneWertung, spieler, tour, wertung } from "./hilfen";
+import {
+  handicapText,
+  handicapWert,
+  jokerBonus,
+  jokerGezogen,
+  rangliste,
+  scoreEintrag,
+  stopsText,
+  tourCode,
+} from "@/lib/game";
+import type { Tour } from "@/lib/types";
+import { ROUTE, gast, jokerWertung, offeneWertung, spieler, tour, wertung } from "./hilfen";
 
 /** Kurzzugriff auf die Zeile eines Spielers. */
 const zeile = (zeilen: ReturnType<typeof rangliste>, id: string) =>
@@ -277,6 +287,84 @@ describe("handicapWert", () => {
 
   it("nimmt Par 0 an, wenn die Tour nicht in der Par-Tabelle steht", () => {
     expect(handicapWert([{ schlucke: 4, erledigt: true, tour_id: "unbekannt" }], par).wert).toBe(4);
+  });
+
+  it("laesst Joker-Stops aus – dort wurde nicht gespielt", () => {
+    const r = handicapWert(
+      [
+        { schlucke: 1, erledigt: true, tour_id: "tour-1", joker: true }, // waere -2
+        { schlucke: 4, erledigt: true, tour_id: "tour-1" }, // +1
+      ],
+      par
+    );
+    expect(r).toEqual({ wert: 1, stops: 1 });
+  });
+});
+
+describe("Joker", () => {
+  const mitJoker = (status: Tour["status"], bonus = 2) =>
+    tour({ status, joker_aktiv: true, joker_bonus: bonus });
+
+  it("zaehlt den Joker-Stop als 1 Schluck", () => {
+    const zeilen = rangliste(
+      [spieler("anna")],
+      [jokerWertung("anna", "stop-1"), wertung("anna", "stop-2", 4)],
+      mitJoker("laufend"),
+      ROUTE
+    );
+    expect(zeile(zeilen, "anna").gesamt).toBe(1 + 5); // 4 Schlucke = 1 ueber Par -> 5
+    expect(zeile(zeilen, "anna").jokerGezogen).toBe(true);
+  });
+
+  it("zieht nach Tourende den Bonus ab, wer den Joker nicht gezogen hat", () => {
+    const zeilen = rangliste(
+      [spieler("anna"), spieler("ben")],
+      [jokerWertung("anna", "stop-1"), wertung("ben", "stop-1", 3)],
+      mitJoker("beendet"),
+      ROUTE
+    );
+    expect(zeile(zeilen, "ben").jokerBonus).toBe(2);
+    expect(zeile(zeilen, "ben").gesamt).toBe(1); // 3 - 2
+    expect(zeile(zeilen, "anna").jokerBonus).toBe(0);
+    expect(zeile(zeilen, "anna").gesamt).toBe(1);
+  });
+
+  it("gibt waehrend des Spiels noch keinen Bonus", () => {
+    const zeilen = rangliste([spieler("ben")], [wertung("ben", "stop-1", 3)], mitJoker("laufend"), ROUTE);
+    expect(zeile(zeilen, "ben").jokerBonus).toBe(0);
+    expect(zeile(zeilen, "ben").gesamt).toBe(3);
+  });
+
+  it("nimmt den eingestellten Bonus", () => {
+    const zeilen = rangliste([spieler("ben")], [wertung("ben", "stop-1", 3)], mitJoker("beendet", 3), ROUTE);
+    expect(zeile(zeilen, "ben").gesamt).toBe(0);
+  });
+
+  it("gibt den Bonus auch ohne selbst gespielten Stop", () => {
+    const zeilen = rangliste(
+      [spieler("anna"), spieler("ben")],
+      [wertung("anna", "stop-1", 3)],
+      mitJoker("beendet"),
+      ROUTE
+    );
+    expect(zeile(zeilen, "ben").erledigt).toBe(0);
+    expect(zeile(zeilen, "ben").jokerBonus).toBe(2);
+  });
+
+  it("kennt keinen Bonus, wenn der Joker in den Spielregeln aus ist", () => {
+    const zeilen = rangliste([spieler("ben")], [wertung("ben", "stop-1", 3)], tour({ status: "beendet" }), ROUTE);
+    expect(zeile(zeilen, "ben").jokerBonus).toBe(0);
+    expect(zeile(zeilen, "ben").gesamt).toBe(3);
+  });
+
+  it("nimmt 2 als Bonus, wenn ein alter Zwischenstand keinen Wert kennt", () => {
+    expect(jokerBonus({ status: "beendet", joker_aktiv: true }, false)).toBe(2);
+  });
+
+  it("erkennt den gezogenen Joker je Teilnehmer", () => {
+    const erg = [jokerWertung("anna", "stop-2"), wertung("ben", "stop-2", 2)];
+    expect(jokerGezogen(erg, "anna")).toBe(true);
+    expect(jokerGezogen(erg, "ben")).toBe(false);
   });
 });
 

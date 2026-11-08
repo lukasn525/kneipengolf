@@ -97,6 +97,9 @@ function CreateInner() {
   const [strafeProSchluck, setStrafeProSchluck] = useState(1);
   const [verweigerung, setVerweigerung] = useState(5);
   const [glas, setGlas] = useState<GlasTyp>("bier");
+  // Joker: einmal pro Abend ein Spiel überspringen (zählt 1), sonst Bonus am Ende.
+  const [jokerAktiv, setJokerAktiv] = useState(false);
+  const [jokerBonus, setJokerBonus] = useState(2);
   const [spielModus, setSpielModus] = useState<SpielModus>("einzel");
   const [busy, setBusy] = useState(false);
   const [fehler, setFehler] = useState<string | null>(null);
@@ -615,6 +618,8 @@ function CreateInner() {
           strafe_aktiv: strafeAktiv,
           strafe_pro_schluck: strafeProSchluck,
           verweigerung_strafe: verweigerung,
+          joker_aktiv: jokerAktiv,
+          joker_bonus: jokerBonus,
           glas_typ: glas,
           spiel_modus: spielModus,
           status: "lobby",
@@ -1033,6 +1038,7 @@ function CreateInner() {
                 Par {par} · {strafeAktiv ? "Strafpunkte an" : "Strafpunkte aus"} ·{" "}
                 {spielformAuswahl.filter((s) => s.aktiv).length} Spielformen · Pin:{" "}
                 {GLAESER.find((g) => g.typ === glas)?.label}
+                {jokerAktiv && ` · Joker (\u2212${jokerBonus})`}
               </p>
             ) : (
               <div className="space-y-6 pt-1">
@@ -1104,6 +1110,34 @@ function CreateInner() {
                       className="w-full accent-bernstein"
                     />
                   </Field>
+                </div>
+
+                <div className="space-y-4">
+                  <h3 className="font-display text-lg">Joker</h3>
+                  <label className="flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      checked={jokerAktiv}
+                      onChange={(e) => setJokerAktiv(e.target.checked)}
+                      className="mt-0.5 h-5 w-5 shrink-0 accent-bernstein"
+                    />
+                    <span className="text-sm">
+                      Jede:r darf einmal pro Abend ein Spiel überspringen – das zählt 1 Schluck.
+                      Wer den Joker nicht zieht, bekommt am Ende einen Bonus.
+                    </span>
+                  </label>
+                  {jokerAktiv && (
+                    <Field label={`Bonus ohne Joker: \u2212${jokerBonus} Punkte`}>
+                      <input
+                        type="range"
+                        min={1}
+                        max={3}
+                        value={jokerBonus}
+                        onChange={(e) => setJokerBonus(Number(e.target.value))}
+                        className="w-full accent-bernstein"
+                      />
+                    </Field>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -1228,6 +1262,10 @@ function CreateInner() {
               <li className="flex items-center justify-between py-2.5">
                 <span className="text-schaum/60">Strafpunkte</span>
                 <span>{strafeAktiv ? `an · ${strafeProSchluck} pro Schluck über Par` : "aus"}</span>
+              </li>
+              <li className="flex items-center justify-between py-2.5">
+                <span className="text-schaum/60">Joker</span>
+                <span>{jokerAktiv ? `an · ohne Joker \u2212${jokerBonus}` : "aus"}</span>
               </li>
               <li className="flex items-center justify-between py-2.5">
                 <span className="text-schaum/60">Spielformen</span>

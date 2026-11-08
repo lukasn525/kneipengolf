@@ -114,6 +114,15 @@ export type Tour = {
   spiel_modus: SpielModus;
   /** Route, aus der diese Tour entstanden ist (weich – Snapshot bleibt) */
   route_id?: string | null;
+  /**
+   * Joker (v5.3): Jede:r darf einmal pro Abend ein Spiel überspringen, das
+   * zählt 1 Schluck. Wer ihn nicht zieht, bekommt am Ende `joker_bonus`
+   * Punkte abgezogen. Optional, weil ältere Zwischenstände im localStorage
+   * die Felder noch nicht kennen – fehlt es, ist der Joker aus.
+   */
+  joker_aktiv?: boolean;
+  /** Bonus in Punkten für alle, die ihren Joker nicht gezogen haben (1–3). */
+  joker_bonus?: number;
   erstellt_am: string;
 };
 
@@ -205,4 +214,6 @@ export type Ergebnis = {
   strafschlucke: number;
   erledigt: boolean;
   erledigt_am: string | null;
+  /** Mit dem Joker übersprungen – zählt 1 Schluck, endgültig, höchstens einmal pro Teilnehmer. */
+  joker?: boolean;
 };

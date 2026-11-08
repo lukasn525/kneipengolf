@@ -70,6 +70,11 @@ export function wertung(
   };
 }
 
+/** Mit dem Joker übersprungener Stop: zählt 1 Schluck, endgültig. */
+export function jokerWertung(teilnehmerId: string, stopId: string): Ergebnis {
+  return { ...wertung(teilnehmerId, stopId, 1), joker: true };
+}
+
 /** Angefangene, aber nicht abgeschlossene Wertung – zählt nirgends mit. */
 export function offeneWertung(teilnehmerId: string, stopId: string, schlucke: number): Ergebnis {
   return { ...wertung(teilnehmerId, stopId, schlucke), erledigt: false, erledigt_am: null };

@@ -9,7 +9,7 @@ import { Guard } from "@/components/Guard";
 import { TopBar } from "@/components/TopBar";
 import { BottomNav, BottomNavAbstand } from "@/components/BottomNav";
 import { Button, Card, Field, Input, Shell } from "@/components/ui";
-import { handicapText, handicapWert, stopsText } from "@/lib/game";
+import { handicapText, handicapWert, jokerBonus, stopsText } from "@/lib/game";
 import { IconPapierkorb, IconPin, IconRoute, IconWeiter } from "@/components/Icons";
 import { BarsAnsicht, SpieleAnsicht } from "@/components/Bibliothek";
 import { RoutenAnsicht } from "@/components/RoutenBibliothek";
@@ -116,7 +116,7 @@ function DashboardInner() {
       }
       const { data: erg } = await sb
         .from("ergebnisse")
-        .select("schlucke,strafschlucke,erledigt,tour_id,teilnehmer_id")
+        .select("schlucke,strafschlucke,erledigt,tour_id,teilnehmer_id,joker")
         .in("teilnehmer_id", tnRows.map((t) => t.id))
         .eq("erledigt", true);
       const ergRows =
@@ -126,17 +126,25 @@ function DashboardInner() {
           erledigt: boolean;
           tour_id: string;
           teilnehmer_id: string;
+          joker?: boolean;
         }[]) ?? [];
       const tourIds = Array.from(new Set(ergRows.map((e) => e.tour_id)));
       const parProTour: Record<string, number> = {};
       const tourInfo: Record<
         string,
-        { par_schwelle: number; strafe_aktiv: boolean; strafe_pro_schluck: number; status: string }
+        {
+          par_schwelle: number;
+          strafe_aktiv: boolean;
+          strafe_pro_schluck: number;
+          status: string;
+          joker_aktiv?: boolean;
+          joker_bonus?: number;
+        }
       > = {};
       if (tourIds.length) {
         const { data: tr } = await sb
           .from("touren")
-          .select("id,par_schwelle,strafe_aktiv,strafe_pro_schluck,status")
+          .select("id,par_schwelle,strafe_aktiv,strafe_pro_schluck,status,joker_aktiv,joker_bonus")
           .in("id", tourIds);
         for (const t of (tr as {
           id: string;
@@ -144,6 +152,8 @@ function DashboardInner() {
           strafe_aktiv: boolean;
           strafe_pro_schluck: number;
           status: string;
+          joker_aktiv?: boolean;
+          joker_bonus?: number;
         }[]) ?? []) {
           parProTour[t.id] = t.par_schwelle;
           tourInfo[t.id] = t;
@@ -165,7 +175,10 @@ function DashboardInner() {
               : 0;
             return sum + roh + straf;
           }, 0);
-        if (bestwert === null || gesamt < bestwert) bestwert = gesamt;
+        // Wie in der Endauswertung: ohne gezogenen Joker kommt der Bonus ab.
+        const gezogen = ergRows.some((e) => e.tour_id === tourId && e.joker);
+        const wert = gesamt - jokerBonus(info, gezogen);
+        if (bestwert === null || wert < bestwert) bestwert = wert;
       }
       setStatistik({ touren: beendete.length, bestwert });
     })();

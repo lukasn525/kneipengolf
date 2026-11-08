@@ -9,7 +9,7 @@ import { useSession } from "@/components/SessionProvider";
 import { Guard } from "@/components/Guard";
 import { SeitenKopf } from "@/components/SeitenKopf";
 import { Button, Card, Field, Input, Shell } from "@/components/ui";
-import { rangliste, scoreEintrag, tourCode } from "@/lib/game";
+import { jokerBonus, jokerGezogen, rangliste, scoreEintrag, tourCode } from "@/lib/game";
 import { holeRoute, googleMapsUrl } from "@/lib/nav";
 import { IconFlamme, IconKompass, IconPokal, IconWeiter, IconX } from "@/components/Icons";
 import { empfehlungSetzen, ladeEigeneEmpfehlungen } from "@/lib/beliebtheit";
@@ -334,6 +334,13 @@ function TourInner() {
     return sf ? { titel: sf.titel, beschreibung: sf.beschreibung } : null;
   }
 
+  /** Joker des gewählten Spielers an diesem Stop – siehe Spielregeln. */
+  function jokerStatus(kneipeId: string, tid: string | null): JokerStatus {
+    if (!tour?.joker_aktiv || !tid) return "aus";
+    if (ergebnisFuer(kneipeId, tid)?.joker) return "hier";
+    return jokerGezogen(ergebnisse, tid) ? "verbraucht" : "verfuegbar";
+  }
+
   // ── Aktionen ───────────────────────────────────────────
   /**
    * Zwei verschiedene Vorgänge hinter einem Knopf:
@@ -411,6 +418,9 @@ function TourInner() {
   async function speichereErgebnis(kneipeId: string, patch: Partial<Ergebnis>) {
     if (!tour || !aktivId) return;
     const bestehend = ergebnisFuer(kneipeId, aktivId);
+    // Ein gezogener Joker ist endgültig – auch gegenüber einem veralteten
+    // Fenster auf einem anderen Gerät.
+    if (bestehend?.joker) return;
     const merged = {
       tour_id: tour.id,
       tour_kneipe_id: kneipeId,
@@ -418,6 +428,7 @@ function TourInner() {
       schlucke: bestehend?.schlucke ?? 0,
       strafschlucke: bestehend?.strafschlucke ?? 0,
       erledigt: bestehend?.erledigt ?? false,
+      joker: false,
       ...patch,
     };
     // optimistisch
@@ -592,6 +603,8 @@ function TourInner() {
           strafe_aktiv: tour.strafe_aktiv,
           strafe_pro_schluck: tour.strafe_pro_schluck,
           verweigerung_strafe: tour.verweigerung_strafe,
+          joker_aktiv: tour.joker_aktiv ?? false,
+          joker_bonus: tour.joker_bonus ?? 2,
           glas_typ: tour.glas_typ,
           spiel_modus: tour.spiel_modus,
           status: "lobby",
@@ -955,6 +968,7 @@ function TourInner() {
           aktiv={Boolean(aktivId) && tour.status === "laufend"}
           verweigerungStrafe={tour.verweigerung_strafe}
           par={tour.par_schwelle}
+          joker={jokerStatus(panel.id, aktivId)}
           spielerName={teilnehmer.find((t) => t.id === aktivId)?.name ?? ""}
           spielerNummer={meineTeilnehmer.filter((t) => hatGewertet(panel.id, t.id)).length + 1}
           spielerGesamt={meineTeilnehmer.length}
@@ -1257,9 +1271,11 @@ function Scorecard({
     const e = ergebnisse.find((x) => x.tour_kneipe_id === k.id && x.teilnehmer_id === aktivId) ?? null;
     const score = e && e.erledigt ? scoreEintrag(e, tour) : null;
     const verweigert = Boolean(e?.erledigt && (e?.strafschlucke ?? 0) > 0 && (e?.schlucke ?? 0) === 0);
-    return { kneipe: k, ergebnis: e, score, verweigert };
+    return { kneipe: k, ergebnis: e, score, verweigert, joker: Boolean(e?.joker) };
   });
-  const gesamt = eintraege.reduce((sum, x) => sum + (x.score?.gesamt ?? 0), 0);
+  const gezogen = eintraege.some((x) => x.joker);
+  const bonus = jokerBonus(tour, gezogen);
+  const gesamt = eintraege.reduce((sum, x) => sum + (x.score?.gesamt ?? 0), 0) - bonus;
   const erledigt = eintraege.filter((x) => x.ergebnis?.erledigt).length;
 
   return (
@@ -1271,7 +1287,7 @@ function Scorecard({
         </span>
       </div>
       <ol className="space-y-1">
-        {eintraege.map(({ kneipe, ergebnis, score, verweigert }, i) => {
+        {eintraege.map(({ kneipe, ergebnis, score, verweigert, joker }, i) => {
           const done = Boolean(ergebnis?.erledigt);
           const challenge = challengeFuer(kneipe.id);
           return (
@@ -1302,7 +1318,9 @@ function Scorecard({
                       <span className="block text-[10px] text-schaum/55">
                         {verweigert
                           ? "nicht machbar"
-                          : `${ergebnis?.schlucke ?? 0} Schlücke${(score?.straf ?? 0) > 0 ? ` +${score?.straf} Straf` : ""}`}
+                          : joker
+                            ? "Joker"
+                            : `${ergebnis?.schlucke ?? 0} Schlücke${(score?.straf ?? 0) > 0 ? ` +${score?.straf} Straf` : ""}`}
                       </span>
                     </span>
                   ) : (
@@ -1314,6 +1332,18 @@ function Scorecard({
           );
         })}
       </ol>
+      {tour.joker_aktiv && (
+        <div className="flex items-center justify-between px-3 text-sm">
+          <span className="text-schaum/70">Joker</span>
+          {gezogen ? (
+            <span className="text-schaum/80">gezogen</span>
+          ) : bonus > 0 ? (
+            <span className="mono text-moos">{"\u2212"}{bonus} Bonus</span>
+          ) : (
+            <span className="text-schaum/60">noch frei · ohne Joker am Ende {"\u2212"}{tour.joker_bonus ?? 2}</span>
+          )}
+        </div>
+      )}
       <div className="flex items-center justify-between rounded-lg bg-nacht-3 px-3 py-2.5">
         <span className="text-sm text-schaum/70">Gesamt</span>
         <span className="mono text-xl text-bernstein">{gesamt}</span>
@@ -1551,6 +1581,12 @@ function Ranglisten({
                     +{z.nachgeruecktStops} geerbt
                   </span>
                 )}
+                {z.jokerGezogen && (
+                  <span className="block whitespace-nowrap text-schaum/55">Joker</span>
+                )}
+                {z.jokerBonus > 0 && (
+                  <span className="block whitespace-nowrap text-moos">{"\u2212"}{z.jokerBonus} Bonus</span>
+                )}
               </span>
               <span className="mono text-lg w-10 text-right">{z.gesamt}</span>
               {istHost && onEntfernen && tour.status !== "beendet" && (
@@ -1568,6 +1604,12 @@ function Ranglisten({
         </ol>
       )}
       <p className="text-xs text-schaum/55">Niedrigster Gesamtwert gewinnt (Golf). Inkl. Strafpunkte über Par.</p>
+      {tour.joker_aktiv && (
+        <p className="text-xs text-schaum/55">
+          Joker: einmal pro Abend ein Spiel überspringen, zählt 1. Wer ihn nicht zieht, bekommt am
+          Ende {"\u2212"}{tour.joker_bonus ?? 2}.
+        </p>
+      )}
       {gibtNachgerueckte && (
         <p className="text-xs text-schaum/55">
           „geerbt" = Stops, die jemand nicht mehr spielen konnte. Dafür zählen die Punkte des Letzten.
@@ -1584,6 +1626,9 @@ function Ranglisten({
 }
 
 // ── Challenge-Panel ──────────────────────────────────────
+
+/** aus = Joker in dieser Tour nicht aktiv · hier = an diesem Stop gezogen */
+type JokerStatus = "aus" | "verfuegbar" | "hier" | "verbraucht";
 function ChallengePanel({
   kneipe,
   nummer,
@@ -1592,6 +1637,7 @@ function ChallengePanel({
   aktiv,
   verweigerungStrafe,
   par,
+  joker,
   spielerName,
   spielerNummer,
   spielerGesamt,
@@ -1608,6 +1654,7 @@ function ChallengePanel({
   aktiv: boolean;
   verweigerungStrafe: number;
   par: number;
+  joker: JokerStatus;
   spielerName: string;
   spielerNummer: number;
   spielerGesamt: number;
@@ -1696,63 +1743,96 @@ function ChallengePanel({
               </p>
             )}
 
-            <div className="flex items-center justify-between rounded-2xl bg-nacht-3 border border-[var(--linie)] p-4">
-              <span className="text-sm text-schaum/70">Schlücke</span>
-              <div className="flex items-center gap-4">
-                <button
-                  className="h-14 w-14 rounded-full bg-nacht-2 border border-[var(--linie)] text-xl"
-                  onClick={() => onChange({ schlucke: Math.max(0, schlucke - 1), strafschlucke: 0 })}
-                >
-                  –
-                </button>
-                <span className="mono text-2xl w-8 text-center">{schlucke}</span>
-                <button
-                  className="h-14 w-14 rounded-full bg-bernstein text-tinte text-xl"
-                  onClick={() => onChange({ schlucke: schlucke + 1, strafschlucke: 0 })}
-                >
-                  +
-                </button>
+            {joker === "hier" ? (
+              <div className="space-y-1 rounded-2xl border border-bernstein/40 bg-bernstein/10 p-4 text-center">
+                <p className="font-display text-lg">Joker gezogen</p>
+                <p className="text-sm text-schaum/60">
+                  Spiel übersprungen – zählt 1 Schluck. Der Joker ist endgültig.
+                </p>
               </div>
-            </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between rounded-2xl bg-nacht-3 border border-[var(--linie)] p-4">
+                  <span className="text-sm text-schaum/70">Schlücke</span>
+                  <div className="flex items-center gap-4">
+                    <button
+                      className="h-14 w-14 rounded-full bg-nacht-2 border border-[var(--linie)] text-xl"
+                      onClick={() => onChange({ schlucke: Math.max(0, schlucke - 1), strafschlucke: 0 })}
+                    >
+                      –
+                    </button>
+                    <span className="mono text-2xl w-8 text-center">{schlucke}</span>
+                    <button
+                      className="h-14 w-14 rounded-full bg-bernstein text-tinte text-xl"
+                      onClick={() => onChange({ schlucke: schlucke + 1, strafschlucke: 0 })}
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
 
-            <p className="text-center text-xs text-schaum/60">
-              {schlucke === par
-                ? "genau Par"
-                : schlucke > par
-                  ? `${schlucke - par} über Par`
-                  : `${par - schlucke} unter Par`}
-            </p>
+                <p className="text-center text-xs text-schaum/60">
+                  {schlucke === par
+                    ? "genau Par"
+                    : schlucke > par
+                      ? `${schlucke - par} über Par`
+                      : `${par - schlucke} unter Par`}
+                </p>
 
-            <Button
-              className="w-full"
-              onClick={() =>
-                erledigt ? onChange({ erledigt: false }) : onAbschliessen({ strafschlucke: 0 })
-              }
-              variant={erledigt ? "ghost" : "primary"}
-            >
-              {erledigt
-                ? "Erledigt ✓ (tippen zum Zurücknehmen)"
-                : spielerGesamt > 1
-                  ? "Eintragen & weitergeben"
-                  : "Als erledigt markieren"}
-            </Button>
+                <Button
+                  className="w-full"
+                  onClick={() =>
+                    erledigt ? onChange({ erledigt: false }) : onAbschliessen({ strafschlucke: 0 })
+                  }
+                  variant={erledigt ? "ghost" : "primary"}
+                >
+                  {erledigt
+                    ? "Erledigt ✓ (tippen zum Zurücknehmen)"
+                    : spielerGesamt > 1
+                      ? "Eintragen & weitergeben"
+                      : "Als erledigt markieren"}
+                </Button>
 
-            <button
-              onClick={() => {
-                if (
-                  window.confirm(
-                    `Challenge als „nicht machbar" werten? Das gibt +${verweigerungStrafe} Strafschlücke.`
-                  )
-                ) {
-                  onAbschliessen({ schlucke: 0, strafschlucke: verweigerungStrafe });
-                }
-              }}
-              className={`w-full text-sm py-2 rounded-xl border border-[var(--linie)] ${
-                verweigert ? "bg-ziegel/20 text-ziegel" : "text-schaum/60 hover:text-schaum"
-              }`}
-            >
-              Challenge nicht machbar (+{verweigerungStrafe} Strafschlücke)
-            </button>
+                <button
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        `Challenge als „nicht machbar" werten? Das gibt +${verweigerungStrafe} Strafschlücke.`
+                      )
+                    ) {
+                      onAbschliessen({ schlucke: 0, strafschlucke: verweigerungStrafe });
+                    }
+                  }}
+                  className={`w-full text-sm py-2 rounded-xl border border-[var(--linie)] ${
+                    verweigert ? "bg-ziegel/20 text-ziegel" : "text-schaum/60 hover:text-schaum"
+                  }`}
+                >
+                  Challenge nicht machbar (+{verweigerungStrafe} Strafschlücke)
+                </button>
+
+                {joker === "verfuegbar" && !erledigt && (
+                  <button
+                    onClick={() => {
+                      if (
+                        window.confirm(
+                          `Joker für ${spielerName} ziehen? Das Spiel wird übersprungen und zählt 1 Schluck. Es gibt nur einen Joker pro Abend, er lässt sich nicht zurücknehmen.`
+                        )
+                      ) {
+                        onAbschliessen({ schlucke: 1, strafschlucke: 0, joker: true });
+                      }
+                    }}
+                    className="w-full rounded-xl border border-bernstein/50 py-2 text-sm text-bernstein hover:bg-bernstein/10"
+                  >
+                    Joker ziehen – Spiel überspringen (zählt 1)
+                  </button>
+                )}
+                {joker === "verbraucht" && (
+                  <p className="text-center text-xs text-schaum/55">
+                    {spielerName} hat den Joker schon gezogen.
+                  </p>
+                )}
+              </>
+            )}
           </>
         )}
       </div>
