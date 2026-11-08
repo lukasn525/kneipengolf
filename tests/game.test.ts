@@ -313,8 +313,8 @@ describe("stopsText", () => {
 });
 
 describe("tourCode", () => {
-  it("baut PRAEFIX-XXXX aus vier Zeichen Zufall", () => {
-    expect(tourCode("Bonn")).toMatch(/^BONN-[A-Z0-9]{4}$/);
+  it("baut PRAEFIX-XXXXXX aus sechs Zeichen Zufall", () => {
+    expect(tourCode("Bonn")).toMatch(/^BONN-[A-HJKMNP-Z2-9]{6}$/);
   });
 
   it("wirft alles raus, was kein Buchstabe ist – auch Umlaute", () => {

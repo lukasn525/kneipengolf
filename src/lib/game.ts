@@ -157,9 +157,12 @@ export function stopsText(anzahl: number): string {
   return `${anzahl} ${anzahl === 1 ? "Stop" : "Stops"}`;
 }
 
-/** Erzeugt einen lesbaren Tour-Code, z.B. "KOELN-7F3K". */
+const CODE_ZEICHEN = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // ohne 0/O, 1/I/L
+
+/** Erzeugt einen lesbaren Tour-Code, z.B. "KOELN-7F3KQ9". */
 export function tourCode(praefix: string): string {
-  const zufall = Math.random().toString(36).slice(2, 6).toUpperCase();
+  const bytes = crypto.getRandomValues(new Uint8Array(6));
+  const zufall = Array.from(bytes, (b) => CODE_ZEICHEN[b % CODE_ZEICHEN.length]).join("");
   const p = (praefix || "TOUR").toUpperCase().replace(/[^A-Z]/g, "").slice(0, 6) || "TOUR";
   return `${p}-${zufall}`;
 }
