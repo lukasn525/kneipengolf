@@ -23,6 +23,8 @@ arbeitet sie einmal von oben nach unten durch.
 | 12 | `12_rls_mitgliedschaft.sql` | **Zeilenschutz auf Mitgliedschaft:** `darf_tour` / `ist_host` / `darf_werten`, `tour_vorschau`, `tour_beitreten`, Gäste mit `verwaltet_von` |
 | 13 | `13_aufraeumen_geraet_id.sql` | Nachlauf zu 12: `teilnehmer.geraet_id` entfernen (erst nach bestätigtem Deploy) |
 | 14 | `14_touren_lesen_returning.sql` | Korrektur: `touren_lesen` prüft den Host direkt, sonst scheitert „Spiel erstellen“ am eigenen `insert ... returning` |
+| 15 | `15_rechte_nachziehen.sql` | Rechte für `anon`/PUBLIC entziehen (`bar_beliebtheit`, `ist_admin`, `ist_moderator`, `route_uebernehmen`), `search_path` festsetzen |
+| 16 | `16_joker.sql` | **Joker:** `touren.joker_aktiv` / `joker_bonus`, `ergebnisse.joker`, höchstens ein Joker je Teilnehmer |
 
 ## Prüfen
 
