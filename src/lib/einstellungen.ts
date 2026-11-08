@@ -37,6 +37,15 @@ export type KartenPreset = {
 const OSM = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
 
 /*
+  CARTO liefert Raster-Kacheln seit dem 25.09.2026 nur noch mit Schlüssel –
+  ohne ihn steht „API KEY REQUIRED" statt der Karte. Der Key ist kein
+  Geheimnis: Er steht ohnehin in jeder Kachel-URL im Browser. Kostenlos bis
+  5 Mio. Anfragen im Monat; Verbrauch und Beschränkung auf eigene Domains im
+  CARTO-Dashboard (dashboard.basemaps.carto.com).
+*/
+const CARTO_KEY = "cb1_54rt_1_eb654a531313c9f14d44c2d8";
+
+/*
   Die Leiste unten rechts liegt auf einer kleinen Karte im Weg, sobald sie
   umbricht – deshalb steht dort nur die Kurzform. Die vollstaendige
   Quellenliste des Anbieters haengt im `title` des Links und erscheint beim
@@ -68,8 +77,7 @@ export const KARTEN_STILE: KartenPreset[] = [
     label: "Clubhouse",
     hinweis: "Dunkelgrün, für den späten Abend",
     gruen: true,
-    url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-    sub: "abcd",
+    url: `https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=${CARTO_KEY}`,
     attribution: OSM + ' · &copy; <a href="https://carto.com/attributions">CARTO</a>',
     maxZoom: 20,
     flaeche: "#0F241A",
@@ -78,8 +86,7 @@ export const KARTEN_STILE: KartenPreset[] = [
     id: "hell",
     label: "Hell",
     hinweis: "Blasses Grau, sehr zurückhaltend",
-    url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-    sub: "abcd",
+    url: `https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png?key=${CARTO_KEY}`,
     attribution: OSM + ' · &copy; <a href="https://carto.com/attributions">CARTO</a>',
     maxZoom: 20,
     flaeche: "#E8E8E3",
@@ -88,8 +95,7 @@ export const KARTEN_STILE: KartenPreset[] = [
     id: "farbig",
     label: "Farbig",
     hinweis: "Bunt, viel Detail",
-    url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
-    sub: "abcd",
+    url: `https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=${CARTO_KEY}`,
     attribution: OSM + ' · &copy; <a href="https://carto.com/attributions">CARTO</a>',
     maxZoom: 20,
     flaeche: "#E4E0D6",
